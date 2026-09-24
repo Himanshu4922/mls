@@ -3,7 +3,7 @@ import { searchProperties } from "@/lib/api/properties";
 import { parseListingSearch } from "@/lib/utils/searchParams";
 
 /**
- * GET /api/properties/map?lat_min=&lat_max=&lng_min=&lng_max=&limit=[&…listing params]
+ * GET /api/properties/map?lat_min=&lat_max=&lng_min=&lng_max=&limit=[&offset=][&…listing params]
  * GET /api/properties/map?poly=lat,lng;…&limit=[&…listing params]
  *
  * Listings for the map, under the SAME filter params /listings reads (q, city,
@@ -44,7 +44,8 @@ export async function GET(request: Request) {
           ? { latMin, latMax, lngMin, lngMax }
           : undefined,
       limit: Math.min(num("limit") ?? 60, 100),
-      offset: 0,
+      // The list pages through a view as it is scrolled.
+      offset: Math.max(0, Math.floor(num("offset") ?? 0)),
     });
     return NextResponse.json({ items: result.items, total: result.total });
   } catch {

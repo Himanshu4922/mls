@@ -4,6 +4,7 @@ import Link from "next/link";
 import { forwardRef } from "react";
 import { PropertyBadgePill } from "@/components/ui/Badge";
 import { SafeImage } from "@/components/ui/SafeImage";
+import { Skeleton } from "@/components/ui/States";
 import { SaveButton } from "@/components/property/SaveButton";
 import type { PropertySummary } from "@/lib/types/domain";
 import { cn } from "@/lib/utils/cn";
@@ -65,7 +66,7 @@ export const MapListingCard = forwardRef<
         active ? "bg-surface-alt" : "hover:bg-surface-alt/60",
       )}
     >
-      <div className="relative h-[84px] w-28 shrink-0 overflow-hidden rounded-control bg-surface-alt">
+      <div className="relative h-21 w-28 shrink-0 overflow-hidden rounded-control bg-surface-alt">
         <SafeImage
           src={image}
           alt={`Photo of ${address}`}
@@ -73,7 +74,9 @@ export const MapListingCard = forwardRef<
           sizes="112px"
           className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
         />
-        {photosCount > 1 && (
+        {/* photos_count is the feed's figure; with no imported photo it would
+            label a placeholder "40 photos". */}
+        {image && photosCount > 1 && (
           <span className="absolute bottom-1 right-1 rounded bg-ink/70 px-1.5 py-0.5 text-[10px] font-medium leading-none text-white">
             {photosCount} photos
           </span>
@@ -184,5 +187,32 @@ function PinIcon() {
       />
       <circle cx="9" cy="7.5" r="1.9" stroke="currentColor" strokeWidth="1.5" />
     </svg>
+  );
+}
+
+/**
+ * Placeholder rows in the exact shape of <MapListingCard>, so rows arriving
+ * replace them without the list jumping. Decorative to assistive tech: the
+ * list's `aria-busy` and the header count carry the loading state.
+ */
+export function MapListingSkeletons({ count }: { count: number }) {
+  return (
+    <>
+      {Array.from({ length: count }, (_, index) => (
+        <li key={index} aria-hidden="true" className="flex gap-3 border-b border-line-soft px-5 py-3">
+          <Skeleton className="h-21 w-28 shrink-0" />
+          <div className="min-w-0 flex-1 space-y-2 py-0.5">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-4 w-4/5" />
+            <Skeleton className="h-3 w-3/5" />
+            <Skeleton className="h-3 w-2/5" />
+          </div>
+          <div className="flex shrink-0 flex-col gap-2">
+            <Skeleton className="h-8 w-8 rounded-full" />
+            <Skeleton className="h-8 w-8 rounded-full" />
+          </div>
+        </li>
+      ))}
+    </>
   );
 }

@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   boundsOverlap,
   isClusterReply,
-  MAP_LIMIT,
+  flattenMapPages,
+  MAP_MAX_ROWS,
+  MAP_PAGE_SIZE,
   mapAggregatesUrl,
   mapListingsUrl,
   mapQueryView,
+  nextMapOffset,
+  type MapListings,
 } from "./map";
 import { valuationLookupUrl } from "./valuation";
 
@@ -44,7 +48,7 @@ describe("map urls", () => {
       lat_max: "43.7",
       lng_min: "-79.457",
       lng_max: "-79.3",
-      limit: String(MAP_LIMIT),
+      limit: String(MAP_PAGE_SIZE),
     });
   });
 
@@ -85,5 +89,38 @@ describe("boundsOverlap", () => {
   it("detects shared area and disjoint boxes", () => {
     expect(boundsOverlap([43.6, -79.5, 43.7, -79.3], [43.65, -79.4, 43.8, -79.2])).toBe(true);
     expect(boundsOverlap([43.6, -79.5, 43.7, -79.3], [43.8, -79.5, 43.9, -79.3])).toBe(false);
+  });
+});
+
+describe("map paging", () => {
+  const rows = (ids: string[]) => ids.map((id) => ({ id }) as MapListings["items"][number]);
+  const page = (ids: string[], total: number): MapListings => ({ items: rows(ids), total });
+
+  it("sends the offset only after the first page", () => {
+    const view = mapQueryView({ viewport, filters: "", poly: "" })!;
+    expect(new URL(mapListingsUrl(view), "http://x").searchParams.has("offset")).toBe(false);
+    expect(new URL(mapListingsUrl(view, 200), "http://x").searchParams.get("offset")).toBe("200");
+  });
+
+  it("pages on until the view is exhausted", () => {
+    const full = page(Array.from({ length: MAP_PAGE_SIZE }, (_, i) => `r${i}`), 685);
+    expect(nextMapOffset(full, 0)).toBe(MAP_PAGE_SIZE);
+    expect(nextMapOffset(page(["a", "b"], 602), 600)).toBeUndefined();
+    // An empty page stops paging even if the count claims more.
+    expect(nextMapOffset(page([], 685), 300)).toBeUndefined();
+  });
+
+  it("stops at the row cap", () => {
+    const full = page(Array.from({ length: MAP_PAGE_SIZE }, (_, i) => `r${i}`), 50_000);
+    expect(nextMapOffset(full, MAP_MAX_ROWS - MAP_PAGE_SIZE)).toBeUndefined();
+  });
+
+  it("flattens pages, dropping rows repeated across pages, with the newest total", () => {
+    const flat = flattenMapPages({
+      pages: [page(["a", "b"], 5), page(["b", "c"], 4)],
+      pageParams: [0, 2],
+    });
+    expect(flat.items.map((item) => item.id)).toEqual(["a", "b", "c"]);
+    expect(flat.total).toBe(4);
   });
 });

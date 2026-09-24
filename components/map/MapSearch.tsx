@@ -3,14 +3,19 @@
 import "leaflet/dist/leaflet.css";
 
 import L from "leaflet";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { MapContainer, Marker, Polygon, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { DrawHint, MapControls } from "@/components/map/MapControls";
 import { MapFilterBar, MapFilterPanel } from "@/components/map/MapFilters";
-import { MapListingCard, MapPreviewCard } from "@/components/map/MapListingCard";
+import {
+  MapListingCard,
+  MapListingSkeletons,
+  MapPreviewCard,
+} from "@/components/map/MapListingCard";
+import { cn } from "@/lib/utils/cn";
 import { SaveSearchButton } from "@/components/search/SaveSearchButton";
 import {
   getBoundingBoxFromPoints,
@@ -24,7 +29,7 @@ import {
   hasActiveFilters,
   parseListingSearch,
 } from "@/lib/utils/searchParams";
-import { Spinner } from "@/components/ui/Button";
+import { Button, Spinner } from "@/components/ui/Button";
 import { EMPTY, formatPriceCompact } from "@/lib/utils/format";
 import type { ListingQuery, PropertySummary } from "@/lib/types/domain";
 import type { GeocodeResult, MapCluster } from "@/lib/api/geo";
@@ -34,6 +39,7 @@ import {
   isClusterReply,
   mapAggregatesQuery,
   mapListingsQuery,
+  MAP_PAGE_SIZE,
   mapQueryView,
   type MapViewport,
 } from "@/lib/queries/map";
@@ -176,6 +182,7 @@ export function MapSearch() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const rowRefs = useRef(new Map<string, HTMLElement>());
+  const listRef = useRef<HTMLUListElement>(null);
   const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null);
   const [viewport, setViewport] = useState<MapViewport | null>(null);
   // Debounce viewport changes so a drag doesn't fire a request per frame.
@@ -218,6 +225,13 @@ export function MapSearch() {
    */
   const view = mapQueryView({ viewport: debouncedViewport, filters: filterQs, poly: polyKey });
 
+  // A new view is a new result set: start its list from the top rather than
+  // mid-way down, where the previous set's scroll position left it.
+  const viewKey = JSON.stringify(view);
+  useEffect(() => {
+    listRef.current?.scrollTo({ top: 0 });
+  }, [viewKey]);
+
   /**
    * Zoomed out and unfiltered, the backend returns H3 cluster counts instead of
    * rows — drawing thousands of pins would be unreadable and slow. It tells us
@@ -234,23 +248,35 @@ export function MapSearch() {
 
   const listingsEnabled =
     view !== null && (!aggregatesEnabled || (aggregatesSettled && !clusterMode));
-  const listings = useQuery({
+  const listings = useInfiniteQuery({
     ...mapListingsQuery(view ?? EMPTY_VIEW),
     enabled: listingsEnabled,
   });
 
+  // `cancelRefetch: false` makes a second trigger join the page already in
+  // flight; v5's default would abort it and start over.
+  const { fetchNextPage } = listings;
+  const loadMore = useCallback(() => {
+    void fetchNextPage({ cancelRefetch: false });
+  }, [fetchNextPage]);
+
   const clustered = clusterMode;
-  const clusters = clustered ? (aggregates.data?.clusters ?? []) : NO_CLUSTERS;
+  const clusters =clustered ? (aggregates.data?.clusters ?? []) : NO_CLUSTERS;
   const properties = clustered ? NO_PROPERTIES : (listings.data?.items ?? NO_PROPERTIES);
   const total = clustered ? null : (listings.data?.total ?? null);
+  // A failed LATER page keeps the rows already loaded; the list offers a retry
+  // at its foot instead of the whole view reading as an error.
   const error =
-    listingsEnabled && listings.isError ? "Could not load listings for this area." : null;
+    listingsEnabled && listings.isError && !listings.isFetchNextPageError
+      ? "Could not load listings for this area."
+      : null;
   // Before the first viewport is reported there is nothing in flight, but the
-  // page is still loading — don't flash the empty state.
+  // page is still loading — don't flash the empty state. Loading more rows is
+  // shown at the foot of the list, not as a map-wide "Loading listings…".
   const loading =
     view === null ||
     aggregates.isFetching ||
-    listings.isFetching ||
+    (listings.isFetching && !listings.isFetchingNextPage) ||
     (aggregatesEnabled && !aggregatesSettled);
 
   const drawing = useMapDrawing(map, (points) => pushQuery({ ...query, polygon: points }));
@@ -280,18 +306,22 @@ export function MapSearch() {
   };
 
   const listingsHref = buildListingHref({ ...query, view: undefined });
+  // Rows on screen belong to the previous viewport while this one loads.
+  const refreshing = loading && listings.isPlaceholderData && properties.length > 0;
+
   const countLabel = (() => {
     if (error) return error;
+    // Without this the header read "0 homes in this area" during the first
+    // load, which looked like an answer.
+    if (loading && (properties.length === 0 || refreshing)) {
+      return polygon ? "Finding homes in your drawn area…" : "Finding homes in this area…";
+    }
     if (clustered) {
       return `${clusters.reduce((sum, cell) => sum + cell.count, 0).toLocaleString("en-CA")} homes — zoom in to see them`;
     }
-    const shown = properties.length;
-    const all = total ?? shown;
+    const all = total ?? properties.length;
     const where = polygon ? "in your drawn area" : "in this area";
-    const noun = all === 1 ? "home" : "homes";
-    return all > shown
-      ? `Showing ${shown} of ${all.toLocaleString("en-CA")} ${noun} ${where}`
-      : `${shown} ${noun} ${where}`;
+    return `${all.toLocaleString("en-CA")} ${all === 1 ? "home" : "homes"} ${where}`;
   })();
 
   return (
@@ -427,7 +457,19 @@ export function MapSearch() {
             onClose={() => setFiltersOpen(false)}
           />
         ) : (
-          <ul className="flex-1 overflow-y-auto" onMouseLeave={() => setActiveId(null)}>
+          <ul
+            ref={listRef}
+            aria-busy={loading || undefined}
+            className={cn(
+              "flex-1 overflow-y-auto transition-opacity duration-200",
+              // The previous area's rows stay while the new area loads (so the
+              // list doesn't flash empty), dimmed so they don't read as results.
+              refreshing && "pointer-events-none opacity-50",
+            )}
+            onMouseLeave={() => setActiveId(null)}
+          >
+            {properties.length === 0 && loading && <MapListingSkeletons count={8} />}
+
             {properties.length === 0 && !loading && (
               <li className="px-5 py-10 text-center text-small text-ink-muted">
                 {clustered
@@ -462,16 +504,112 @@ export function MapSearch() {
               </li>
             ))}
 
-            {total !== null && total > properties.length && (
-              <li className="px-5 py-6 text-center text-caption text-ink-muted">
-                Showing the first {properties.length} of {total.toLocaleString("en-CA")}. Zoom in,
-                draw an area or add a filter to see the rest.
-              </li>
+            {!clustered && properties.length > 0 && (
+              <ListFoot
+                listRef={listRef}
+                loaded={properties.length}
+                total={total ?? properties.length}
+                hasMore={listings.hasNextPage}
+                loadingMore={listings.isFetchingNextPage}
+                failed={listings.isFetchNextPageError}
+                // Placeholder rows belong to the previous view; paging them
+                // would append the old area's homes to the new one.
+                paused={listings.isPlaceholderData}
+                onLoadMore={loadMore}
+              />
             )}
           </ul>
         )}
       </aside>
     </div>
+  );
+}
+
+/**
+ * Foot of the results list: loads the next page as it scrolls into view.
+ *
+ * Infinite scroll rather than numbered pages because the list is a companion
+ * to the map: every loaded row is also a pin, so rows accumulate instead of
+ * replacing each other, and any pan or filter restarts the set anyway, which
+ * would make "page 4" meaningless. A real button is always rendered too, for
+ * keyboard users and as a fallback if the observer never fires.
+ */
+function ListFoot({
+  listRef,
+  loaded,
+  total,
+  hasMore,
+  loadingMore,
+  failed,
+  paused,
+  onLoadMore,
+}: {
+  listRef: RefObject<HTMLUListElement | null>;
+  loaded: number;
+  total: number;
+  hasMore: boolean;
+  loadingMore: boolean;
+  failed: boolean;
+  paused: boolean;
+  onLoadMore: () => void;
+}) {
+  const sentinelRef = useRef<HTMLLIElement>(null);
+  const auto = hasMore && !loadingMore && !failed && !paused;
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!auto || !sentinel) return;
+    // Starts loading ~one screen before the end, so scrolling rarely waits.
+    // Re-created per page (`loaded`): observe() reports the current state at
+    // once, so a list still too short to scroll keeps filling itself.
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) onLoadMore();
+      },
+      { root: listRef.current, rootMargin: "0px 0px 600px 0px" },
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [auto, loaded, listRef, onLoadMore]);
+
+  const remaining = Math.max(0, total - loaded);
+  const capped = !hasMore && remaining > 0;
+
+  // Placeholder rows where the next rows will land, rather than a spinner
+  // below them: the list visibly continues instead of seeming to end.
+  if (loadingMore) {
+    return (
+      <>
+        <MapListingSkeletons count={Math.min(3, remaining) || 1} />
+        <li role="status" className="sr-only">
+          Loading more homes…
+        </li>
+      </>
+    );
+  }
+
+  return (
+    <li ref={sentinelRef} className="px-5 py-6 text-center text-caption text-ink-muted">
+      {failed ? (
+        <span className="inline-flex flex-wrap items-center justify-center gap-2" role="alert">
+          Couldn&apos;t load more homes.
+          <Button variant="secondary" size="sm" onClick={onLoadMore}>
+            Try again
+          </Button>
+        </span>
+      ) : hasMore ? (
+        <Button variant="secondary" size="sm" onClick={onLoadMore} disabled={paused}>
+          Load {Math.min(remaining, MAP_PAGE_SIZE)} more of {remaining.toLocaleString("en-CA")}
+        </Button>
+      ) : capped ? (
+        <>
+          That&apos;s the first {loaded.toLocaleString("en-CA")} of {total.toLocaleString("en-CA")}.
+          Zoom in, draw an area or add a filter to browse the rest.
+        </>
+      ) : loaded > 10 ? (
+        <>That&apos;s all {loaded.toLocaleString("en-CA")} homes.</>
+      ) : null}
+    </li>
   );
 }
 

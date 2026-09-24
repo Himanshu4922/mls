@@ -1,4 +1,10 @@
-import { keepPreviousData, queryOptions, type Query } from "@tanstack/react-query";
+import {
+  infiniteQueryOptions,
+  keepPreviousData,
+  queryOptions,
+  type InfiniteData,
+  type Query,
+} from "@tanstack/react-query";
 import type { MapCluster } from "@/lib/api/geo";
 import { fetchJson } from "@/lib/queries/fetcher";
 import { mapViewKey, qk, type MapViewKey } from "@/lib/queries/keys";
@@ -13,8 +19,15 @@ import type { PropertySummary } from "@/lib/types/domain";
  * last minute is served from cache.
  */
 
-/** Map listings are capped; the backend's page limit is 100. */
-export const MAP_LIMIT = 100;
+/** Rows per request; the backend's page limit is 100. */
+export const MAP_PAGE_SIZE = 100;
+
+/**
+ * Most rows the list will page through for one view. Every loaded row is also
+ * a pin, and past ~1,000 DOM markers panning stutters; by then the area or the
+ * filters are too broad to browse row by row anyway, and the list says so.
+ */
+export const MAP_MAX_ROWS = 1000;
 
 const MAP_STALE_TIME = 60_000;
 const MAP_GC_TIME = 5 * 60_000;
@@ -84,12 +97,41 @@ function boxParams(view: MapViewKey): Record<string, string> {
 }
 
 /** `/api/properties/map` URL: filters plus either the drawn area or the box. */
-export function mapListingsUrl(view: MapViewKey): string {
+export function mapListingsUrl(view: MapViewKey, offset = 0): string {
   const qs = new URLSearchParams(view.filters);
   const area: Record<string, string> = view.poly ? { poly: view.poly } : boxParams(view);
   for (const [key, value] of Object.entries(area)) qs.set(key, value);
-  qs.set("limit", String(MAP_LIMIT));
+  qs.set("limit", String(MAP_PAGE_SIZE));
+  if (offset > 0) qs.set("offset", String(offset));
   return `/api/properties/map?${qs.toString()}`;
+}
+
+/**
+ * Offset of the page after `last`, or undefined when there is none: the view
+ * is exhausted, a page came back empty, or the row cap is reached.
+ */
+export function nextMapOffset(last: MapListings, lastOffset: number): number | undefined {
+  const next = lastOffset + last.items.length;
+  if (last.items.length === 0 || next >= last.total || next >= MAP_MAX_ROWS) return undefined;
+  return next;
+}
+
+/**
+ * Loaded pages → one list. A row can move between pages if the feed updates
+ * mid-scroll (offset paging), so later duplicates are dropped by id; `total`
+ * is the newest page's, the freshest count.
+ */
+export function flattenMapPages(data: InfiniteData<MapListings, number>): MapListings {
+  const seen = new Set<string>();
+  const items: PropertySummary[] = [];
+  for (const page of data.pages) {
+    for (const item of page.items) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      items.push(item);
+    }
+  }
+  return { items, total: data.pages.at(-1)?.total ?? 0 };
 }
 
 /** `/api/properties/aggregates` URL. H3 counts ignore listing filters. */
@@ -98,14 +140,22 @@ export function mapAggregatesUrl(view: MapViewKey): string {
   return `/api/properties/aggregates?${qs.toString()}`;
 }
 
+/**
+ * Listing rows for a view, a page at a time: the first page on load, the rest
+ * as the list is scrolled (`fetchNextPage`). A new viewport or filter set is a
+ * new key, so it starts again from the first page.
+ */
 export function mapListingsQuery(view: MapViewKey) {
-  return queryOptions({
+  return infiniteQueryOptions({
     queryKey: qk.map.listings(view),
-    queryFn: ({ signal }) =>
-      fetchJson<MapListings>(mapListingsUrl(view), {
+    queryFn: ({ signal, pageParam }) =>
+      fetchJson<MapListings>(mapListingsUrl(view, pageParam), {
         signal,
         fallback: "Could not load listings for this area.",
       }),
+    initialPageParam: 0,
+    getNextPageParam: (last, _all, lastOffset) => nextMapOffset(last, lastOffset),
+    select: flattenMapPages,
     staleTime: MAP_STALE_TIME,
     gcTime: MAP_GC_TIME,
     // Pins stay on screen while the next viewport loads.
