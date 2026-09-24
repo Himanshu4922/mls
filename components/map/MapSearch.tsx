@@ -3,14 +3,15 @@
 import "leaflet/dist/leaflet.css";
 
 import L from "leaflet";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MapContainer, Marker, Polygon, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { DrawHint, MapControls } from "@/components/map/MapControls";
+import { MapFilterBar, MapFilterPanel } from "@/components/map/MapFilters";
+import { MapListingCard, MapPreviewCard } from "@/components/map/MapListingCard";
 import { SaveSearchButton } from "@/components/search/SaveSearchButton";
-import { describeCriteria } from "@/lib/api/savedSearches";
 import {
   getBoundingBoxFromPoints,
   serializePolygonParam,
@@ -23,10 +24,9 @@ import {
   hasActiveFilters,
   parseListingSearch,
 } from "@/lib/utils/searchParams";
-import { cn } from "@/lib/utils/cn";
 import { Spinner } from "@/components/ui/Button";
-import { EMPTY, formatPriceCompact, formatNumber } from "@/lib/utils/format";
-import type { PropertySummary } from "@/lib/types/domain";
+import { EMPTY, formatPriceCompact } from "@/lib/utils/format";
+import type { ListingQuery, PropertySummary } from "@/lib/types/domain";
 import type { GeocodeResult, MapCluster } from "@/lib/api/geo";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { PLACE_SEARCH_MIN_CHARS, usePlaceSearch } from "@/lib/queries/geo";
@@ -126,6 +126,12 @@ function BoundsWatcher({
   return null;
 }
 
+/** Clicking empty map (not a pin) dismisses the pin preview. */
+function MapClickWatcher({ onClick }: { onClick: () => void }) {
+  useMapEvents({ click: onClick });
+  return null;
+}
+
 function FlyTo({ target }: { target: [number, number] | null }) {
   const map = useMap();
   useEffect(() => {
@@ -165,7 +171,11 @@ function DrawnArea({ points }: { points: LatLngPoint[] }) {
 export function MapSearch() {
   const params = useSearchParams();
   const [map, setMap] = useState<L.Map | null>(null);
+  // Hovered row or pin (highlight only) vs clicked pin (highlight + preview).
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const rowRefs = useRef(new Map<string, HTMLElement>());
   const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null);
   const [viewport, setViewport] = useState<MapViewport | null>(null);
   // Debounce viewport changes so a drag doesn't fire a request per frame.
@@ -188,10 +198,9 @@ export function MapSearch() {
   // filters — so with any filter set we show filtered pins instead of
   // clusters that would overstate what matches.
   const filtered = hasActiveFilters(filterQuery) || Boolean(query.status);
-  const criteria = describeCriteria(filterQuery);
 
   /** Writes the query to the URL without a server round-trip. */
-  const pushQuery = useCallback((next: typeof query) => {
+  const pushQuery = useCallback((next: ListingQuery) => {
     const qs = buildListingQueryString({ ...next, view: undefined, page: undefined });
     // Next 16 syncs native pushState with useSearchParams, and it gives the
     // back button a step per drawn area.
@@ -261,6 +270,15 @@ export function MapSearch() {
     [properties],
   );
 
+  const selected = selectedId ? (mappable.find((p) => p.id === selectedId) ?? null) : null;
+
+  /** A pin click selects its home and brings its row into view in the list. */
+  const selectPin = (id: string) => {
+    setSelectedId(id);
+    setActiveId(id);
+    rowRefs.current.get(id)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  };
+
   const listingsHref = buildListingHref({ ...query, view: undefined });
   const countLabel = (() => {
     if (error) return error;
@@ -278,7 +296,10 @@ export function MapSearch() {
 
   return (
     <div className="flex h-[calc(100vh-72px)] flex-col lg:flex-row">
-      <div className="relative h-1/2 w-full lg:h-full lg:w-3/5">
+      {/* `isolate` gives the map its own stacking context. Leaflet's panes and
+          controls (z-index 400-1000) and our z-[400] overlays then only compete
+          with each other, instead of rising above the navbar and page modals. */}
+      <div className="relative isolate h-1/2 w-full lg:h-full lg:w-3/5">
         <MapContainer
           ref={setMap}
           center={DEFAULT_CENTER}
@@ -293,6 +314,7 @@ export function MapSearch() {
           />
           <BoundsWatcher onChange={handleBounds} />
           <FlyTo target={flyTarget} />
+          <MapClickWatcher onClick={() => setSelectedId(null)} />
           {polygon && <DrawnArea points={polygon} />}
 
           {/* Markers swallow clicks, so while drawing they are remounted as
@@ -314,10 +336,13 @@ export function MapSearch() {
                 <Marker
                   key={`${property.id}-${drawing.mode ?? "idle"}`}
                   position={[property.latitude as number, property.longitude as number]}
-                  icon={priceIcon(property, property.id === activeId)}
+                  icon={priceIcon(property, property.id === activeId || property.id === selectedId)}
+                  // The highlighted pin draws above its neighbours in a dense cluster.
+                  zIndexOffset={property.id === activeId || property.id === selectedId ? 1000 : 0}
                   interactive={!drawing.mode}
                   eventHandlers={{
-                    click: () => setActiveId(property.id),
+                    click: () => selectPin(property.id),
+                    mouseover: () => setActiveId(property.id),
                   }}
                 />
               ))}
@@ -333,6 +358,10 @@ export function MapSearch() {
           onDraw={toggleDraw}
           onClear={clearShape}
         />
+
+        {selected && !drawing.mode && (
+          <MapPreviewCard property={selected} onClose={() => setSelectedId(null)} />
+        )}
 
         {drawing.mode && (
           <DrawHint
@@ -352,9 +381,14 @@ export function MapSearch() {
       </div>
 
       <aside className="flex h-1/2 w-full flex-col overflow-hidden border-t border-line lg:h-full lg:w-2/5 lg:border-l lg:border-t-0">
-        <header className="border-b border-line px-5 py-4">
+        <header className="space-y-3 border-b border-line px-5 py-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h1 className="text-h3 text-ink">Map search</h1>
+            <div className="min-w-0">
+              <h1 className="text-h3 text-ink">Map search</h1>
+              <p className="mt-0.5 text-caption text-ink-muted" aria-live="polite">
+                {countLabel}
+              </p>
+            </div>
             <div className="flex items-center gap-2">
               {/* Return path for the listings view toggle, carrying the search. */}
               <Link
@@ -375,75 +409,67 @@ export function MapSearch() {
               <SaveSearchButton query={query} />
             </div>
           </div>
-          <p className="mt-1 text-caption text-ink-muted" aria-live="polite">
-            {countLabel}
-          </p>
-          {criteria.length > 0 && (
-            <p className="mt-1 truncate text-caption text-ink-muted">
-              Filters: <span className="text-ink">{criteria.join(" · ")}</span>{" "}
-              <Link href={listingsHref} className="font-medium text-navy underline underline-offset-2">
-                Edit
-              </Link>
-            </p>
-          )}
+
+          <MapFilterBar
+            query={query}
+            onChange={pushQuery}
+            panelOpen={filtersOpen}
+            onTogglePanel={() => setFiltersOpen((open) => !open)}
+          />
         </header>
 
-        <ul className="flex-1 overflow-y-auto">
-          {properties.length === 0 && !loading && (
-            <li className="px-5 py-10 text-center text-small text-ink-muted">
-              {clustered
-                ? "Zoom in to list individual homes."
-                : polygon
-                  ? "No listings in your drawn area. Try a bigger area or fewer filters."
-                  : "No listings in view. Try zooming out or panning to another area."}
-            </li>
-          )}
+        {filtersOpen ? (
+          // Keyed on the URL so a back/forward while open re-seeds the draft.
+          <MapFilterPanel
+            key={params.toString()}
+            query={query}
+            onChange={pushQuery}
+            onClose={() => setFiltersOpen(false)}
+          />
+        ) : (
+          <ul className="flex-1 overflow-y-auto" onMouseLeave={() => setActiveId(null)}>
+            {properties.length === 0 && !loading && (
+              <li className="px-5 py-10 text-center text-small text-ink-muted">
+                {clustered
+                  ? "Zoom in to list individual homes."
+                  : polygon
+                    ? "No listings in your drawn area. Try a bigger area or fewer filters."
+                    : filtered
+                      ? "No listings here match these filters. Try zooming out or clearing a filter."
+                      : "No listings in view. Try zooming out or panning to another area."}
+              </li>
+            )}
 
-          {properties.map((property) => (
-            <li key={property.id}>
-              <div
-                onMouseEnter={() => setActiveId(property.id)}
-                onFocus={() => setActiveId(property.id)}
-                className={cn(
-                  "flex gap-3 border-b border-line-soft px-5 py-4 transition-colors",
-                  property.id === activeId ? "bg-surface-alt" : "hover:bg-surface-alt/60",
-                )}
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="text-small font-semibold text-ink">
-                    {property.price === null ? EMPTY : formatPriceCompact(property.price)}
-                  </p>
-                  <Link
-                    href={`/property/${encodeURIComponent(property.id)}`}
-                    className="mt-0.5 block truncate text-small text-ink hover:text-gold"
-                  >
-                    {property.address}
-                  </Link>
-                  <p className="mt-0.5 truncate text-caption text-ink-muted">
-                    {[property.neighbourhood, property.community].filter(Boolean).join(", ") || EMPTY}
-                  </p>
-                  <p className="mt-1 text-caption text-ink-muted">
-                    {property.beds === null ? EMPTY : formatNumber(property.beds)} bd ·{" "}
-                    {property.baths === null ? EMPTY : formatNumber(property.baths)} ba
-                    {property.sqft ? ` · ${formatNumber(property.sqft)} sq ft` : ""}
-                  </p>
-                </div>
+            {properties.map((property) => (
+              <li key={property.id}>
+                <MapListingCard
+                  ref={(node) => {
+                    if (node) rowRefs.current.set(property.id, node);
+                    else rowRefs.current.delete(property.id);
+                  }}
+                  property={property}
+                  active={property.id === activeId || property.id === selectedId}
+                  onActivate={() => setActiveId(property.id)}
+                  onShowOnMap={
+                    property.latitude !== null && property.longitude !== null
+                      ? () => {
+                          setSelectedId(property.id);
+                          setFlyTarget([property.latitude as number, property.longitude as number]);
+                        }
+                      : null
+                  }
+                />
+              </li>
+            ))}
 
-                {property.latitude !== null && property.longitude !== null && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setFlyTarget([property.latitude as number, property.longitude as number])
-                    }
-                    className="shrink-0 self-start rounded-control border border-line px-2.5 py-1 text-caption text-ink-muted transition-colors hover:border-navy hover:text-ink"
-                  >
-                    Show
-                  </button>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+            {total !== null && total > properties.length && (
+              <li className="px-5 py-6 text-center text-caption text-ink-muted">
+                Showing the first {properties.length} of {total.toLocaleString("en-CA")}. Zoom in,
+                draw an area or add a filter to see the rest.
+              </li>
+            )}
+          </ul>
+        )}
       </aside>
     </div>
   );
