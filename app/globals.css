@@ -1,0 +1,503 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ==========================================================================
+   HomeAtlas design tokens
+   Extracted from HomeAtlasUI and normalized into one semantic system.
+   The reference mixed #1B2E4B and #1e3a5f for the same role; we use one navy.
+   ========================================================================== */
+
+@theme {
+  /* Brand */
+  --color-navy: #1b2e4b;
+  --color-navy-deep: #152338;
+  --color-navy-soft: #2a4570;
+  --color-gold: #c7a45a;
+  --color-gold-deep: #b8944a;
+  --color-gold-soft: #f2ebdd;
+  /* Selected-option tint (HomeAtlasUI #f0f4f9) — option cards, active chips. */
+  --color-navy-tint: #f0f4f9;
+  /* WhatsApp brand green — the WhatsApp icon only. White text on it is ~2:1
+     contrast, so the action stays a bordered button like its neighbours. */
+  --color-whatsapp: #25d366;
+
+  /* Neutrals */
+  --color-ink: #151515;
+  --color-ink-soft: #3d4148;
+  --color-ink-muted: #6f7682;
+  --color-ink-subtle: #9fa3aa;
+  --color-line: #ececec;
+  --color-line-soft: #f5f5f4;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f6f5f2;
+
+  /* Status */
+  --color-positive: #15803d;
+  --color-positive-soft: #f0fdf4;
+  --color-negative: #b91c1c;
+  --color-negative-soft: #fef2f2;
+
+  /* Typography */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  /* ------------------------------------------------------------------
+     Type scale — fluid between a 375px phone and a 1280px desktop.
+
+     Headings shrink on small screens; reading text does not. At 375px a
+     44px display heading eats the viewport and forces three-line titles,
+     so the display/h1/h2/h3 steps scale down 32%/25%/21%/11%. Body, small
+     and caption are already compact (15/13/12px) and are held fixed —
+     shrinking them would cost legibility for no layout gain, and 12px is
+     the floor for anything a user has to read.
+
+     clamp() keeps the ramp continuous (no jumps at a breakpoint) and the
+     rem term means the sizes still respond to the browser's font-size
+     setting, which a pure-vw scale would ignore.
+
+     Ratios at both ends stay a clear hierarchy:
+       mobile  30 / 24 / 19 / 16 / 15 / 13 / 12
+       desktop 44 / 32 / 24 / 18 / 15 / 13 / 12
+     ------------------------------------------------------------------ */
+
+  --text-display: clamp(1.875rem, 1.5124rem + 1.547vw, 2.75rem);
+  --text-display--line-height: 1.1;
+  --text-display--letter-spacing: -0.02em;
+  --text-display--font-weight: 600;
+
+  --text-h1: clamp(1.5rem, 1.2928rem + 0.884vw, 2rem);
+  --text-h1--line-height: 1.18;
+  --text-h1--letter-spacing: -0.015em;
+  --text-h1--font-weight: 600;
+
+  --text-h2: clamp(1.1875rem, 1.058rem + 0.552vw, 1.5rem);
+  --text-h2--line-height: 1.27;
+  --text-h2--letter-spacing: -0.01em;
+  --text-h2--font-weight: 600;
+
+  --text-h3: clamp(1rem, 0.9482rem + 0.221vw, 1.125rem);
+  --text-h3--line-height: 1.4;
+  --text-h3--font-weight: 600;
+
+  /* Reading text — deliberately fixed at every width. */
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.6;
+
+  --text-small: 0.8125rem;
+  --text-small--line-height: 1.5;
+
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.45;
+
+  /* Eyebrow — the gold tracked label used across the reference */
+  --text-eyebrow: 0.625rem;
+  --text-eyebrow--line-height: 1.2;
+  --text-eyebrow--letter-spacing: 0.22em;
+  --text-eyebrow--font-weight: 600;
+
+  /* Radii — reference uses 12px controls, 16px surfaces */
+  --radius-control: 0.75rem;
+  --radius-surface: 1rem;
+
+  /* Elevation */
+  --shadow-card: 0 1px 3px rgb(0 0 0 / 0.08);
+  /* Two tight layers instead of one 28px blur — reads as a lift off the page
+     rather than a heavy drop shadow under the card. */
+  --shadow-card-hover: 0 1px 2px rgb(0 0 0 / 0.06), 0 4px 12px rgb(0 0 0 / 0.08);
+  --shadow-pop: 0 12px 40px rgb(0 0 0 / 0.16);
+
+  /* Layout */
+  --spacing-container: 1320px;
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    @apply font-sans;
+  }
+
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+    font-size: var(--text-body);
+    line-height: 1.6;
+    @apply bg-background text-foreground;
+  }
+
+  /* Focus ring.
+     Kept — removing it outright would strand keyboard and screen-reader users
+     and fail WCAG 2.4.7. Toned down instead: navy rather than gold, 1px hugging
+     the control instead of a 2px halo floating 2px off it.
+
+     Text inputs are excluded: browsers treat a clicked text field as
+     :focus-visible (you are about to type), so the global ring fired on every
+     click. They get their own border-colour treatment in the field styles,
+     which reads as "active" without stacking a ring on top of a border. */
+  :focus-visible {
+    outline: 1px solid var(--color-navy);
+    outline-offset: 1px;
+    border-radius: 3px;
+  }
+
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: none;
+  }
+
+  /* Windows High Contrast Mode ignores colours; keep a system-drawn ring. */
+  @media (forced-colors: active) {
+    :focus-visible {
+      outline: 2px solid Highlight;
+    }
+  }
+
+  /* WebKit draws its own clear "×" inside every input[type="search"]. Our
+     search fields render a styled clear button of their own, so the native one
+     showed up as a second, mismatched cross beside it. Hide it everywhere and
+     let the component own the affordance. */
+  input[type="search"]::-webkit-search-cancel-button,
+  input[type="search"]::-webkit-search-decoration,
+  input[type="search"]::-webkit-search-results-button,
+  input[type="search"]::-webkit-search-results-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+    display: none;
+  }
+
+  /* Reference used a 4px scrollbar; 10px is comfortably grabbable. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-line);
+    border-radius: 999px;
+    border: 3px solid var(--color-surface);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ink-subtle);
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-gold) 30%, transparent);
+  }
+
+  /* Space for the fixed compare strip, so it never covers the footer or the
+     last row of listings. Toggled by <CompareTray> while a selection exists. */
+  body.has-compare-tray {
+    padding-bottom: calc(var(--compare-tray-height, 5.5rem) + 1rem);
+  }
+
+  /* Keeps sticky-header offsets correct when jumping to an anchor. */
+  :target {
+    scroll-margin-top: 6rem;
+  }
+  * {
+    @apply border-border outline-ring/50;
+  }
+}
+
+/* ==========================================================================
+   Utilities
+   ========================================================================== */
+
+@utility container-page {
+  width: 100%;
+  max-width: var(--spacing-container);
+  margin-inline: auto;
+  padding-inline: 1rem;
+
+  @media (width >= 640px) {
+    padding-inline: 2rem;
+  }
+}
+
+/* Truncate to N lines */
+@utility line-clamp-* {
+  display: -webkit-box;
+  -webkit-line-clamp: --value(integer);
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ==========================================================================
+   Motion — every animation is gated on prefers-reduced-motion
+   ========================================================================== */
+
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll 45s linear infinite;
+}
+.marquee-track:hover,
+.marquee-track:focus-within {
+  animation-play-state: paused;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-line-soft) 25%,
+    var(--color-line) 37%,
+    var(--color-line-soft) 63%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .marquee-track {
+    animation: none;
+    width: 100%;
+  }
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* Article body rendered from CMS HTML (`vlog` content).
+   The markup is sanitized server-side and arrives WITHOUT class attributes, so
+   it can only be styled by element — hence descendant selectors rather than
+   utility classes. Scoped under .prose-article so nothing here leaks into the
+   rest of the app. */
+.prose-article {
+  color: var(--color-ink-soft);
+  font-size: var(--text-body);
+  line-height: 1.75;
+}
+.prose-article > * + * {
+  margin-top: 1.1em;
+}
+.prose-article h1,
+.prose-article h2,
+.prose-article h3,
+.prose-article h4 {
+  color: var(--color-ink);
+  font-family: var(--font-heading);
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1.8em;
+}
+.prose-article h1 { font-size: var(--text-h2); }
+.prose-article h2 { font-size: var(--text-h2); }
+.prose-article h3 { font-size: var(--text-h3); }
+.prose-article h4 { font-size: var(--text-body); }
+.prose-article a {
+  color: var(--color-navy);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.prose-article strong { color: var(--color-ink); font-weight: 600; }
+.prose-article ul,
+.prose-article ol { padding-left: 1.4em; }
+.prose-article ul { list-style: disc; }
+.prose-article ol { list-style: decimal; }
+.prose-article li + li { margin-top: 0.4em; }
+.prose-article blockquote {
+  border-left: 3px solid var(--color-gold);
+  padding-left: 1em;
+  color: var(--color-ink-muted);
+  font-style: italic;
+}
+.prose-article img {
+  border-radius: var(--radius-surface, 0.75rem);
+  border: 1px solid var(--color-line);
+  max-width: 100%;
+  height: auto;
+}
+.prose-article pre {
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-line);
+  border-radius: 0.5rem;
+  padding: 1em;
+  overflow-x: auto;
+}
+.prose-article code { font-size: 0.9em; }
+.prose-article hr { border-color: var(--color-line); }
+/* A wide table must scroll itself rather than widening the page. */
+.prose-article table {
+  display: block;
+  overflow-x: auto;
+  border-collapse: collapse;
+  width: 100%;
+}
+.prose-article th,
+.prose-article td {
+  border: 1px solid var(--color-line);
+  padding: 0.5em 0.75em;
+  text-align: left;
+}
+.prose-article th { color: var(--color-ink); font-weight: 600; }
+
+/* Leaflet needs explicit sizing; imported per-page where the map renders. */
+.leaflet-container {
+  font: inherit;
+  background: var(--color-surface-alt);
+}
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}

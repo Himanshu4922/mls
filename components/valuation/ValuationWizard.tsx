@@ -1,0 +1,422 @@
+"use client";
+
+import { useEffect, useId, useRef, useState } from "react";
+import { Button } from "@/components/ui/Button";
+import { Stepper } from "@/components/ui/Stepper";
+import { Field, Input, NumericInput } from "@/components/ui/Field";
+import { Badge, Eyebrow } from "@/components/ui/Badge";
+import { EMPTY, formatNumber, formatPrice, formatPercent } from "@/lib/utils/format";
+import { AUTOCOMPLETE_MIN_CHARS } from "@/lib/api/valuation";
+import type {
+  AddressSuggestion,
+  ValuationResult,
+  ValuationSubject,
+} from "@/lib/api/valuation";
+import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
+import {
+  useAddressAutocomplete,
+  useValuationEstimate,
+  useValuationLookup,
+} from "@/lib/queries/valuation";
+
+type Step = "address" | "details" | "result";
+
+const STEP_ORDER: Step[] = ["address", "details", "result"];
+const STEP_LABELS = ["Address", "Details", "Estimate"];
+
+/**
+ * Home evaluation flow: address → confirm details → estimate.
+ *
+ * Calls run through /api/valuation/* so the browser never needs the backend
+ * origin. Every number shown comes from the backend's comparable-sales model;
+ * when it reports `sparse` we say the estimate is low-confidence rather than
+ * presenting it as firm.
+ */
+export function ValuationWizard() {
+  const [step, setStep] = useState<Step>("address");
+  const [subject, setSubject] = useState<ValuationSubject | null>(null);
+  const [result, setResult] = useState<ValuationResult | null>(null);
+  const lookup = useValuationLookup();
+  const estimate = useValuationEstimate();
+  const busy = lookup.isPending || estimate.isPending;
+  // The fixed copy is kept deliberately: backend messages here are technical.
+  const error = lookup.isError
+    ? "We couldn't find details for that address."
+    : estimate.isError
+      ? "We couldn't produce an estimate right now."
+      : null;
+
+  function handleSelectAddress(suggestion: AddressSuggestion) {
+    estimate.reset();
+    lookup.mutate(suggestion, {
+      onSuccess: (data) => {
+        setSubject(data);
+        setStep("details");
+      },
+    });
+  }
+
+  function handleEstimate(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!subject) return;
+
+    const data = new FormData(event.currentTarget);
+    const numberOrNull = (key: string) => {
+      const raw = String(data.get(key) ?? "").trim();
+      if (!raw) return null;
+      const parsed = Number(raw);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
+    lookup.reset();
+    estimate.mutate(
+      {
+        listingKey: subject.listingKey,
+        latitude: subject.latitude,
+        longitude: subject.longitude,
+        postalCode: subject.postalCode,
+        city: subject.city,
+        propertySubType: subject.propertySubType,
+        bedroomsTotal: numberOrNull("beds"),
+        bathroomsTotal: numberOrNull("baths"),
+        livingArea: numberOrNull("livingArea"),
+        parkingTotal: numberOrNull("parking"),
+      },
+      {
+        onSuccess: (estimated) => {
+          setResult(estimated);
+          setStep("result");
+        },
+      },
+    );
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-2xl">
+      <Stepper
+        className="mb-6"
+        steps={STEP_LABELS}
+        current={STEP_ORDER.indexOf(step)}
+      />
+
+      {error && (
+        <p role="alert" className="mb-4 rounded-control bg-negative-soft px-4 py-3 text-small text-negative">
+          {error}
+        </p>
+      )}
+
+      {step === "address" && (
+        <AddressStep onSelect={handleSelectAddress} busy={busy} />
+      )}
+
+      {step === "details" && subject && (
+        <form onSubmit={handleEstimate} className="space-y-5 rounded-surface border border-line bg-surface p-6 shadow-card">
+          <div>
+            <h2 className="text-h2 text-ink">Confirm the details</h2>
+            <p className="mt-1 text-small text-ink-muted">{subject.address}</p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Bedrooms" htmlFor="val-beds">
+              <NumericInput
+                id="val-beds"
+                name="beds"
+                min={0}
+                max={20}
+                defaultValue={subject.bedroomsTotal ?? ""}
+              />
+            </Field>
+            <Field label="Bathrooms" htmlFor="val-baths">
+              <NumericInput
+                id="val-baths"
+                name="baths"
+                min={0}
+                max={20}
+                defaultValue={subject.bathroomsTotal ?? ""}
+              />
+            </Field>
+            <Field label="Interior area (sq ft)" htmlFor="val-area">
+              <NumericInput
+                id="val-area"
+                name="livingArea"
+                min={0}
+                max={100000}
+                defaultValue={subject.livingArea ?? ""}
+              />
+            </Field>
+            <Field label="Parking spaces" htmlFor="val-parking">
+              <NumericInput
+                id="val-parking"
+                name="parking"
+                min={0}
+                max={20}
+                defaultValue={subject.parkingTotal ?? ""}
+              />
+            </Field>
+          </div>
+
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => setStep("address")}>
+              Back
+            </Button>
+            <Button type="submit" variant="primary" className="flex-1" loading={busy}>
+              Get my estimate
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {step === "result" && result && (
+        <ResultCard
+          result={result}
+          address={subject?.address ?? ""}
+          onRestart={() => {
+            setStep("address");
+            setResult(null);
+            setSubject(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Address search with a debounced, keyboard-navigable suggestion list. */
+function AddressStep({
+  onSelect,
+  busy,
+}: {
+  onSelect: (suggestion: AddressSuggestion) => void;
+  busy: boolean;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(-1);
+  const listId = useId();
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const debouncedQuery = useDebouncedValue(query, 250);
+  const autocomplete = useAddressAutocomplete(debouncedQuery);
+  const loading = autocomplete.isFetching;
+  // Below the minimum there are no suggestions, even if an older set is cached.
+  const suggestions =
+    query.trim().length >= AUTOCOMPLETE_MIN_CHARS && autocomplete.isEnabled
+      ? (autocomplete.data ?? NO_SUGGESTIONS)
+      : NO_SUGGESTIONS;
+
+  // A fresh set of suggestions opens the list and resets the highlight
+  // (adjusting state during render rather than in an effect).
+  const [shownData, setShownData] = useState(autocomplete.data);
+  if (autocomplete.data !== shownData) {
+    setShownData(autocomplete.data);
+    if (autocomplete.data && !autocomplete.isPlaceholderData) {
+      setOpen(true);
+      setHighlight(-1);
+    }
+  }
+  // Clearing the query below the minimum closes the list.
+  if (open && suggestions.length === 0 && query.trim().length < AUTOCOMPLETE_MIN_CHARS) {
+    setOpen(false);
+  }
+
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, []);
+
+  function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (!open || suggestions.length === 0) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setHighlight((h) => (h + 1) % suggestions.length);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setHighlight((h) => (h - 1 + suggestions.length) % suggestions.length);
+    } else if (event.key === "Enter" && highlight >= 0) {
+      event.preventDefault();
+      onSelect(suggestions[highlight]);
+      setOpen(false);
+    } else if (event.key === "Escape") {
+      setOpen(false);
+    }
+  }
+
+  return (
+    <div className="rounded-surface border border-line bg-surface p-6 shadow-card">
+      <h2 className="text-h2 text-ink">What&rsquo;s your address?</h2>
+      <p className="mt-1 text-small text-ink-muted">
+        We&rsquo;ll match it to recent comparable sales nearby.
+      </p>
+
+      <div className="relative mt-5" ref={containerRef}>
+        <Field label="Property address" htmlFor="val-address">
+          <Input
+            id="val-address"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={onKeyDown}
+            onFocus={() => suggestions.length > 0 && setOpen(true)}
+            placeholder="Start typing your street address…"
+            autoComplete="off"
+            role="combobox"
+            aria-expanded={open}
+            aria-controls={listId}
+            aria-autocomplete="list"
+            aria-activedescendant={
+              highlight >= 0 ? `${listId}-option-${highlight}` : undefined
+            }
+            disabled={busy}
+          />
+        </Field>
+
+        {open && suggestions.length > 0 && (
+          <ul
+            id={listId}
+            role="listbox"
+            aria-label="Address suggestions"
+            className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-control border border-line bg-surface shadow-pop"
+          >
+            {suggestions.map((suggestion, index) => (
+              <li key={`${suggestion.listingKey}-${index}`} role="none">
+                <button
+                  type="button"
+                  id={`${listId}-option-${index}`}
+                  role="option"
+                  aria-selected={index === highlight}
+                  onMouseEnter={() => setHighlight(index)}
+                  onClick={() => {
+                    onSelect(suggestion);
+                    setOpen(false);
+                  }}
+                  className={`block w-full px-4 py-2.5 text-left text-small transition-colors ${
+                    index === highlight ? "bg-surface-alt text-ink" : "text-ink-soft"
+                  }`}
+                >
+                  {suggestion.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {loading && (
+          <p className="mt-2 text-caption text-ink-muted" role="status">
+            Searching…
+          </p>
+        )}
+
+        {!loading && query.trim().length >= AUTOCOMPLETE_MIN_CHARS && suggestions.length === 0 && (
+          <p className="mt-2 text-caption text-ink-muted">
+            No matching address found. We can only evaluate homes present in the
+            MLS® catalogue today.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const NO_SUGGESTIONS: AddressSuggestion[] = [];
+
+function ResultCard({
+  result,
+  address,
+  onRestart,
+}: {
+  result: ValuationResult;
+  address: string;
+  onRestart: () => void;
+}) {
+  // A zero market value means the backend could not model the property.
+  if (result.market <= 0) {
+    return (
+      <div className="rounded-surface border border-line bg-surface p-6 text-center shadow-card">
+        <h2 className="text-h2 text-ink">We can&rsquo;t estimate this home yet</h2>
+        <p className="mt-2 text-small text-ink-muted">
+          {result.message ??
+            "There aren't enough comparable sales nearby to produce a reliable range."}
+        </p>
+        <Button variant="secondary" className="mt-5" onClick={onRestart}>
+          Try another address
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-surface border border-line bg-surface p-6 text-center shadow-card">
+        <Eyebrow>Estimated value</Eyebrow>
+        <p className="mt-3 text-display text-ink">{formatPrice(result.market)}</p>
+        <p className="mt-2 text-small text-ink-muted">
+          Likely range {formatPrice(result.low)} – {formatPrice(result.high)}
+        </p>
+        <p className="mt-1 text-caption text-ink-subtle">{address}</p>
+
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          {result.beta && <Badge tone="warm">Beta model</Badge>}
+          {result.sparse && <Badge tone="negative">Low confidence</Badge>}
+          {result.confidence && !result.sparse && (
+            <Badge tone="positive">{result.confidence} confidence</Badge>
+          )}
+          {result.trendPct30d !== 0 && (
+            <Badge tone="neutral">
+              30-day trend {formatPercent(result.trendPct30d)}
+            </Badge>
+          )}
+        </div>
+
+        {result.sparse && (
+          <p className="mt-4 rounded-control bg-surface-alt px-4 py-3 text-caption text-ink-muted">
+            Fewer than three comparable sales were found nearby, so treat this
+            range as indicative only. An agent can give you a firmer number.
+          </p>
+        )}
+      </div>
+
+      {result.comps.length > 0 && (
+        <div className="rounded-surface border border-line bg-surface p-6">
+          <h3 className="text-h3 text-ink">Comparable properties</h3>
+          <p className="mt-1 text-caption text-ink-muted">
+            {result.comps.length} nearby {result.comps.length === 1 ? "sale" : "sales"} used in this estimate.
+          </p>
+          <ul className="mt-4 divide-y divide-line-soft">
+            {result.comps.slice(0, 5).map((comp, index) => (
+              <li key={`${comp.listingKey}-${index}`} className="flex items-baseline justify-between gap-4 py-2.5">
+                <div className="min-w-0">
+                  <p className="truncate text-small font-medium text-ink">
+                    {comp.address || EMPTY}
+                  </p>
+                  <p className="text-caption text-ink-muted">
+                    {comp.beds ?? EMPTY} bd · {comp.baths ?? EMPTY} ba
+                    {comp.livingArea ? ` · ${formatNumber(comp.livingArea)} sq ft` : ""}
+                    {comp.distanceKm !== null ? ` · ${comp.distanceKm.toFixed(1)} km away` : ""}
+                  </p>
+                </div>
+                <p className="shrink-0 text-small font-semibold text-ink">
+                  {formatPrice(comp.price)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="flex gap-3">
+        <Button variant="secondary" onClick={onRestart}>
+          Evaluate another home
+        </Button>
+      </div>
+
+      <p className="text-caption text-ink-subtle">
+        This is an automated estimate generated from comparable listings, not a
+        formal appraisal or an offer to purchase.
+      </p>
+    </div>
+  );
+}

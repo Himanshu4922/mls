@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f1efea"/>
+      <stop offset="1" stop-color="#e4e1da"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg)"/>
+  <!-- ground -->
+  <rect y="430" width="800" height="170" fill="#dcd8cf"/>
+  <!-- house -->
+  <g fill="none" stroke="#1b2e4b" stroke-opacity="0.28" stroke-width="10" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M250 300 L400 185 L550 300"/>
+    <path d="M280 280 V430 H520 V280"/>
+    <path d="M370 430 V350 H430 V430"/>
+    <rect x="310" y="315" width="40" height="40" rx="4"/>
+    <rect x="450" y="315" width="40" height="40" rx="4"/>
+    <path d="M480 235 V200 H510 V258"/>
+  </g>
+</svg>
