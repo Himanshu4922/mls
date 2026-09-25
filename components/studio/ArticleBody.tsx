@@ -1,7 +1,9 @@
+import { toArticleHtml } from "@/lib/utils/markdown";
 import { hasVisibleHtml, sanitizeHtml } from "@/lib/utils/sanitizeHtml";
 
 /**
- * Renders a post body from backend HTML.
+ * Renders a post body from backend HTML — or Markdown, which some posts are
+ * stored as; it is converted first, then sanitized like any other HTML.
  *
  * Shared by the public post page and the Studio preview so the two cannot drift
  * — a preview that renders differently from the live page is worse than no
@@ -18,7 +20,7 @@ export function ArticleBody({
   html: string | null;
   emptyMessage?: string;
 }) {
-  const clean = sanitizeHtml(html);
+  const clean = sanitizeHtml(toArticleHtml(html));
 
   if (!hasVisibleHtml(clean)) {
     return <p className="text-small text-ink-muted">{emptyMessage}</p>;

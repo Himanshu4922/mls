@@ -25,23 +25,26 @@ export default async function StudioLayout({ children }: { children: ReactNode }
   const session = await requireStudioAccess();
   if (!session) notFound();
 
+  // A full-viewport app shell: the header stays put and only <main> scrolls,
+  // so the editor's action bar can stick directly beneath it and every screen
+  // uses the whole window width.
   return (
-    <div className="flex min-h-screen flex-col bg-surface-alt">
-      <header className="border-b border-line bg-surface">
-        <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-3">
+    <div className="flex h-dvh flex-col overflow-hidden bg-surface-alt">
+      <header className="shrink-0 border-b border-line bg-surface">
+        <div className="flex h-14 w-full items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3">
             <Link href="/studio" className="text-h3 font-semibold text-ink">
               Studio
             </Link>
             <span className="rounded-full border border-line px-2 py-0.5 text-caption text-ink-muted">
               Blog
             </span>
+            <span aria-hidden="true" className="mx-1 hidden h-5 w-px bg-line sm:block" />
+            <StudioNav isStaff={session.user.isStaff} />
           </div>
 
-          <StudioNav isStaff={session.user.isStaff} />
-
           <div className="flex items-center gap-3 text-caption text-ink-muted">
-            <span className="hidden sm:inline">{session.user.email}</span>
+            <span className="hidden truncate md:inline">{session.user.email}</span>
             <Link
               href="/"
               className="rounded-control border border-line px-3 py-1.5 font-medium text-ink transition-colors hover:border-navy hover:text-navy"
@@ -52,8 +55,8 @@ export default async function StudioLayout({ children }: { children: ReactNode }
         </div>
       </header>
 
-      <main id="main" className="flex-1">
-        <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6">{children}</div>
+      <main id="main" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="w-full px-4 py-6 sm:px-6 lg:px-8">{children}</div>
       </main>
     </div>
   );

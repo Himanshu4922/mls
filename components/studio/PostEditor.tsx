@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RichTextEditor } from "@/components/studio/RichTextEditor";
+import { ConfirmDialog, PromptDialog } from "@/components/ui/Dialogs";
 import type { FaqItem, StudioPost, StudioPostInput } from "@/lib/api/studio";
 import type { BlogCategory } from "@/lib/api/blog";
 import { useCreateCategory, useSavePost } from "@/lib/queries/studio";
 import { cn } from "@/lib/utils/cn";
+import { toArticleHtml, toPlainText } from "@/lib/utils/markdown";
 
 /** Everything the form holds. Kept flat so change tracking stays simple. */
 interface FormState {
@@ -33,7 +35,9 @@ function toFormState(post: StudioPost | null): FormState {
     title: post?.title ?? "",
     slug: post?.slug ?? "",
     excerpt: post?.excerpt ?? "",
-    content: post?.content ?? "",
+    // The editor works in HTML; a post stored as Markdown is converted on load
+    // (and saved back as HTML the next time the author saves).
+    content: toArticleHtml(post?.content),
     categoryId: post?.categoryId ? String(post.categoryId) : "",
     tags: post?.tags.join(", ") ?? "",
     embedUrl: post?.embedUrl ?? "",
@@ -100,12 +104,16 @@ export function PostEditor({ post, categories }: PostEditorProps) {
   // mutateAsync is stable, so it can sit in `persist`'s deps without churning
   // the autosave effect below.
   const { mutateAsync: savePost, isPending: saving } = useSavePost();
-  const { mutateAsync: createCategory } = useCreateCategory();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [showSeo, setShowSeo] = useState(false);
+  // Collapses the settings sidebar so the writing area takes the full width.
+  const [showSidebar, setShowSidebar] = useState(true);
   const [confirmPublish, setConfirmPublish] = useState(false);
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const { mutateAsync: createCategory, isPending: creatingCategory } = useCreateCategory();
   // Sampled once when the editor mounts. A lazy initializer runs outside the
   // render pass, so this is pure per React's rules while still giving the UI a
   // fixed "now" to compare dates against for this editing session.
@@ -182,15 +190,15 @@ export function PostEditor({ post, categories }: PostEditorProps) {
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
 
-  async function addCategory() {
-    const name = window.prompt("New category name");
-    if (!name?.trim()) return;
+  async function addCategory(name: string) {
+    setCategoryError(null);
     try {
-      const category = await createCategory(name.trim());
+      const category = await createCategory(name);
       setCategoryList((prev) => [...prev, category]);
       set("categoryId", String(category.id));
+      setAddingCategory(false);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not create that category.");
+      setCategoryError(caught instanceof Error ? caught.message : "Could not create that category.");
     }
   }
 
@@ -206,8 +214,9 @@ export function PostEditor({ post, categories }: PostEditorProps) {
   const isLive = form.status === "published" && !isFuture;
 
   async function handlePublish() {
-    setConfirmPublish(false);
+    // Stays open (spinning) while saving, so a failure is seen, not lost.
     const saved = await persist({ status: "published" });
+    setConfirmPublish(false);
     if (saved) {
       setForm((prev) => ({ ...prev, status: "published" }));
       setNotice(
@@ -228,8 +237,10 @@ export function PostEditor({ post, categories }: PostEditorProps) {
 
   return (
     <div className="space-y-5">
-      {/* Sticky action bar so Save is always reachable in a long post. */}
-      <div className="sticky top-0 z-20 -mx-4 flex flex-wrap items-center gap-3 border-b border-line bg-surface-alt/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6">
+      {/* Sticky action bar so Save is always reachable in a long post. It sits
+          flush under the Studio header (the negative margins cancel <main>'s
+          padding); a fixed height on lg lets the toolbar stick right below it. */}
+      <div className="sticky top-0 z-20 -mx-4 -mt-6 flex flex-wrap items-center gap-3 border-b border-line bg-surface-alt/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:h-14 lg:flex-nowrap lg:px-8 lg:py-0">
         <Link href="/studio" className="text-caption text-ink-muted hover:text-navy">
           ← Posts
         </Link>
@@ -245,6 +256,15 @@ export function PostEditor({ post, categories }: PostEditorProps) {
         </span>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowSidebar((prev) => !prev)}
+            aria-pressed={!showSidebar}
+            aria-controls="post-settings"
+            className="hidden rounded-control border border-line px-3 py-1.5 text-caption font-medium text-ink hover:border-navy hover:text-navy lg:inline-flex"
+          >
+            {showSidebar ? "Hide settings" : "Show settings"}
+          </button>
           {slug && (
             <Link
               href={`/studio/${encodeURIComponent(slug)}/preview`}
@@ -299,7 +319,14 @@ export function PostEditor({ post, categories }: PostEditorProps) {
         </p>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <div
+        className={cn(
+          "grid gap-6",
+          showSidebar
+            ? "lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:grid-cols-[minmax(0,1fr)_26rem]"
+            : "mx-auto max-w-5xl",
+        )}
+      >
         {/* ---------------------------------------------------------------- */}
         {/* Main column                                                      */}
         {/* ---------------------------------------------------------------- */}
@@ -341,7 +368,15 @@ export function PostEditor({ post, categories }: PostEditorProps) {
         {/* ---------------------------------------------------------------- */}
         {/* Sidebar                                                          */}
         {/* ---------------------------------------------------------------- */}
-        <aside className="space-y-4">
+        {/* On wide screens the sidebar scrolls on its own, so every setting is
+            reachable without losing your place in the post. */}
+        <aside
+          id="post-settings"
+          className={cn(
+            "space-y-4 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-9rem)] lg:overflow-y-auto lg:overscroll-contain lg:pr-1",
+            !showSidebar && "lg:hidden",
+          )}
+        >
           <Panel title="Publishing">
             <Field label="Status">
               <p className="text-small text-ink">
@@ -396,7 +431,10 @@ export function PostEditor({ post, categories }: PostEditorProps) {
                 </select>
                 <button
                   type="button"
-                  onClick={() => void addCategory()}
+                  onClick={() => {
+                    setCategoryError(null);
+                    setAddingCategory(true);
+                  }}
                   title="Add a category"
                   className="rounded-control border border-line px-3 text-small text-ink hover:border-navy"
                 >
@@ -445,7 +483,7 @@ export function PostEditor({ post, categories }: PostEditorProps) {
                 /blog/{form.slug || slug || "post-slug"}
               </p>
               <p className="line-clamp-2 text-caption text-ink-muted">
-                {form.seoDescription || form.excerpt || "Add an excerpt or SEO description."}
+                {form.seoDescription || toPlainText(form.excerpt) || "Add an excerpt or SEO description."}
               </p>
             </div>
 
@@ -511,53 +549,41 @@ export function PostEditor({ post, categories }: PostEditorProps) {
         </aside>
       </div>
 
-      {confirmPublish && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="publish-title"
-            className="w-full max-w-md rounded-surface border border-line bg-surface p-6"
-          >
-            <h2 id="publish-title" className="text-h3 text-ink">
-              {isFuture ? "Schedule this post?" : "Publish this post?"}
-            </h2>
-            <p className="mt-2 text-small text-ink-muted">
-              {isFuture ? (
-                <>
-                  It will appear on the blog at{" "}
-                  <strong className="text-ink">
-                    {scheduledFor?.toLocaleString("en-CA")}
-                  </strong>{" "}
-                  and stay hidden until then.
-                </>
-              ) : (
-                <>
-                  It will be live immediately at{" "}
-                  <strong className="text-ink">/blog/{form.slug || slug || "…"}</strong>{" "}
-                  and visible to anyone.
-                </>
-              )}
-            </p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setConfirmPublish(false)}
-                className="rounded-control border border-line px-4 py-2 text-small font-medium text-ink"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => void handlePublish()}
-                className="rounded-control bg-navy px-4 py-2 text-small font-medium text-white"
-              >
-                {isFuture ? "Schedule" : "Publish now"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={confirmPublish}
+        onClose={() => setConfirmPublish(false)}
+        onConfirm={() => void handlePublish()}
+        title={isFuture ? "Schedule this post?" : "Publish this post?"}
+        confirmLabel={isFuture ? "Schedule" : "Publish now"}
+        busy={saving}
+      >
+        {isFuture ? (
+          <p>
+            It will appear on the blog at{" "}
+            <strong className="text-ink">{scheduledFor?.toLocaleString("en-CA")}</strong>{" "}
+            and stay hidden until then.
+          </p>
+        ) : (
+          <p>
+            It will be live immediately at{" "}
+            <strong className="text-ink">/blog/{form.slug || slug || "…"}</strong>{" "}
+            and visible to anyone.
+          </p>
+        )}
+      </ConfirmDialog>
+
+      <PromptDialog
+        open={addingCategory}
+        onClose={() => setAddingCategory(false)}
+        onSubmit={(name) => void addCategory(name)}
+        title="New category"
+        description="It's selected for this post and available on every post after."
+        label="Category name"
+        placeholder="e.g. Market reports"
+        submitLabel="Add category"
+        busy={creatingCategory}
+        error={categoryError}
+      />
     </div>
   );
 }

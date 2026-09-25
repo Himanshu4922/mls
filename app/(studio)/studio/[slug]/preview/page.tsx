@@ -7,6 +7,7 @@ import { getVideoEmbed } from "@/lib/utils/video";
 import { getStudioPost } from "@/lib/api/studio";
 import { requireStudioAccess } from "@/lib/auth/session";
 import { formatDate } from "@/lib/utils/format";
+import { toPlainText } from "@/lib/utils/markdown";
 
 export const metadata: Metadata = { title: "Preview" };
 export const dynamic = "force-dynamic";
@@ -38,10 +39,12 @@ export default async function PreviewPage({ params }: PageProps<"/studio/[slug]/
 
   // Resolved once, before render, so the JSX below stays a pure function of it.
   const isLive = resolveIsLive(post.status, post.publishDate);
+  // Same plain-text treatment the public page gets from `getBlogPost`.
+  const excerpt = toPlainText(post.excerpt);
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-surface border border-gold/40 bg-gold-soft px-4 py-3">
+      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-surface border border-gold/40 bg-gold-soft px-4 py-3 shadow-card">
         <p className="text-small text-ink">
           <strong>Preview.</strong>{" "}
           {isLive
@@ -74,8 +77,8 @@ export default async function PreviewPage({ params }: PageProps<"/studio/[slug]/
             </p>
           )}
           <h1 className="mt-2 text-h1 text-ink">{post.title || "(untitled)"}</h1>
-          {post.excerpt && (
-            <p className="mt-3 text-body text-ink-muted">{post.excerpt}</p>
+          {excerpt && (
+            <p className="mt-3 line-clamp-3 text-body text-ink-muted">{excerpt}</p>
           )}
           <p className="mt-4 text-caption text-ink-subtle">
             {[post.author, post.publishDate ? formatDate(post.publishDate) : "Not dated"]

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
+import { ConfirmDialog } from "@/components/ui/Dialogs";
 import type { TeamMember } from "@/lib/api/studio";
 import { useGrantStudioAccess, useRevokeStudioAccess } from "@/lib/queries/studio";
 import { formatDate } from "@/lib/utils/format";
@@ -19,6 +20,8 @@ export function TeamManager({
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [pendingRevoke, setPendingRevoke] = useState<TeamMember | null>(null);
+  const [revokeError, setRevokeError] = useState<string | null>(null);
 
   async function grant(event: FormEvent) {
     event.preventDefault();
@@ -36,21 +39,17 @@ export function TeamManager({
     }
   }
 
-  async function revoke(member: TeamMember) {
-    if (
-      !window.confirm(
-        `Remove Studio access for ${member.email}? They keep their account but can no longer write posts.`,
-      )
-    ) {
-      return;
-    }
-    setError(null);
+  async function revoke() {
+    const member = pendingRevoke;
+    if (!member) return;
+    setRevokeError(null);
     setNotice(null);
     try {
       await revokeAccess.mutateAsync(member.id);
+      setPendingRevoke(null);
       setNotice(`${member.email} no longer has Studio access.`);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not revoke access.");
+      setRevokeError(caught instanceof Error ? caught.message : "Could not revoke access.");
     }
   }
 
@@ -140,7 +139,10 @@ export function TeamManager({
                   ) : (
                     <button
                       type="button"
-                      onClick={() => void revoke(member)}
+                      onClick={() => {
+                        setRevokeError(null);
+                        setPendingRevoke(member);
+                      }}
                       disabled={busy}
                       className="text-caption text-negative hover:underline disabled:opacity-60"
                     >
@@ -153,6 +155,24 @@ export function TeamManager({
           </tbody>
         </table>
       </div>
+
+      <ConfirmDialog
+        open={pendingRevoke !== null}
+        onClose={() => setPendingRevoke(null)}
+        onConfirm={() => void revoke()}
+        title="Remove Studio access?"
+        confirmLabel="Remove access"
+        tone="danger"
+        busy={revokeAccess.isPending}
+        error={revokeError}
+      >
+        {pendingRevoke && (
+          <p>
+            <strong className="text-ink">{pendingRevoke.email}</strong> keeps their
+            account but can no longer write or publish posts.
+          </p>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

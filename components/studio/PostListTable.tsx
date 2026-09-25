@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { ConfirmDialog } from "@/components/ui/Dialogs";
 import { SearchInput } from "@/components/ui/Field";
 import type { StudioPost } from "@/lib/api/studio";
 import { useDeletePost } from "@/lib/queries/studio";
@@ -107,12 +108,6 @@ export function PostListTable({ posts }: { posts: StudioPost[] }) {
         />
       </div>
 
-      {error && (
-        <p role="alert" className="rounded-control border border-negative/30 bg-surface px-4 py-2 text-caption text-ink">
-          {error}
-        </p>
-      )}
-
       {visible.length === 0 ? (
         <p className="rounded-surface border border-line bg-surface p-8 text-center text-small text-ink-muted">
           No posts match that filter.
@@ -184,44 +179,28 @@ export function PostListTable({ posts }: { posts: StudioPost[] }) {
 
       {/* Naming the post in the confirmation — a bare "Are you sure?" is how
           the wrong article gets deleted. */}
-      {pendingDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4">
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="delete-title"
-            className="w-full max-w-md rounded-surface border border-line bg-surface p-6"
-          >
-            <h2 id="delete-title" className="text-h3 text-ink">
-              Delete this post?
-            </h2>
-            <p className="mt-2 text-small text-ink-muted">
-              <strong className="text-ink">{pendingDelete.title || "(untitled)"}</strong>{" "}
-              will be permanently deleted.
-              {pendingDelete.status === "published" &&
-                " It is currently live, so its page will stop working for anyone who has the link."}
-            </p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setPendingDelete(null)}
-                disabled={busy}
-                className="rounded-control border border-line px-4 py-2 text-small font-medium text-ink"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmDelete}
-                disabled={busy}
-                className="rounded-control bg-negative px-4 py-2 text-small font-medium text-white disabled:opacity-60"
-              >
-                {busy ? "Deleting…" : "Delete post"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onClose={() => {
+          setPendingDelete(null);
+          setError(null);
+        }}
+        onConfirm={() => void confirmDelete()}
+        title="Delete this post?"
+        confirmLabel="Delete post"
+        tone="danger"
+        busy={busy}
+        error={error}
+      >
+        {pendingDelete && (
+          <p>
+            <strong className="text-ink">{pendingDelete.title || "(untitled)"}</strong>{" "}
+            will be permanently deleted.
+            {pendingDelete.status === "published" &&
+              " It is currently live, so its page will stop working for anyone who has the link."}
+          </p>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

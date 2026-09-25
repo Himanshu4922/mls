@@ -13,6 +13,7 @@
  */
 
 import { apiFetch, type RequestOptions } from "@/lib/api/client";
+import { toPlainText } from "@/lib/utils/markdown";
 
 export interface BlogPost {
   id: number;
@@ -89,7 +90,8 @@ function mapPost(raw: RawPost): BlogPost {
     id: raw.id,
     title: raw.title?.trim() || "Untitled",
     slug: raw.slug ?? String(raw.id),
-    excerpt: raw.excerpt?.trim() || null,
+    // Excerpts are often typed as Markdown; every consumer wants plain text.
+    excerpt: toPlainText(raw.excerpt) || null,
     thumbnail: raw.thumbnail_url?.trim() || null,
     author: author?.trim() || null,
     category: category?.trim() || null,

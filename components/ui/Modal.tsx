@@ -10,6 +10,10 @@ import {
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils/cn";
 import { IconButton } from "@/components/ui/Button";
+import { useScrollLock } from "@/lib/hooks/useScrollLock";
+
+/** Open dialogs, innermost last — only the top one handles Escape and Tab. */
+const stack: symbol[] = [];
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -19,6 +23,10 @@ const FOCUSABLE =
  *
  * The reference's AuthModal had no focus trap, no Escape handler, no scroll lock
  * and no ARIA roles. This adds all four, plus focus restoration on close.
+ *
+ * Every overlay in the app should be this component (or `ConfirmDialog` /
+ * `PromptDialog`, which wrap it) rather than a hand-rolled `fixed inset-0`
+ * div, so they all lock scroll, trap focus and close the same way.
  */
 export function Modal({
   open,
@@ -41,12 +49,23 @@ export function Modal({
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const descId = useId();
+  const token = useRef(Symbol("modal"));
+  // Held in a ref so a parent passing an inline `onClose` doesn't re-run the
+  // open effect on every render (which would steal focus back each time).
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useScrollLock(open);
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
+      // A dialog opened on top of this one owns the keyboard.
+      if (stack[stack.length - 1] !== token.current) return;
       if (event.key === "Escape") {
         event.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
       if (event.key !== "Tab" || !panelRef.current) return;
@@ -69,36 +88,33 @@ export function Modal({
         first.focus();
       }
     },
-    [onClose],
+    [],
   );
 
   useEffect(() => {
     if (!open) return;
 
     previouslyFocused.current = document.activeElement as HTMLElement | null;
-
-    // Lock scroll without layout shift from the disappearing scrollbar.
-    const { body } = document;
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-    const prevOverflow = body.style.overflow;
-    const prevPadding = body.style.paddingRight;
-    body.style.overflow = "hidden";
-    if (scrollbarWidth > 0) body.style.paddingRight = `${scrollbarWidth}px`;
+    const self = token.current;
+    stack.push(self);
 
     document.addEventListener("keydown", handleKeyDown, true);
 
-    // Focus the first control inside the dialog.
+    // Focus the control marked `data-autofocus`, else the first one inside.
     const raf = requestAnimationFrame(() => {
+      const panel = panelRef.current;
       const target =
-        panelRef.current?.querySelector<HTMLElement>(FOCUSABLE) ?? panelRef.current;
+        panel?.querySelector<HTMLElement>("[data-autofocus]") ??
+        panel?.querySelector<HTMLElement>(FOCUSABLE) ??
+        panel;
       target?.focus();
     });
 
     return () => {
       cancelAnimationFrame(raf);
       document.removeEventListener("keydown", handleKeyDown, true);
-      body.style.overflow = prevOverflow;
-      body.style.paddingRight = prevPadding;
+      const at = stack.lastIndexOf(self);
+      if (at !== -1) stack.splice(at, 1);
       previouslyFocused.current?.focus?.();
     };
   }, [open, handleKeyDown]);
@@ -108,7 +124,7 @@ export function Modal({
   const widths = { sm: "max-w-md", md: "max-w-xl", lg: "max-w-3xl" };
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex items-end justify-center sm:items-center">
+    <div className="fixed inset-0 z-[200] flex items-end justify-center overscroll-contain sm:items-center sm:p-4">
       <div
         className="absolute inset-0 bg-ink/50 backdrop-blur-[2px]"
         onClick={onClose}
@@ -150,7 +166,7 @@ export function Modal({
           </IconButton>
         </header>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5">{children}</div>
 
         {footer && (
           <footer className="border-t border-line bg-surface-alt px-6 py-4">{footer}</footer>

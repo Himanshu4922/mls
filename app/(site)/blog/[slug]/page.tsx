@@ -9,6 +9,7 @@ import { VideoEmbed } from "@/components/media/VideoEmbed";
 import { JsonLd, absoluteUrl, breadcrumbJsonLd } from "@/components/seo/JsonLd";
 import { blogPath } from "@/lib/seo/urls";
 import { getVideoEmbed } from "@/lib/utils/video";
+import { truncateText } from "@/lib/utils/markdown";
 
 export const revalidate = 1800;
 
@@ -20,7 +21,8 @@ export async function generateMetadata({
   if (!post) return { title: "Article not found" };
 
   // The CMS carries dedicated SEO fields; fall back to the post's own copy.
-  const description = post.seoDescription ?? post.excerpt ?? undefined;
+  const description =
+    post.seoDescription ?? (post.excerpt ? truncateText(post.excerpt, 160) : undefined);
   return {
     title: post.seoTitle ?? post.title,
     description,
@@ -60,7 +62,8 @@ export default async function BlogPostPage({ params }: PageProps<"/blog/[slug]">
             "@context": "https://schema.org",
             "@type": "BlogPosting",
             headline: post.seoTitle ?? post.title,
-            description: post.seoDescription ?? post.excerpt ?? undefined,
+            description:
+              post.seoDescription ?? (post.excerpt ? truncateText(post.excerpt, 300) : undefined),
             image: post.thumbnail ? [post.thumbnail] : undefined,
             datePublished: post.publishedAt ?? undefined,
             dateModified: post.updatedAt ?? post.publishedAt ?? undefined,
@@ -97,7 +100,7 @@ export default async function BlogPostPage({ params }: PageProps<"/blog/[slug]">
           )}
           <h1 className="mt-2 text-h1 text-ink">{post.title}</h1>
           {post.excerpt && (
-            <p className="mt-3 text-body text-ink-muted">{post.excerpt}</p>
+            <p className="mt-3 line-clamp-3 text-body text-ink-muted">{post.excerpt}</p>
           )}
           <p className="mt-4 text-caption text-ink-subtle">
             {[post.author, post.publishedAt ? formatDate(post.publishedAt) : null]

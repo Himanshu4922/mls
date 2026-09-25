@@ -3,6 +3,7 @@
 import { SafeImage } from "@/components/ui/SafeImage";
 import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/utils/cn";
+import { useScrollLock } from "@/lib/hooks/useScrollLock";
 import type { PropertyImage } from "@/lib/types/domain";
 
 /**
@@ -21,6 +22,7 @@ export function Gallery({
   const [lightbox, setLightbox] = useState(false);
 
   const count = images.length;
+  useScrollLock(lightbox);
 
   const go = useCallback(
     (delta: number) => {
@@ -37,12 +39,7 @@ export function Gallery({
       if (event.key === "ArrowLeft") go(-1);
     };
     document.addEventListener("keydown", onKey);
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previous;
-    };
+    return () => document.removeEventListener("keydown", onKey);
   }, [lightbox, go]);
 
   if (count === 0) {
