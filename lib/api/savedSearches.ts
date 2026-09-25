@@ -86,6 +86,8 @@ export function toSavedFilters(query: ListingQuery): SavedFilters {
   // "newest" is the default ordering; storing it would make an otherwise
   // identical search compare unequal to one saved without it.
   if (out.orderby === SORT_TO_ORDERBY.newest) delete out.orderby;
+  // With AI preferences, "Best match" is the default instead.
+  if (query.semantic && out.orderby === SORT_TO_ORDERBY.relevance) delete out.orderby;
   if (query.type) out[UI_TYPE_KEY] = query.type;
   return out;
 }
@@ -113,7 +115,7 @@ function parsePolygonJson(raw: string | undefined): ListingQuery["polygon"] {
 /** `filters_json` → ListingQuery. Unknown keys are ignored. */
 export function fromBackendParams(filters: SavedFilters): ListingQuery {
   const sort = (Object.entries(SORT_TO_ORDERBY).find(([, orderby]) => orderby === filters.orderby)?.[0] ??
-    "newest") as ListingSort;
+    (filters.semantic ? "relevance" : "newest")) as ListingSort;
   const postal = (filters.postal_code ?? "").split(",").map((code) => code.trim()).filter(Boolean);
   const subTypes = (filters.property_sub_type ?? "").split(",").map((s) => s.trim()).filter(Boolean);
   // Rentals were once saved as the UI type "Rental"; they restore as Rent.
@@ -140,7 +142,8 @@ export function fromBackendParams(filters: SavedFilters): ListingQuery {
     postalCodes: postal.length ? postal : undefined,
     openHouse: filters.has_open_house === "1" || filters.has_open_house === "true" || undefined,
     polygon: parsePolygonJson(filters.polygon),
-    sort,
+    semantic: filters.semantic?.trim() || undefined,
+    sort: sort === "relevance" && !filters.semantic ? "newest" : sort,
   };
 }
 
@@ -201,6 +204,7 @@ export function describeCriteria(query: ListingQuery): string[] {
   if (query.bathsMin) chips.push(`${query.bathsMin}+ baths`);
   if (query.sqftMin) chips.push(`${query.sqftMin.toLocaleString("en-CA")}+ sq ft`);
   if (query.yearBuiltMin) chips.push(`Built ${query.yearBuiltMin}+`);
+  if (query.semantic) chips.push(`Like: ${query.semantic}`);
   return chips;
 }
 

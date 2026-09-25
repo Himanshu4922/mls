@@ -49,6 +49,8 @@ const MAX_PAGE_SIZE = 100;
 const TYPE_NEEDS_CLIENT_FILTER = true;
 
 export const SORT_TO_ORDERBY: Record<ListingSort, string> = {
+  // Backend ranks by similarity to `semantic` (AI search's "Best match").
+  relevance: "relevance",
   newest: "-modification_timestamp",
   "price-asc": "list_price",
   "price-desc": "-list_price",
@@ -92,7 +94,8 @@ export function toBackendParams(query: ListingQuery, limit?: number, offset?: nu
     status_group: group ?? undefined,
     transaction_type: query.transaction,
     has_lease: query.hasLease ? "true" : undefined,
-    orderby: SORT_TO_ORDERBY[query.sort ?? "newest"],
+    orderby: SORT_TO_ORDERBY[query.sort === "relevance" && !query.semantic ? "newest" : (query.sort ?? "newest")],
+    semantic: query.semantic,
     // Server-side since G1 — exact counts, no window cap.
     price_min: query.priceMin,
     price_max: query.priceMax,

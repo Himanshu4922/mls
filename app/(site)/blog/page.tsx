@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
+import { NavChip } from "@/components/navigation/NavChip";
+import { PendingContent, PendingNavigationProvider } from "@/components/navigation/PendingNavigation";
 import { Eyebrow } from "@/components/ui/Badge";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/States";
 import { getAllBlogPosts, getBlogCategories, type BlogPost } from "@/lib/api/blog";
-import { cn } from "@/lib/utils/cn";
 import { formatDate } from "@/lib/utils/format";
 
 export const metadata: Metadata = {
@@ -34,11 +35,15 @@ export default async function BlogIndexPage({ searchParams }: PageProps<"/blog">
         </div>
       </header>
 
-      <div className="container-page py-10">
-        <Suspense fallback={<PostsSkeleton />}>
-          <PostList category={rawCategory?.trim() || null} />
-        </Suspense>
-      </div>
+      {/* Category chips select on click; the posts show a skeleton while
+          the new category loads (PendingNavigation). */}
+      <PendingNavigationProvider>
+        <div className="container-page py-10">
+          <Suspense fallback={<PostsSkeleton />}>
+            <PostList category={rawCategory?.trim() || null} />
+          </Suspense>
+        </div>
+      </PendingNavigationProvider>
     </>
   );
 }
@@ -81,33 +86,39 @@ async function PostList({ category }: { category: string | null }) {
     <div className="space-y-8">
       {categories.length > 0 && (
         <nav aria-label="Filter articles by category" className="flex flex-wrap gap-2">
-          <CategoryChip href="/blog" label="All" current={category === null} />
+          <NavChip href="/blog" current={category === null} scroll={false}>
+            All
+          </NavChip>
           {categories.map((item) => (
-            <CategoryChip
+            <NavChip
               key={item.id}
               href={`/blog?category=${encodeURIComponent(item.slug)}`}
-              label={item.name}
               current={category === item.slug}
-            />
+              scroll={false}
+            >
+              {item.name}
+            </NavChip>
           ))}
         </nav>
       )}
 
-      {filtered.length === 0 ? (
-        <EmptyState
-          title="No articles in this category"
-          description="Try another category, or browse everything we've published."
-          action={{ label: "All articles", href: "/blog" }}
-        />
-      ) : (
-        <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((post) => (
-            <li key={post.id}>
-              <PostCard post={post} />
-            </li>
-          ))}
-        </ul>
-      )}
+      <PendingContent fallback={<PostsSkeleton />}>
+        {filtered.length === 0 ? (
+          <EmptyState
+            title="No articles in this category"
+            description="Try another category, or browse everything we've published."
+            action={{ label: "All articles", href: "/blog" }}
+          />
+        ) : (
+          <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {filtered.map((post) => (
+              <li key={post.id}>
+                <PostCard post={post} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </PendingContent>
     </div>
   );
 }
@@ -144,31 +155,6 @@ function PostCard({ post }: { post: BlogPost }) {
         </div>
       </Link>
     </article>
-  );
-}
-
-function CategoryChip({
-  href,
-  label,
-  current,
-}: {
-  href: string;
-  label: string;
-  current: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      aria-current={current ? "page" : undefined}
-      className={cn(
-        "rounded-full border px-4 py-1.5 text-caption font-medium transition-colors",
-        current
-          ? "border-navy bg-navy text-white"
-          : "border-line bg-surface text-ink-muted hover:border-navy hover:text-ink",
-      )}
-    >
-      {label}
-    </Link>
   );
 }
 

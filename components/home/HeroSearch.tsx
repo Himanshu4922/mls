@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode, type FormEvent } from "react";
+import { AiSearchBox, SparkleIcon } from "@/components/search/AiSearchBox";
 import { Button } from "@/components/ui/Button";
 import { SearchInput } from "@/components/ui/Field";
 import { SEARCH_PROPERTY_TYPES } from "@/lib/types/domain";
@@ -41,14 +42,69 @@ const POPULAR_SEARCHES: Array<{ label: string; params: Record<string, string> }>
   { label: "Rentals in Downtown Toronto", params: { city: "Toronto", tx: "rent" } },
 ];
 
+type HeroMode = "ai" | "filters";
+
 /**
- * Hero search widget.
+ * Hero search: AI search (a sentence → filters) or the classic filter form.
+ * Both land on the same /listings URL-driven results page.
+ */
+export function HeroSearch() {
+  const [mode, setMode] = useState<HeroMode>("ai");
+
+  return (
+    <div className="w-full max-w-[540px] rounded-surface bg-surface p-6 shadow-pop sm:p-7">
+      <div role="tablist" aria-label="Search mode" className="mb-5 grid grid-cols-2 gap-1 rounded-control bg-surface-alt p-1">
+        {(
+          [
+            { value: "ai", label: "AI Search" },
+            { value: "filters", label: "Filters" },
+          ] as const
+        ).map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            role="tab"
+            aria-selected={mode === tab.value}
+            onClick={() => setMode(tab.value)}
+            className={
+              mode === tab.value
+                ? "flex h-9 items-center justify-center gap-1.5 rounded-control bg-surface text-small font-semibold text-ink shadow-sm"
+                : "flex h-9 items-center justify-center gap-1.5 rounded-control text-small text-ink-muted transition-colors hover:text-ink"
+            }
+          >
+            {tab.value === "ai" && <SparkleIcon className="text-gold-deep" />}
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {mode === "ai" ? (
+        <div role="tabpanel">
+          <div className="mb-4">
+            <p className="text-small font-semibold text-ink">Describe the home you want</p>
+            <p className="text-caption text-ink-muted">
+              Plain English works — we turn it into filters you can adjust
+            </p>
+          </div>
+          <AiSearchBox variant="hero" />
+        </div>
+      ) : (
+        <div role="tabpanel">
+          <FilterSearch />
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The classic filter form.
  *
  * Every control writes a real query param that `parseListingParams` reads, so
  * the resulting /listings URL is shareable and the back button behaves. The
  * reference's equivalent filter buttons were decorative — these are wired.
  */
-export function HeroSearch() {
+function FilterSearch() {
   const router = useRouter();
   const [intent, setIntent] = useState<(typeof INTENTS)[number]["value"]>("buy");
   const [query, setQuery] = useState("");
@@ -88,10 +144,7 @@ export function HeroSearch() {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="w-full max-w-[540px] rounded-surface bg-surface p-6 shadow-pop sm:p-7"
-    >
+    <form onSubmit={handleSubmit}>
       <div className="mb-4">
         <p className="text-small font-semibold text-ink">Search listings</p>
         <p className="text-caption text-ink-muted">

@@ -132,6 +132,30 @@
     @apply bg-background text-foreground;
   }
 
+  /* Clickable controls get the hand cursor. Tailwind v4's preflight dropped
+     `cursor: pointer` on buttons, so every tab, chip and toggle showed the
+     arrow. Set once here rather than per component; disabled controls say so. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  [role="option"],
+  [role="menuitem"],
+  select:not(:disabled),
+  summary,
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  label:has(> input[type="checkbox"]:not(:disabled)),
+  label:has(> input[type="radio"]:not(:disabled)),
+  ::file-selector-button {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
   /* Focus ring.
      Kept — removing it outright would strand keyboard and screen-reader users
      and fail WCAG 2.4.7. Toned down instead: navy rather than gold, 1px hugging

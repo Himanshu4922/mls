@@ -3,6 +3,7 @@
 import {
   forwardRef,
   useId,
+  useRef,
   useState,
   type ComponentPropsWithoutRef,
   type ReactNode,
@@ -345,10 +346,20 @@ export function SearchInput({
   size?: "md" | "lg";
 }) {
   const id = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
   return (
+    // The whole box is the target: the input alone is one text line tall and
+    // stops short of the icon, so hovering or clicking the padding showed the
+    // arrow and did nothing. A click anywhere but the clear button focuses it.
     <div
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget || (event.target as Element).closest("svg[aria-hidden]")) {
+          event.preventDefault();
+          inputRef.current?.focus();
+        }
+      }}
       className={cn(
-        "flex items-center gap-2 rounded-control border border-line bg-surface transition-colors focus-within:border-navy",
+        "flex cursor-text items-center gap-2 rounded-control border border-line bg-surface transition-colors focus-within:border-navy",
         size === "lg" ? "h-13 px-4" : "h-11 px-3.5",
         className,
       )}
@@ -372,7 +383,8 @@ export function SearchInput({
         type="search"
         value={value}
         onChange={(e) => onValueChange(e.target.value)}
-        className="w-full bg-transparent text-small text-ink outline-none placeholder:text-ink-subtle"
+        ref={inputRef}
+        className="h-full w-full bg-transparent text-small text-ink outline-none placeholder:text-ink-subtle"
         {...props}
       />
       {value && (

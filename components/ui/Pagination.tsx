@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PaginationLink } from "@/components/ui/PaginationLink";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -39,6 +39,7 @@ export function Pagination({
             key={entry}
             href={buildHref(entry)}
             current={entry === page}
+            numbered
             label={`Page ${entry}`}
           >
             {entry}
@@ -63,6 +64,7 @@ function PageLink({
   children,
   label,
   current,
+  numbered,
   disabled,
   className,
 }: {
@@ -70,6 +72,7 @@ function PageLink({
   children: React.ReactNode;
   label: string;
   current?: boolean;
+  numbered?: boolean;
   disabled?: boolean;
   className?: string;
 }) {
@@ -90,19 +93,9 @@ function PageLink({
   }
 
   return (
-    <Link
-      href={href}
-      aria-label={label}
-      aria-current={current ? "page" : undefined}
-      className={cn(
-        base,
-        current
-          ? "border-navy bg-navy text-white"
-          : "border-line text-ink hover:border-navy",
-      )}
-    >
+    <PaginationLink href={href} label={label} current={current} numbered={numbered} className={base}>
       {children}
-    </Link>
+    </PaginationLink>
   );
 }
 

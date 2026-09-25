@@ -3,7 +3,10 @@ import { Suspense } from "react";
 import { PropertyCard } from "@/components/property/PropertyCard";
 import { PropertyRow } from "@/components/property/PropertyRow";
 import { ViewToggle, type ListingView } from "@/components/property/ViewToggle";
+import { PendingContent, PendingNavigationProvider } from "@/components/navigation/PendingNavigation";
 import { ListingFilters } from "@/components/property/ListingFilters";
+import { AiSearchBox } from "@/components/search/AiSearchBox";
+import { AiSearchNotice } from "@/components/search/AiSearchNotice";
 import { StatusTabs, type StatusTabItem } from "@/components/search/StatusTabs";
 import { Pagination } from "@/components/ui/Pagination";
 import { EmptyState, ErrorState, PropertyGridSkeleton } from "@/components/ui/States";
@@ -45,17 +48,24 @@ export default async function ListingsPage({ searchParams }: PageProps<"/listing
         </div>
       </header>
 
-      <div className="container-page py-8">
-        <Suspense fallback={<div className="h-24" />}>
-          <FiltersSlot params={params} />
-        </Suspense>
-
-        <div className="mt-8">
-          <Suspense key={JSON.stringify(params)} fallback={<PropertyGridSkeleton />}>
-            <Results params={params} />
+      {/* Filters, tabs and pages navigate through the provider: the clicked
+          control updates at once and the results show a skeleton until the
+          new page arrives, instead of the old results sitting there stale. */}
+      <PendingNavigationProvider>
+        <div className="container-page py-8">
+          <Suspense fallback={<div className="h-24" />}>
+            <FiltersSlot params={params} />
           </Suspense>
+
+          <div className="mt-8">
+            <PendingContent fallback={<PropertyGridSkeleton />}>
+              <Suspense key={JSON.stringify(params)} fallback={<PropertyGridSkeleton />}>
+                <Results params={params} />
+              </Suspense>
+            </PendingContent>
+          </div>
         </div>
-      </div>
+      </PendingNavigationProvider>
     </>
   );
 }
@@ -88,6 +98,8 @@ async function FiltersSlot({
 
   return (
     <>
+      <AiSearchNotice />
+      <AiSearchBox variant="inline" current={query} className="mb-5" />
       <ListingFilters resultCount={result?.total ?? 0} />
       <ListingStatusTabs facets={facets} query={query} />
     </>

@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useRef, type KeyboardEvent, type ReactNode } from "react";
+import { PendingLink, sameHref, usePendingNavigation } from "@/components/navigation/PendingNavigation";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -109,14 +109,18 @@ export function Tabs<T extends string>({
   className?: string;
 }) {
   const refs = useRef<Array<HTMLButtonElement | null>>([]);
+  const { target } = usePendingNavigation();
 
   if (hrefFor) {
+    // Mid-navigation the clicked tab is already selected (PendingNavigation).
+    const pendingId = target ? items.find((item) => sameHref(hrefFor(item.id), target))?.id : undefined;
+    const selected = pendingId ?? value;
     return (
       <nav aria-label={label} className={cn(TRACK[variant], className)}>
         {items.map((item) => {
-          const active = item.id === value;
+          const active = item.id === selected;
           return (
-            <Link
+            <PendingLink
               key={item.id}
               href={hrefFor(item.id)}
               aria-current={active ? "page" : undefined}
@@ -124,7 +128,7 @@ export function Tabs<T extends string>({
               className={tabClasses(variant, active, size)}
             >
               <Label item={item} active={active} variant={variant} />
-            </Link>
+            </PendingLink>
           );
         })}
       </nav>

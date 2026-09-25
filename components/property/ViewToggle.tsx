@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePendingNavigation, usePendingSearchParams } from "@/components/navigation/PendingNavigation";
 import { cn } from "@/lib/utils/cn";
 
 export type ListingView = "grid" | "list";
@@ -16,16 +16,18 @@ export type ListingView = "grid" | "list";
  * /map-search carrying the active filters rather than trying to render a map
  * inside this page's column.
  */
-export function ViewToggle({ view }: { view: ListingView }) {
-  const router = useRouter();
-  const params = useSearchParams();
+export function ViewToggle({ view: serverView }: { view: ListingView }) {
+  const { navigate, target } = usePendingNavigation();
+  const params = usePendingSearchParams();
+  // Mid-navigation, show the view being switched to.
+  const view: ListingView = target ? (params.get("view") === "list" ? "list" : "grid") : serverView;
 
   const setView = (next: ListingView) => {
     const query = new URLSearchParams(params.toString());
     // "grid" is the default; keeping it out of the URL keeps links clean.
     if (next === "grid") query.delete("view");
     else query.set("view", next);
-    router.push(`/listings?${query.toString()}`, { scroll: false });
+    navigate(`/listings?${query.toString()}`, { scroll: false });
   };
 
   /*

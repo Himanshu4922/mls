@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useId } from "react";
 import { EmptyState } from "@/components/ui/States";
 import { Tabs, tabPanelProps } from "@/components/ui/Tabs";
@@ -103,7 +103,6 @@ const TABS: WatchedTabDef[] = [
 export function WatchedList() {
   const { favorites } = useWatched();
   const { user, openAuth } = useAuth();
-  const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const idBase = useId();
@@ -118,6 +117,9 @@ export function WatchedList() {
   const status: StatusGroup = isStatusGroup(rawStatus) ? rawStatus : "active";
 
   // replace, not push: flipping tabs should not fill the back button.
+  // history.replaceState rather than router.replace: every panel's data is
+  // client-side (TanStack), so a server round trip only delayed the tab
+  // switch. Next keeps useSearchParams in sync with native history calls.
   function navigate(next: { tab?: string; status?: StatusGroup }) {
     const query = new URLSearchParams(params.toString());
     if (next.tab) {
@@ -125,7 +127,7 @@ export function WatchedList() {
       if (next.tab !== "properties") query.delete("status");
     }
     if (next.status) query.set("status", next.status);
-    router.replace(`${pathname}?${query.toString()}`, { scroll: false });
+    window.history.replaceState(null, "", `${pathname}?${query.toString()}`);
   }
 
   const Panel = active.Panel;

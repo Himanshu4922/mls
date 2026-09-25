@@ -27,6 +27,7 @@ function int(value: string | string[] | undefined): number | undefined {
 }
 
 const SORTS: ListingSort[] = [
+  "relevance",
   "newest",
   "price-asc",
   "price-desc",
@@ -58,6 +59,11 @@ export function parseListingParams(params: RawParams): ListingQuery {
   // page; the filter form is where a user gets told what was wrong.
   const postal = parsePostalList(first(params.postal) ?? "").codes;
   const polygon = parsePolygonParam(first(params.poly));
+  const semantic = first(params.ai)?.trim().slice(0, 300) || undefined;
+  // An AI search defaults to "Best match"; without its preferences there is
+  // nothing to rank by, so "relevance" falls back to newest.
+  const defaultSort: ListingSort = semantic ? "relevance" : "newest";
+  const sort = sortRaw && SORTS.includes(sortRaw) ? sortRaw : defaultSort;
 
   return {
     search: first(params.q)?.trim() || undefined,
@@ -75,8 +81,9 @@ export function parseListingParams(params: RawParams): ListingQuery {
     postalCodes: postal.length > 0 ? postal : undefined,
     openHouse: first(params.openHouse) === "1" || undefined,
     polygon: polygon ?? undefined,
+    semantic,
     view: first(params.view) === "list" ? "list" : undefined,
-    sort: sortRaw && SORTS.includes(sortRaw) ? sortRaw : "newest",
+    sort: sort === "relevance" && !semantic ? "newest" : sort,
     limit: PAGE_SIZE,
     offset: (Math.max(1, page) - 1) * PAGE_SIZE,
   };
@@ -110,7 +117,10 @@ export function buildListingQueryString(
   if (query.openHouse) params.set("openHouse", "1");
   const poly = serializePolygonParam(query.polygon);
   if (poly) params.set("poly", poly);
-  if (query.sort && query.sort !== "newest") params.set("sort", query.sort);
+  if (query.semantic) params.set("ai", query.semantic);
+  // Omit the default sort, which depends on whether `ai` is present.
+  const defaultSort = query.semantic ? "relevance" : "newest";
+  if (query.sort && query.sort !== defaultSort) params.set("sort", query.sort);
   if (query.view === "list") params.set("view", "list");
   if (query.page && query.page > 1) params.set("page", String(query.page));
   return params.toString();
@@ -143,6 +153,7 @@ export function hasActiveFilters(query: ListingQuery): boolean {
       query.yearBuiltMin ||
       query.postalCodes?.length ||
       query.openHouse ||
+      query.semantic ||
       query.polygon?.length,
   );
 }

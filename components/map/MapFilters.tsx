@@ -3,7 +3,14 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { ChipToggle, Field, Input, NumericInput, Select } from "@/components/ui/Field";
-import { LISTING_SORTS, SEARCH_PROPERTY_TYPES, type ListingQuery, type ListingSort } from "@/lib/types/domain";
+import { AiSearchBox } from "@/components/search/AiSearchBox";
+import {
+  LISTING_SORTS,
+  RELEVANCE_SORT,
+  SEARCH_PROPERTY_TYPES,
+  type ListingQuery,
+  type ListingSort,
+} from "@/lib/types/domain";
 import { formatNumber, formatPrice } from "@/lib/utils/format";
 import { formatPostal } from "@/lib/utils/postal";
 import { STATUS_TABS } from "@/lib/utils/status";
@@ -143,6 +150,7 @@ export function MapFilterBar({
 
   return (
     <div className="space-y-3">
+      <AiSearchBox variant="inline" basePath="/map-search" current={query} />
       <div className="flex flex-wrap items-center gap-2">
         <div role="group" aria-label="Buy or rent" className="flex gap-1.5">
           <ChipToggle active={!rent} onClick={() => setRent(false)}>
@@ -160,7 +168,7 @@ export function MapFilterBar({
             value={query.sort ?? "newest"}
             onChange={(event) => onChange({ ...query, sort: event.target.value as ListingSort })}
           >
-            {LISTING_SORTS.map((option) => (
+            {(query.semantic ? [RELEVANCE_SORT, ...LISTING_SORTS] : LISTING_SORTS).map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -241,6 +249,12 @@ function appliedPills(query: ListingQuery, onChange: OnQueryChange): ReactNode[]
   const rent = query.transaction === "rent";
   const money = (value: number) => (rent ? `${formatPrice(value)}/mo` : formatPrice(value));
 
+  if (query.semantic) {
+    add("ai", `Like: ${query.semantic}`, {
+      semantic: undefined,
+      sort: query.sort === "relevance" ? "newest" : query.sort,
+    });
+  }
   if (query.search) add("q", `"${query.search}"`, { search: undefined });
   // City and postal are set from /listings; the map has no field for them, so
   // the pill is the only place they can be seen and removed here.

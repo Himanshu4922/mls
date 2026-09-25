@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import {
@@ -11,8 +10,9 @@ import {
   SearchInput,
   ChipToggle,
 } from "@/components/ui/Field";
+import { usePendingNavigation, usePendingSearchParams } from "@/components/navigation/PendingNavigation";
 import { SaveSearchButton } from "@/components/search/SaveSearchButton";
-import { SEARCH_PROPERTY_TYPES, LISTING_SORTS } from "@/lib/types/domain";
+import { SEARCH_PROPERTY_TYPES, LISTING_SORTS, RELEVANCE_SORT } from "@/lib/types/domain";
 import { formatPrice } from "@/lib/utils/format";
 import { formatPostal, looksLikePostal, parsePostalList } from "@/lib/utils/postal";
 import { parseListingSearch } from "@/lib/utils/searchParams";
@@ -31,7 +31,7 @@ type Draft = Record<PanelKey, string>;
  * separately; status/openHouse/poly come from the tabs and the map, and are
  * pilled so a filter set elsewhere is never invisible on this page.
  */
-const ALL_KEYS = ["q", "type", "status", "openHouse", "poly", ...PANEL_KEYS] as const;
+const ALL_KEYS = ["ai", "q", "type", "status", "openHouse", "poly", ...PANEL_KEYS] as const;
 type FilterKey = (typeof ALL_KEYS)[number];
 
 const EMPTY_DRAFT: Draft = {
@@ -84,8 +84,10 @@ function sameDraft(a: Draft, b: Draft) {
  * always visible without reopening the panel.
  */
 export function ListingFilters({ resultCount }: { resultCount: number }) {
-  const router = useRouter();
-  const params = useSearchParams();
+  // The URL being navigated to, so chips and pills change on click rather
+  // than when the server answers (PendingNavigation).
+  const { navigate } = usePendingNavigation();
+  const params = usePendingSearchParams();
 
   const urlQuery = params.get("q") ?? "";
   const [search, setSearch] = useState(urlQuery);
@@ -128,7 +130,7 @@ export function ListingFilters({ resultCount }: { resultCount: number }) {
     // Any filter change returns to page 1; staying on page 5 of a new result
     // set is the classic filtered-pagination bug.
     next.delete("page");
-    router.push(`/listings?${next.toString()}`);
+    navigate(`/listings?${next.toString()}`);
   };
 
   const submitSearch = (event: FormEvent) => {
@@ -225,10 +227,12 @@ export function ListingFilters({ resultCount }: { resultCount: number }) {
         <Select
           aria-label="Sort listings"
           className="w-auto min-w-[180px]"
-          value={params.get("sort") ?? "newest"}
+          value={params.get("sort") ?? (params.get("ai") ? RELEVANCE_SORT.value : "newest")}
           onChange={(event) => update({ sort: event.target.value })}
         >
-          {LISTING_SORTS.map((option) => (
+          {/* "Best match" ranks by the AI search's preferences, so it only
+              exists while they are applied. */}
+          {(params.get("ai") ? [RELEVANCE_SORT, ...LISTING_SORTS] : LISTING_SORTS).map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -304,7 +308,7 @@ export function ListingFilters({ resultCount }: { resultCount: number }) {
           <button
             type="button"
             // Clearing filters keeps you on the side (Buy/Rent) you were on.
-            onClick={() => router.push(isRent ? "/listings?tx=rent" : "/listings")}
+            onClick={() => navigate(isRent ? "/listings?tx=rent" : "/listings")}
             className="text-caption font-medium text-ink-muted underline underline-offset-2 transition-colors hover:text-ink"
           >
             Clear all
@@ -459,6 +463,8 @@ export function ListingFilters({ resultCount }: { resultCount: number }) {
 function pillLabel(key: FilterKey, params: URLSearchParams): string {
   const value = params.get(key) ?? "";
   switch (key) {
+    case "ai":
+      return `Like: ${value}`;
     case "q":
       return `"${value}"`;
     case "beds":

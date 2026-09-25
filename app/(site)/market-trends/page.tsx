@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Suspense } from "react";
+import { NavChip } from "@/components/navigation/NavChip";
+import { PendingContent, PendingNavigationProvider } from "@/components/navigation/PendingNavigation";
 import { SegmentBars, TrendChart } from "@/components/market/TrendChart";
 import { Eyebrow } from "@/components/ui/Badge";
 import { ErrorState, Skeleton } from "@/components/ui/States";
@@ -31,8 +32,10 @@ export default async function MarketTrendsPage({
   const city = MARKET_CITIES.find((c) => c.toLowerCase() === raw?.toLowerCase())
     ?? MARKET_CITIES[0];
 
+  // City chips select on click; the figures show a skeleton while the new
+  // city loads (PendingNavigation).
   return (
-    <>
+    <PendingNavigationProvider>
       <header className="border-b border-line bg-surface-alt py-8 sm:py-12">
         <div className="container-page">
           <Eyebrow>Market insights</Eyebrow>
@@ -43,30 +46,27 @@ export default async function MarketTrendsPage({
 
           <nav aria-label="Select a city" className="mt-6 flex flex-wrap gap-2">
             {MARKET_CITIES.map((option) => (
-              <Link
+              <NavChip
                 key={option}
                 href={`/market-trends?city=${encodeURIComponent(option)}`}
-                aria-current={option === city ? "page" : undefined}
-                className={cn(
-                  "rounded-full border px-4 py-1.5 text-caption font-medium transition-colors",
-                  option === city
-                    ? "border-navy bg-navy text-white"
-                    : "border-line bg-surface text-ink-muted hover:border-navy hover:text-ink",
-                )}
+                current={option === city}
+                scroll={false}
               >
                 {option}
-              </Link>
+              </NavChip>
             ))}
           </nav>
         </div>
       </header>
 
       <div className="container-page py-10">
-        <Suspense key={city} fallback={<TrendsSkeleton />}>
-          <CityTrends city={city} />
-        </Suspense>
+        <PendingContent fallback={<TrendsSkeleton />}>
+          <Suspense key={city} fallback={<TrendsSkeleton />}>
+            <CityTrends city={city} />
+          </Suspense>
+        </PendingContent>
       </div>
-    </>
+    </PendingNavigationProvider>
   );
 }
 
