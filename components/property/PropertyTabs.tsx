@@ -52,7 +52,7 @@ export function PropertyTabs({ tabs }: { tabs: PropertyTab[] }) {
               aria-controls={`panel-${tab.id}`}
               onClick={() => setActive(tab.id)}
               className={cn(
-                "shrink-0 border-b-2 px-4 py-3 text-small font-medium transition-colors",
+                "shrink-0 cursor-pointer border-b-2 px-4 py-3 text-small font-medium transition-colors",
                 selected
                   ? "border-navy text-navy"
                   : "border-transparent text-ink-muted hover:text-ink",

@@ -6,14 +6,18 @@ import { getPreconProjects } from "@/lib/api/preconstruction";
 
 /**
  * "Invest Ahead / New Preconstruction Projects" (HomeAtlasUI HomePage
- * L375-437). LIVE via getPreconProjects, same as the old PreconRail; omitted
- * when the backend returns nothing. The reference's prev/next arrows were
+ * L375-437). LIVE via getPreconProjects: projects pinned in admin first, then
+ * the most recently published, with sold-out projects left out. Omitted when
+ * the backend returns nothing. The reference's prev/next arrows were
  * non-functional decoration over a static grid and are not ported — the
  * "View All Projects" button is the way onward.
  */
 export async function NewPrecon() {
   const { items } = await safeFetch(
-    getPreconProjects({ limit: 3 }),
+    getPreconProjects({
+      limit: 3,
+      params: { ordering: "featured", exclude_stage: "sold_out" },
+    }),
     { items: [], total: 0 },
     "home:precon",
   );

@@ -296,6 +296,28 @@ export async function getNewlyListed(
   return (data.results ?? []).map(mapPropertySummary);
 }
 
+/**
+ * Home "Featured" rail: listings an admin pinned (`is_featured`, in
+ * `featured_order`) first, topped up by the backend with exclusive listings.
+ * `pinnedCount` says how many of the rows were hand-picked.
+ */
+export async function getFeaturedProperties(
+  limit = 6,
+  options: RequestOptions = {},
+): Promise<{ listings: PropertySummary[]; pinnedCount: number }> {
+  const data = await apiFetch<
+    BackendListResponse<BackendPropertySummary> & { pinned_count?: number }
+  >(`${MLS}/properties/featured-properties/`, {
+    revalidate: 300,
+    ...options,
+    params: { limit, ...options.params },
+  });
+  return {
+    listings: (data.results ?? []).map(mapPropertySummary),
+    pinnedCount: data.pinned_count ?? 0,
+  };
+}
+
 export async function getExclusiveProperties(
   limit = 8,
   options: RequestOptions = {},

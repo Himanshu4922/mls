@@ -1,7 +1,7 @@
 /**
  * Inline section data from HomeAtlasUI/src/pages/HomePage.tsx, ported verbatim.
  *
- * REFERENCE SAMPLE DATA, PENDING BACKEND. Investor yields, deals counts,
+ * REFERENCE SAMPLE DATA, PENDING BACKEND. Deals counts,
  * sold-below-purchase prices, school ratings, incentive amounts and the market
  * snapshot have no endpoint yet (see docs/HOMEPAGE_BACKEND_REQUIREMENTS.xlsx).
  * Per the product decision they render as the reference shows them until those
@@ -12,22 +12,6 @@
  */
 
 import type { PropertyType } from "@/lib/home/sampleData";
-
-/* HIGH RETURN PROPERTIES (reference L497-501) */
-
-export interface InvestorPick {
-  id: string;
-  rentalYield: number;
-  rentalIncome: number;
-  capRate: number;
-  desc: string;
-}
-
-export const investorPicks: InvestorPick[] = [
-  { id: "p8", rentalYield: 5.2, rentalIncome: 2800, capRate: 4.1, desc: "Downtown rental with high demand" },
-  { id: "p3", rentalYield: 4.8, rentalIncome: 3600, capRate: 3.9, desc: "Vaughan townhome — low vacancy area" },
-  { id: "p11", rentalYield: 5.6, rentalIncome: 2200, capRate: 4.5, desc: "Mississauga condo — strong rental demand" },
-];
 
 /* GTA MARKET DEALS (reference L548-588) */
 

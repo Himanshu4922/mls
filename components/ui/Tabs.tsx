@@ -167,7 +167,11 @@ export function Tabs<T extends string>({
             disabled={item.disabled}
             onClick={() => onChange?.(item.id)}
             onKeyDown={(event) => onKeyDown(event, index)}
-            className={cn(tabClasses(variant, active, size), "disabled:opacity-40")}
+            className={cn(
+              tabClasses(variant, active, size),
+              // Tailwind v4 dropped the pointer cursor from buttons; link tabs get it natively.
+              "cursor-pointer disabled:cursor-not-allowed disabled:opacity-40",
+            )}
           >
             <Label item={item} active={active} variant={variant} />
           </button>

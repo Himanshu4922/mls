@@ -4,10 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Section } from "@/components/ui/Section";
 import { getInvestorPicks } from "@/lib/api/home";
 import type { InvestorPick } from "@/lib/api/homeMappers";
-import { formatFullPrice, properties } from "@/lib/home/sampleData";
-import { investorPicks } from "@/lib/home/staticSections";
 import { formatPrice } from "@/lib/utils/format";
-import { buildListingHref } from "@/lib/utils/searchParams";
 
 /**
  * "High Return Properties" investor strip — HomeAtlasUI HomePage L483-539.
@@ -17,9 +14,8 @@ import { buildListingHref } from "@/lib/utils/searchParams";
  * the backend's own `calc_basis.note` so the basis of the estimate is always
  * disclosed next to the figures.
  *
- * When the feed is down or empty, the reference's sample records render
- * instead under an "illustration" caption; those aren't MLS® listings, so
- * their cards open the matching city + type search, never a property page.
+ * When the feed is down or empty the section is omitted: yield figures are
+ * only ever shown for real listings, never as sample numbers.
  */
 
 const DEFAULT_BASIS =
@@ -62,33 +58,11 @@ function liveCard(pick: InvestorPick): CardView {
   };
 }
 
-function sampleCards(): CardView[] {
-  return investorPicks.flatMap((pick) => {
-    const prop = properties.find((p) => p.id === pick.id);
-    if (!prop) return [];
-    return [
-      {
-        key: pick.id,
-        href: buildListingHref({ city: prop.community, type: prop.type }),
-        image: prop.image,
-        address: prop.address,
-        price: formatFullPrice(prop.price),
-        desc: pick.desc,
-        yieldPct: pick.rentalYield,
-        rent: pick.rentalIncome,
-        capRate: pick.capRate,
-      },
-    ];
-  });
-}
-
 export async function HighReturnProperties() {
   const feed = await getInvestorPicks(3);
-  const live = feed !== null && feed.picks.length > 0;
-  const cards = live ? feed.picks.map(liveCard) : sampleCards();
-  const caption = live
-    ? (feed.basisNote ?? DEFAULT_BASIS)
-    : "Estimated figures for illustration";
+  if (feed === null || feed.picks.length === 0) return null;
+  const cards = feed.picks.map(liveCard);
+  const caption = feed.basisNote ?? DEFAULT_BASIS;
 
   return (
     <Section
