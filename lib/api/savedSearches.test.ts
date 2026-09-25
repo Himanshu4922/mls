@@ -4,6 +4,7 @@ import {
   defaultSearchName,
   fromBackendParams,
   searchIdentity,
+  toAlertCadence,
   toSavedFilters,
 } from "./savedSearches";
 
@@ -107,5 +108,22 @@ describe("defaultSearchName", () => {
     );
     expect(defaultSearchName(parseListingSearch("postal=L7A"))).toBe("Homes in L7A");
     expect(defaultSearchName(parseListingSearch(""))).toBe("Homes");
+  });
+});
+
+describe("toAlertCadence", () => {
+  it("passes through the cadences the UI offers", () => {
+    expect(toAlertCadence("daily")).toBe("daily");
+    expect(toAlertCadence("weekly")).toBe("weekly");
+    expect(toAlertCadence("off")).toBe("off");
+  });
+
+  it("shows instant as daily, because the backend runs it daily", () => {
+    expect(toAlertCadence("instant")).toBe("daily");
+  });
+
+  it("treats missing or unknown values as off", () => {
+    expect(toAlertCadence(undefined)).toBe("off");
+    expect(toAlertCadence("hourly")).toBe("off");
   });
 });

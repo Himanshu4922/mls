@@ -4,6 +4,7 @@ import { CommunityCard, CommunityCardSkeleton, communityImage } from "@/componen
 import { Eyebrow } from "@/components/ui/Badge";
 import { getCommunityImages } from "@/lib/api/home";
 import { getBulkCatalogStats } from "@/lib/api/market";
+import { COMMUNITY_CITIES } from "@/lib/constants/cities";
 
 export const metadata: Metadata = {
   title: "Communities",
@@ -14,24 +15,6 @@ export const metadata: Metadata = {
 
 export const revalidate = 1800;
 
-/**
- * Cities on the grid, in the product owner's order (the first eight are the
- * reference design's). The bulk endpoint caps a request at 20 cities.
- */
-const COMMUNITY_CITIES = [
-  "Toronto",
-  "Mississauga",
-  "Vaughan",
-  "Oakville",
-  "Markham",
-  "Milton",
-  "Brampton",
-  "Pickering",
-  "Burlington",
-  "Hamilton",
-  "Richmond Hill",
-  "Ajax",
-] as const;
 
 export default function CommunitiesPage() {
   return (

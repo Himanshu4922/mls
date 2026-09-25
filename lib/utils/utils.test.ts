@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPriceCompact } from "./format";
+import { EMPTY, formatPriceCompact, formatTorontoDateTime } from "./format";
 import { formatPhone, maskPhone, toE164 } from "./phone";
 import { formatPostal, looksLikePostal, normalizePostal, parsePostalList } from "./postal";
 import { backendStatusGroup, STATUS_TABS, statusGroup, statusParamForGroup } from "./status";
@@ -125,5 +125,24 @@ describe("formatPriceCompact", () => {
     expect(formatPriceCompact(1_120_000)).toBe("$1.12M");
     expect(formatPriceCompact(952_000)).toBe("$952K");
     expect(formatPriceCompact(2_000_000)).toBe("$2M");
+  });
+});
+
+describe("formatTorontoDateTime", () => {
+  it("renders in Toronto time regardless of the input offset", () => {
+    // 21:10 UTC on Sep 25 is 17:10 EDT.
+    const out = formatTorontoDateTime("2026-09-25T21:10:00Z");
+    expect(out).toContain("Sep 25, 2026");
+    expect(out).toMatch(/5:10/);
+    expect(out.endsWith("ET")).toBe(true);
+  });
+
+  it("crosses the date line into the previous Toronto day", () => {
+    expect(formatTorontoDateTime("2026-09-26T02:00:00Z")).toContain("Sep 25, 2026");
+  });
+
+  it("returns the placeholder for missing or invalid input", () => {
+    expect(formatTorontoDateTime(null)).toBe(EMPTY);
+    expect(formatTorontoDateTime("not a date")).toBe(EMPTY);
   });
 });

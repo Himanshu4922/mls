@@ -3,6 +3,7 @@ import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
 import { AlertsCta } from "@/components/home/AlertsCta";
 import { HeroSearch } from "@/components/home/HeroSearch";
+import { ListingsFreshness, ListingsFreshnessFallback } from "@/components/home/ListingsFreshness";
 import { BuyersIncentives } from "@/components/home/sections/BuyersIncentives";
 import { DailyNews } from "@/components/home/sections/DailyNews";
 import { FeaturedListings } from "@/components/home/sections/FeaturedListings";
@@ -172,10 +173,11 @@ function Hero() {
             {/* The reference paired three stock avatars with "Trusted by 12,000+
                 GTA homeowners". Neither ships here: the photos aren't licensed and
                 the headcount is a figure no backend can source — same reasoning as
-                AnnouncementBar. This line states only what is verifiably true. */}
-            <p className="mt-6 text-small text-white/75">
-              Live MLS® data, updated daily across the Greater Toronto Area
-            </p>
+                AnnouncementBar. This line states only what is verifiably true:
+                the real time of the last listing sync. */}
+            <Suspense fallback={<ListingsFreshnessFallback />}>
+              <ListingsFreshness />
+            </Suspense>
           </div>
 
           {/* Search widget */}

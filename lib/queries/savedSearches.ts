@@ -2,7 +2,7 @@
 
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useUserKeys } from "@/components/providers/AuthProvider";
-import type { SavedFilters, SavedSearch } from "@/lib/api/savedSearches";
+import type { AlertCadence, SavedFilters, SavedSearch } from "@/lib/api/savedSearches";
 import { fetchJson } from "@/lib/queries/fetcher";
 import { qk, type UserKeys } from "@/lib/queries/keys";
 
@@ -58,12 +58,12 @@ export function useSavedSearchActions() {
   };
 
   const save = useMutation({
-    mutationFn: (input: { name: string; filters: SavedFilters; replaceId?: number }) =>
+    mutationFn: (input: { name: string; filters: SavedFilters; alertCadence: AlertCadence; replaceId?: number }) =>
       fetchJson<SavedSearch>(
         input.replaceId ? `/api/saved-searches/${input.replaceId}` : "/api/saved-searches",
         {
           method: input.replaceId ? "PUT" : "POST",
-          body: { name: input.name, filters: input.filters },
+          body: { name: input.name, filters: input.filters, alertCadence: input.alertCadence },
           fallback: "Could not save this search.",
         },
       ),
@@ -80,6 +80,16 @@ export function useSavedSearchActions() {
     onSuccess: put,
   });
 
+  const setAlerts = useMutation({
+    mutationFn: (input: { id: number; alertCadence: AlertCadence }) =>
+      fetchJson<SavedSearch>(`/api/saved-searches/${input.id}`, {
+        method: "PUT",
+        body: { alertCadence: input.alertCadence },
+        fallback: "Could not update alerts for this search.",
+      }),
+    onSuccess: put,
+  });
+
   const remove = useMutation({
     mutationFn: (id: number) =>
       fetchJson<unknown>(`/api/saved-searches/${id}`, {
@@ -89,5 +99,5 @@ export function useSavedSearchActions() {
     onSuccess: () => put(null),
   });
 
-  return { save, rename, remove };
+  return { save, rename, setAlerts, remove };
 }

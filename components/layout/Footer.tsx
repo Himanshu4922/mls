@@ -11,6 +11,7 @@ const COLUMNS: Array<{ heading: string; links: Array<{ label: string; href: stri
       { label: "Rentals", href: "/listings?tx=rent" },
       { label: "Preconstruction", href: "/preconstruction" },
       { label: "Map search", href: "/map-search" },
+      { label: "Recently sold", href: "/recently-sold" },
       { label: "Communities", href: "/communities" },
     ],
   },
@@ -27,6 +28,8 @@ const COLUMNS: Array<{ heading: string; links: Array<{ label: string; href: stri
     links: [
       { label: "Saved homes", href: "/watched" },
       { label: "Compare homes", href: "/compare" },
+      { label: "Blog", href: "/blog" },
+      { label: "Sitemap", href: "/site-map" },
     ],
   },
 ];

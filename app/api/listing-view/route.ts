@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { recordListingView } from "@/lib/api/watched";
 import { requireAccessToken } from "@/lib/auth/session";
+import { clientMetaHeaders } from "@/lib/utils/clientMeta";
 
 /**
  * POST /api/listing-view — view beacon feeding listing popularity.
@@ -17,7 +18,7 @@ export async function POST(request: Request) {
 
   try {
     const token = await requireAccessToken();
-    await recordListingView(body.listing_key, body.session_key, token);
+    await recordListingView(body.listing_key, body.session_key, token, clientMetaHeaders(request));
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ ok: false });

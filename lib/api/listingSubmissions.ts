@@ -138,8 +138,9 @@ export function uploadSubmissionMedia(token: string, id: number, form: FormData)
   });
 }
 
-export function submitSubmission(token: string, id: number) {
-  return apiFetch<ListingSubmission>(`${BASE}/${id}/submit/`, { method: "POST", token });
+/** `headers`: the visitor's forwarded IP/user agent, recorded with the submission. */
+export function submitSubmission(token: string, id: number, headers?: Record<string, string>) {
+  return apiFetch<ListingSubmission>(`${BASE}/${id}/submit/`, { method: "POST", token, headers });
 }
 
 export function withdrawSubmission(token: string, id: number) {

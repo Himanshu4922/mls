@@ -83,6 +83,9 @@ export const qk = {
     submissions: ["me", userId, "listing-submissions", "mine"] as const,
     submission: (id: number) => ["me", userId, "listing-submissions", "one", id] as const,
     nearbyAlerts: ["me", userId, "home", "nearby-alerts"] as const,
+    /** Under "me" only because sold data is sign-in gated: sign-out drops it. */
+    recentSales: (city: string, days: number, page: number) =>
+      ["me", userId, "market", "recent-sales", normText(city), days, page] as const,
   }),
 };
 

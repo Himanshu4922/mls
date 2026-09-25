@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiFetch, ApiError } from "@/lib/api/client";
 import { requireAccessToken } from "@/lib/auth/session";
+import { clientMetaHeaders } from "@/lib/utils/clientMeta";
 
 /**
  * POST /api/inquiries — proxies mls-v2 `POST /api/mls/inquiries/`.
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
   try {
     const result = await apiFetch<{ id?: number; message?: string }>(
       "/api/mls/inquiries/",
-      { method: "POST", body: payload, token },
+      { method: "POST", body: payload, token, headers: clientMetaHeaders(request) },
     );
     return NextResponse.json(result ?? { ok: true }, { status: 201 });
   } catch (error) {
@@ -57,6 +58,7 @@ export async function POST(request: Request) {
             {
               method: "POST",
               token,
+              headers: clientMetaHeaders(request),
               body: {
                 ...payload,
                 intent: "buy",

@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { MapContainer, Marker, Polygon, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import { CircleMarker, MapContainer, Marker, Polygon, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { DrawHint, MapControls } from "@/components/map/MapControls";
@@ -23,6 +23,7 @@ import {
   type LatLngPoint,
 } from "@/lib/map/polygon";
 import { useMapDrawing, type DrawMode } from "@/lib/map/useMapDrawing";
+import { useUserLocation } from "@/lib/map/useUserLocation";
 import {
   buildListingHref,
   buildListingQueryString,
@@ -184,6 +185,11 @@ export function MapSearch() {
   const rowRefs = useRef(new Map<string, HTMLElement>());
   const listRef = useRef<HTMLUListElement>(null);
   const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null);
+  // Auto-centre only when the URL doesn't already say where to look.
+  const userLocation = useUserLocation({
+    autoCenter: !params.get("poly"),
+    onLocated: (point) => setFlyTarget(point),
+  });
   const [viewport, setViewport] = useState<MapViewport | null>(null);
   // Debounce viewport changes so a drag doesn't fire a request per frame.
   const debouncedViewport = useDebouncedValue(viewport, 350);
@@ -344,6 +350,14 @@ export function MapSearch() {
           />
           <BoundsWatcher onChange={handleBounds} />
           <FlyTo target={flyTarget} />
+          {userLocation.position && (
+            <CircleMarker
+              center={userLocation.position}
+              radius={7}
+              pathOptions={{ color: "#ffffff", weight: 2, fillColor: "#2563eb", fillOpacity: 1 }}
+              interactive={false}
+            />
+          )}
           <MapClickWatcher onClick={() => setSelectedId(null)} />
           {polygon && <DrawnArea points={polygon} />}
 
@@ -383,11 +397,24 @@ export function MapSearch() {
         <MapControls
           drawMode={drawing.mode}
           hasShape={Boolean(polygon)}
+          locating={userLocation.status === "locating"}
           onZoomIn={() => map?.zoomIn()}
           onZoomOut={() => map?.zoomOut()}
+          onLocate={userLocation.locate}
           onDraw={toggleDraw}
           onClear={clearShape}
         />
+
+        {(userLocation.status === "denied" || userLocation.status === "unavailable") && (
+          <p
+            role="status"
+            className="absolute bottom-4 left-1/2 z-[400] -translate-x-1/2 rounded-full bg-ink/90 px-4 py-2 text-caption text-white shadow-pop"
+          >
+            {userLocation.status === "denied"
+              ? "Location is blocked for this site in your browser settings."
+              : "Your location isn't available right now."}
+          </p>
+        )}
 
         {selected && !drawing.mode && (
           <MapPreviewCard property={selected} onClose={() => setSelectedId(null)} />

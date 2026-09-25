@@ -13,15 +13,19 @@ import type { DrawMode } from "@/lib/map/useMapDrawing";
 export function MapControls({
   drawMode,
   hasShape,
+  locating,
   onZoomIn,
   onZoomOut,
+  onLocate,
   onDraw,
   onClear,
 }: {
   drawMode: DrawMode | null;
   hasShape: boolean;
+  locating: boolean;
   onZoomIn: () => void;
   onZoomOut: () => void;
+  onLocate: () => void;
   onDraw: (mode: DrawMode) => void;
   onClear: () => void;
 }) {
@@ -32,6 +36,10 @@ export function MapControls({
       </ControlButton>
       <ControlButton label="Zoom out" onClick={onZoomOut}>
         <path d="M3.5 8h9" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
+      </ControlButton>
+      <ControlButton label={locating ? "Finding your location…" : "Show my location"} active={locating} onClick={onLocate}>
+        <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M8 1.5v2.5M8 12v2.5M1.5 8H4M12 8h2.5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.5" />
       </ControlButton>
 
       <div className="mt-2 flex flex-col gap-2">

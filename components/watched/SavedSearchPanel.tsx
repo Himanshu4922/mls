@@ -7,6 +7,7 @@ import { useAuth } from "@/components/providers/AuthProvider";
 import { Button, LinkButton } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
 import { Modal } from "@/components/ui/Modal";
+import { AlertCadencePicker } from "@/components/search/AlertCadencePicker";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/States";
 import {
   describeCriteria,
@@ -65,7 +66,7 @@ export function SavedSearchPanel() {
 function SavedSearchCard({ saved }: { saved: SavedSearch }) {
   const [renaming, setRenaming] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const { remove } = useSavedSearchActions();
+  const { remove, setAlerts } = useSavedSearchActions();
   const query = fromBackendParams(saved.filters);
   const updated = saved.updatedAt ?? saved.createdAt;
 
@@ -85,6 +86,29 @@ function SavedSearchCard({ saved }: { saved: SavedSearch }) {
 
       <div className="mt-4">
         <CriteriaChips criteria={describeCriteria(query)} />
+      </div>
+
+      <div className="mt-5">
+        <p id={`alerts-${saved.id}`} className="mb-2 text-small font-medium text-ink">
+          New listing alerts
+        </p>
+        <AlertCadencePicker
+          value={saved.alertCadence}
+          onChange={(alertCadence) => setAlerts.mutate({ id: saved.id, alertCadence })}
+          disabled={setAlerts.isPending}
+          labelId={`alerts-${saved.id}`}
+        />
+        {setAlerts.error && (
+          <p role="alert" className="mt-2 text-caption text-negative">
+            {setAlerts.error.message}
+          </p>
+        )}
+        {saved.alertCadence !== "off" && saved.lastRunAt && (
+          <p className="mt-2 text-caption text-ink-muted">
+            Last checked {formatDate(saved.lastRunAt)}
+            {saved.lastResultCount ? ` · ${saved.lastResultCount} new then` : ""}
+          </p>
+        )}
       </div>
 
       <div className="mt-5 flex flex-wrap gap-2 border-t border-line pt-4">

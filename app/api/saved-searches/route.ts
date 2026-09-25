@@ -35,6 +35,7 @@ export async function POST(request: Request) {
     const saved = await createSavedSearch(token, {
       name: payload.name!,
       filters: payload.filters!,
+      alertCadence: payload.alertCadence,
     });
     return NextResponse.json(saved, { status: 201 });
   } catch (error) {

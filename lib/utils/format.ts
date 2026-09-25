@@ -111,3 +111,25 @@ export function titleCase(value: string | null | undefined): string | null {
 export function pluralize(count: number, singular: string, plural?: string): string {
   return count === 1 ? singular : (plural ?? `${singular}s`);
 }
+
+/**
+ * "Sep 25, 2026 at 5:10 p.m. ET" — a backend timestamp shown in Toronto time,
+ * the market every listing is in, whatever the server's or reader's zone.
+ */
+export function formatTorontoDateTime(value: string | null | undefined): string {
+  if (!value) return EMPTY;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return EMPTY;
+  const date = d.toLocaleDateString("en-CA", {
+    timeZone: "America/Toronto",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  const time = d.toLocaleTimeString("en-CA", {
+    timeZone: "America/Toronto",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${date} at ${time} ET`;
+}

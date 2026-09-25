@@ -10,8 +10,11 @@
  * saved search against the API verbatim. `fromBackendParams` is the inverse
  * that rebuilds the /listings URL; the pair is round-trip tested.
  *
- * No alert cadence is exposed: nothing on the backend consumes
- * `alert_cadence` yet, and offering "email me daily" would be a false promise.
+ * Alerts: `alert_cadence` drives the backend's saved-search email job
+ * (mls-v2 services/saved_search_alerts.py), which replays `filters_json`
+ * through `properties/filter/` and emails listings new since the last check.
+ * The backend also accepts "instant", which it runs as daily; the UI offers
+ * only what actually happens.
  */
 
 import { apiFetch } from "@/lib/api/client";
@@ -33,10 +36,30 @@ const UI_TYPE_KEY = "ui_type";
 
 export type SavedFilters = Record<string, string>;
 
+export const ALERT_CADENCES = ["daily", "weekly", "off"] as const;
+export type AlertCadence = (typeof ALERT_CADENCES)[number];
+
+export const ALERT_CADENCE_LABELS: Record<AlertCadence, string> = {
+  daily: "Email me daily",
+  weekly: "Email me weekly",
+  off: "No emails",
+};
+
+export function isAlertCadence(value: unknown): value is AlertCadence {
+  return typeof value === "string" && (ALERT_CADENCES as readonly string[]).includes(value);
+}
+
+/** Backend cadence → UI cadence. "instant" runs as daily, so it shows as daily. */
+export function toAlertCadence(value: string | undefined): AlertCadence {
+  if (value === "instant") return "daily";
+  return isAlertCadence(value) ? value : "off";
+}
+
 export interface SavedSearch {
   id: number;
   name: string;
   filters: SavedFilters;
+  alertCadence: AlertCadence;
   lastRunAt: string | null;
   lastResultCount: number | null;
   createdAt: string | null;
@@ -63,6 +86,7 @@ function mapSavedSearch(row: BackendSavedSearch): SavedSearch {
     id: row.id,
     name: row.name,
     filters,
+    alertCadence: toAlertCadence(row.alert_cadence),
     lastRunAt: row.last_run_at ?? null,
     lastResultCount: row.last_result_count ?? null,
     createdAt: row.created_at ?? null,
@@ -244,12 +268,16 @@ export async function listSavedSearches(token: string): Promise<SavedSearch[]> {
 
 export async function createSavedSearch(
   token: string,
-  input: { name: string; filters: SavedFilters },
+  input: { name: string; filters: SavedFilters; alertCadence?: AlertCadence },
 ): Promise<SavedSearch> {
   const row = await apiFetch<BackendSavedSearch>(`${MLS}/saved-searches/`, {
     method: "POST",
     token,
-    body: { name: input.name, filters_json: input.filters },
+    body: {
+      name: input.name,
+      filters_json: input.filters,
+      ...(input.alertCadence ? { alert_cadence: input.alertCadence } : {}),
+    },
   });
   return mapSavedSearch(row);
 }
@@ -257,11 +285,12 @@ export async function createSavedSearch(
 export async function updateSavedSearch(
   token: string,
   id: number,
-  patch: { name?: string; filters?: SavedFilters },
+  patch: { name?: string; filters?: SavedFilters; alertCadence?: AlertCadence },
 ): Promise<SavedSearch> {
   const body: Record<string, unknown> = {};
   if (patch.name !== undefined) body.name = patch.name;
   if (patch.filters !== undefined) body.filters_json = patch.filters;
+  if (patch.alertCadence !== undefined) body.alert_cadence = patch.alertCadence;
   const row = await apiFetch<BackendSavedSearch>(`${MLS}/saved-searches/${id}/`, {
     method: "PUT",
     token,

@@ -19,6 +19,15 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**.estate-4u.com" },
     ],
   },
+  redirects() {
+    return [
+      // The mls-v2 frontend's listing URLs. The backend's daily newsletter
+      // still builds them, and old emails and search results point at them;
+      // without these they 404 on this site.
+      { source: "/listing/rental/:key", destination: "/property/:key", permanent: true },
+      { source: "/listing/:key", destination: "/property/:key", permanent: true },
+    ];
+  },
 };
 
 export default nextConfig;

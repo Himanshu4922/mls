@@ -313,3 +313,117 @@ export async function getPlatformStats(
     return null;
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* Listing sync status                                                        */
+/* -------------------------------------------------------------------------- */
+
+export interface ListingSyncStatus {
+  /** ISO time the last DDF listing sync finished. */
+  lastSuccessfulAt: string;
+  /** Active listings in the catalogue now (not the last run's download count). */
+  activeListingCount: number | null;
+}
+
+/**
+ * `listing-sync-status/` — when the MLS® listing feed last synced. Null when
+ * the backend has no successful sync on record or the call fails; callers fall
+ * back to evergreen copy rather than inventing a date.
+ */
+export async function getListingSyncStatus(
+  options: RequestOptions = {},
+): Promise<ListingSyncStatus | null> {
+  try {
+    const data = await apiFetch<{
+      last_successful_at?: string | null;
+      active_listing_count?: number | null;
+    }>(
+      `${MLS}/listing-sync-status/`,
+      { revalidate: 600, timeoutMs: 5_000, ...options },
+    );
+    if (!data.last_successful_at) return null;
+    return {
+      lastSuccessfulAt: data.last_successful_at,
+      activeListingCount: num(data.active_listing_count),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Recently sold (scope #7)                                                   */
+/* -------------------------------------------------------------------------- */
+
+export const RECENT_SALES_DAYS = [7, 30, 90] as const;
+export type RecentSalesDays = (typeof RECENT_SALES_DAYS)[number];
+
+export interface RecentSale {
+  listingKey: string;
+  address: string;
+  city: string;
+  propertyType: string | null;
+  beds: number | null;
+  baths: number | null;
+  closePrice: number;
+  listPrice: number | null;
+  closeDate: string;
+  daysOnMarket: number | null;
+  /** Signed percent: 4.8 = sold 4.8% over asking, -3 = under. */
+  overUnderAskingPct: number | null;
+}
+
+export interface RecentSalesPage {
+  city: string;
+  days: number;
+  count: number;
+  page: number;
+  pageSize: number;
+  /** The backend hit its row cap, so `count` is a floor, not the total. */
+  truncated: boolean;
+  results: RecentSale[];
+}
+
+/**
+ * `market/recent-sales/` — closed sales from the TRREB feed. Signed-in only
+ * (TRREB VOW rules), so it always needs the user's token.
+ */
+export async function getRecentSales(
+  token: string,
+  query: { city: string; days: number; page: number },
+): Promise<RecentSalesPage> {
+  const data = await apiFetch<{
+    city: string;
+    days: number;
+    count: number;
+    page: number;
+    page_size: number;
+    truncated?: boolean;
+    results?: Array<Record<string, unknown>>;
+  }>(`${MLS}/market/recent-sales/`, {
+    token,
+    timeoutMs: 25_000,
+    params: { city: query.city, days: query.days, page: query.page },
+  });
+  return {
+    city: data.city,
+    days: data.days,
+    count: data.count,
+    page: data.page,
+    pageSize: data.page_size,
+    truncated: data.truncated === true,
+    results: (data.results ?? []).map((row) => ({
+      listingKey: String(row.listing_key ?? ""),
+      address: String(row.address ?? ""),
+      city: String(row.city ?? ""),
+      propertyType: (row.property_sub_type as string) || null,
+      beds: num(row.bedrooms),
+      baths: num(row.bathrooms),
+      closePrice: num(row.close_price) ?? 0,
+      listPrice: num(row.list_price),
+      closeDate: String(row.close_date ?? ""),
+      daysOnMarket: num(row.days_on_market),
+      overUnderAskingPct: num(row.over_under_asking_pct),
+    })),
+  };
+}

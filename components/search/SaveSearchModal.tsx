@@ -6,12 +6,14 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
 import { Modal } from "@/components/ui/Modal";
+import { AlertCadencePicker } from "@/components/search/AlertCadencePicker";
 import {
   defaultSearchName,
   describeCriteria,
   fromBackendParams,
   searchIdentity,
   toSavedFilters,
+  type AlertCadence,
 } from "@/lib/api/savedSearches";
 import type { ListingQuery } from "@/lib/types/domain";
 import { useSavedSearch, useSavedSearchActions } from "@/lib/queries/savedSearches";
@@ -51,6 +53,8 @@ export function SaveSearchModal({
   const { saved, isPending } = useSavedSearch();
   const { save } = useSavedSearchActions();
   const [name, setName] = useState(() => defaultSearchName(query));
+  // Daily by default: getting updates is the point of saving (scope #22).
+  const [alertCadence, setAlertCadence] = useState<AlertCadence>(saved?.alertCadence ?? "daily");
   const [error, setError] = useState<string | null>(null);
 
   const criteria = describeCriteria(query);
@@ -66,7 +70,7 @@ export function SaveSearchModal({
     }
     setError(null);
     save.mutate(
-      { name: trimmed, filters: toSavedFilters(query), replaceId: saved?.id },
+      { name: trimmed, filters: toSavedFilters(query), alertCadence, replaceId: saved?.id },
       { onSuccess: onClose, onError: (caught) => setError(caught.message) },
     );
   };
@@ -110,7 +114,7 @@ export function SaveSearchModal({
       description={
         replacing
           ? "You can keep one saved search. Saving this one replaces the one you have."
-          : "Come back to these exact filters any time from your saved homes."
+          : "Come back to these exact filters any time, and get new matches by email."
       }
       footer={
         <div className="flex justify-end gap-2">
@@ -156,6 +160,13 @@ export function SaveSearchModal({
             aria-describedby={error ? "save-search-name-error" : undefined}
           />
         </Field>
+
+        <div>
+          <p id="save-search-alerts" className="mb-2 text-small font-medium text-ink">
+            New listing alerts
+          </p>
+          <AlertCadencePicker value={alertCadence} onChange={setAlertCadence} labelId="save-search-alerts" />
+        </div>
       </form>
     </Modal>
   );

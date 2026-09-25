@@ -23,6 +23,8 @@ const STATIC_PATHS: Array<{ path: string; priority: number; changeFrequency: "da
   { path: "/blog", priority: 0.6, changeFrequency: "weekly" },
   { path: "/sell", priority: 0.5, changeFrequency: "weekly" },
   { path: "/home-evaluation", priority: 0.5, changeFrequency: "weekly" },
+  { path: "/recently-sold", priority: 0.6, changeFrequency: "daily" },
+  { path: "/site-map", priority: 0.3, changeFrequency: "weekly" },
 ];
 
 export async function generateSitemaps() {

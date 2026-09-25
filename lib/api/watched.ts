@@ -315,10 +315,12 @@ export async function recordListingView(
   listingKey: string,
   sessionKey: string,
   token?: string | null,
+  headers?: Record<string, string>,
 ): Promise<void> {
   await apiFetch(`${MLS}/listing-views/`, {
     method: "POST",
     token,
+    headers,
     body: { listing_key: listingKey, session_key: sessionKey },
   });
 }
