@@ -176,6 +176,10 @@ export interface SoldTrends {
    * plain unavailable state instead of an empty chart that reads as "no sales".
    */
   unavailable: boolean;
+  /** When the backend built these figures (ISO). Null on older backends. */
+  generatedAt: string | null;
+  /** True when the backend served its last good copy because AMPRE failed. */
+  stale: boolean;
 }
 
 /**
@@ -194,6 +198,8 @@ export async function getSoldTrends(
     windowMonths,
     months: [],
     unavailable: true,
+    generatedAt: null,
+    stale: false,
   };
   if (!city.trim()) return empty;
 
@@ -202,8 +208,13 @@ export async function getSoldTrends(
       city?: string;
       window_months?: number;
       months?: Array<Record<string, unknown>>;
+      generated_at?: string;
+      stale?: boolean;
     }>(`${MLS}/market/sold-trends/`, {
       revalidate: 1800,
+      // A city missing from the backend's warm cache is fetched live from
+      // AMPRE (~12s for Toronto), which the 15s default cuts too close.
+      timeoutMs: 25_000,
       ...options,
       params: { city, window: `${windowMonths}m` },
     });
@@ -219,6 +230,8 @@ export async function getSoldTrends(
         unitsSold: num(row.units_sold) ?? 0,
       })),
       unavailable: false,
+      generatedAt: data.generated_at ?? null,
+      stale: data.stale === true,
     };
   } catch {
     return empty;

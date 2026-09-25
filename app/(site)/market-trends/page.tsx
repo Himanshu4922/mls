@@ -13,7 +13,7 @@ import {
   MARKET_CITIES,
   type SoldTrends,
 } from "@/lib/api/market";
-import { EMPTY, formatPercent, formatPrice, formatNumber } from "@/lib/utils/format";
+import { EMPTY, formatDate, formatPercent, formatPrice, formatNumber } from "@/lib/utils/format";
 
 export const metadata: Metadata = {
   title: "Market trends",
@@ -205,6 +205,8 @@ function SoldMarket({ sold, city }: { sold: SoldTrends; city: string }) {
       <h2 className="text-h2 text-ink">Sold market · {city}</h2>
       <p className="mt-1 text-caption text-ink-muted">
         Closed transactions, last {sold.windowMonths} months
+        {sold.generatedAt && <> · as of {formatDate(sold.generatedAt)}</>}
+        {sold.stale && " · the sold feed is not responding, so these may be a few hours old"}
       </p>
 
       <dl className="mt-6 grid gap-px overflow-hidden rounded-surface border border-line bg-line sm:grid-cols-3">
