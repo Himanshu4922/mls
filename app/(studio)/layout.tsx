@@ -36,9 +36,6 @@ export default async function StudioLayout({ children }: { children: ReactNode }
             <Link href="/studio" className="text-h3 font-semibold text-ink">
               Studio
             </Link>
-            <span className="rounded-full border border-line px-2 py-0.5 text-caption text-ink-muted">
-              Blog
-            </span>
             <span aria-hidden="true" className="mx-1 hidden h-5 w-px bg-line sm:block" />
             <StudioNav isStaff={session.user.isStaff} />
           </div>

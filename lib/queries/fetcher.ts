@@ -64,7 +64,7 @@ export function httpErrorFrom(status: number, body: unknown, fallback?: string):
 
 export interface FetchJsonOptions {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
-  /** JSON-encoded when set. */
+  /** JSON-encoded when set, except FormData, which is sent as multipart. */
   body?: unknown;
   signal?: AbortSignal;
   /** Message used when the server gives none. */
@@ -74,14 +74,16 @@ export interface FetchJsonOptions {
 
 export async function fetchJson<T>(url: string, options: FetchJsonOptions = {}): Promise<T> {
   const { method = "GET", body, signal, fallback, cache } = options;
+  // FormData (uploads) goes as-is so fetch sets its own multipart boundary.
+  const isForm = typeof FormData !== "undefined" && body instanceof FormData;
   let res: Response;
   try {
     res = await fetch(url, {
       method,
       signal,
       cache,
-      headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      headers: body !== undefined && !isForm ? { "Content-Type": "application/json" } : undefined,
+      body: isForm ? body : body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch (error) {
     // Let TanStack see a real abort so it doesn't treat cancellation as failure.

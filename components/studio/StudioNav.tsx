@@ -4,20 +4,33 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
 
+/** Staff-only sections; every other /studio/* path belongs to Posts. */
+const STAFF_SECTIONS = [
+  { href: "/studio/precon", label: "Pre-con" },
+  { href: "/studio/assignments", label: "Assignments" },
+  { href: "/studio/team", label: "Team" },
+];
+
+const inSection = (path: string, href: string) => path === href || path.startsWith(`${href}/`);
+
 /**
- * Studio header nav. `isStaff` only decides whether the Team tab is *shown* —
- * the route and its API enforce it independently.
+ * Studio header nav. `isStaff` only decides whether the staff tabs are
+ * *shown* — each route and its API enforce it independently.
  */
 export function StudioNav({ isStaff }: { isStaff: boolean }) {
   const pathname = usePathname();
 
   const links = [
-    { href: "/studio", label: "Posts", match: (p: string) => p === "/studio" || p.startsWith("/studio/") && !p.startsWith("/studio/team") },
-    ...(isStaff ? [{ href: "/studio/team", label: "Team", match: (p: string) => p.startsWith("/studio/team") }] : []),
+    {
+      href: "/studio",
+      label: "Posts",
+      match: (p: string) => inSection(p, "/studio") && !STAFF_SECTIONS.some((s) => inSection(p, s.href)),
+    },
+    ...(isStaff ? STAFF_SECTIONS.map((s) => ({ ...s, match: (p: string) => inSection(p, s.href) })) : []),
   ];
 
   return (
-    <nav aria-label="Studio sections" className="flex items-center gap-1">
+    <nav aria-label="Studio sections" className="-mx-1 flex min-w-0 items-center gap-1 overflow-x-auto px-1">
       {links.map((link) => {
         const active = link.match(pathname);
         return (
@@ -26,7 +39,7 @@ export function StudioNav({ isStaff }: { isStaff: boolean }) {
             href={link.href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "rounded-control px-3 py-1.5 text-caption font-medium transition-colors",
+              "shrink-0 whitespace-nowrap rounded-control px-3 py-1.5 text-caption font-medium transition-colors",
               active
                 ? "bg-navy text-white"
                 : "text-ink-muted hover:bg-surface-alt hover:text-ink",

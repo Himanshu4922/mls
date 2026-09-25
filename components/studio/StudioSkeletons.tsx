@@ -64,6 +64,47 @@ export function PostListSkeleton() {
   );
 }
 
+/** Pre-con list and the assignment review queue: header, filter row, table. */
+export function StudioTableSkeleton({ label, tabs = 4 }: { label: string; tabs?: number }) {
+  return (
+    <Loading label={label}>
+      <div className="space-y-6">
+        <PageHeader />
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex gap-1.5">
+            {Array.from({ length: tabs }).map((_, i) => (
+              <Skeleton key={i} className="h-7 w-24 rounded-full" />
+            ))}
+          </div>
+          <Skeleton className="ml-auto h-10 w-full sm:max-w-xs" />
+        </div>
+        <TableRows rows={6} columns={["w-14", "flex-1", "w-20", "w-24", "w-24", "w-20"]} />
+      </div>
+    </Loading>
+  );
+}
+
+/** Pre-con editor and submission review: main column plus a side panel. */
+export function StudioFormSkeleton({ label }: { label: string }) {
+  return (
+    <Loading label={label}>
+      <div className="space-y-5">
+        <PageHeader />
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="space-y-4">
+            <SidePanel fields={4} />
+            <SidePanel fields={3} />
+          </div>
+          <div className="space-y-4">
+            <SidePanel fields={3} />
+            <SidePanel fields={2} />
+          </div>
+        </div>
+      </div>
+    </Loading>
+  );
+}
+
 export function TeamSkeleton() {
   return (
     <Loading label="Loading team">
