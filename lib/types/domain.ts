@@ -187,6 +187,12 @@ export interface ListingQuery {
   /** Only listings with an upcoming open house (today onwards). */
   openHouse?: boolean;
   /**
+   * AI search's soft preferences ("near subway, big backyard"). URL `ai`.
+   * Never filters: with the "relevance" sort the backend ranks the filtered
+   * results by listing-description similarity to it.
+   */
+  semantic?: string;
+  /**
    * Presentation only (grid is the default). Carried on the query so links
    * built from it — pagination, status tabs — keep the chosen view; it is
    * never sent to the backend.
@@ -195,6 +201,7 @@ export interface ListingQuery {
 }
 
 export type ListingSort =
+  | "relevance"
   | "newest"
   | "price-asc"
   | "price-desc"
@@ -208,6 +215,12 @@ export const LISTING_SORTS: Array<{ value: ListingSort; label: string }> = [
   { value: "beds-desc", label: "Most Bedrooms" },
   { value: "sqft-desc", label: "Largest Area" },
 ];
+
+/** Offered only while an AI search's preferences (`ai`) are applied. */
+export const RELEVANCE_SORT: { value: ListingSort; label: string } = {
+  value: "relevance",
+  label: "Best match",
+};
 
 /** `properties/facets/` — counts for the current filter set (API_GAPS G2). */
 export interface PropertyFacets {
