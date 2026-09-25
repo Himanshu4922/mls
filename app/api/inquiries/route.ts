@@ -26,7 +26,9 @@ export async function POST(request: Request) {
   if (listingKey) payload.listing_key = String(listingKey);
 
   if (listingKey && typeof payload.message === "string") {
-    const marker = `MLS® ${listingKey}`;
+    // Assignment leads carry "ASSIGNMENT-<id>" (InquiryForm); they are not MLS® listings.
+    const assignment = /^ASSIGNMENT-(\d+)$/.exec(String(listingKey));
+    const marker = assignment ? `Assignment #${assignment[1]}` : `MLS® ${listingKey}`;
     if (!payload.message.includes(String(listingKey))) {
       payload.message = `${payload.message}\n\n[Listing: ${marker}]`;
     }

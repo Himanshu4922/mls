@@ -14,7 +14,7 @@ import { getListingKeysPage } from "@/lib/api/sitemap";
  * advertising empty ones.
  */
 export async function sitemapIds(): Promise<string[]> {
-  const ids = ["static", "blog", "precon"];
+  const ids = ["static", "blog", "precon", "assignments"];
   try {
     // count_only: the rows aren't needed to decide how many children exist.
     const first = await getListingKeysPage(1, { countOnly: true });

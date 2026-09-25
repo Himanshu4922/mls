@@ -1,8 +1,14 @@
 import { formatMonthLabel, formatPriceCompact } from "@/lib/utils/format";
-import type { TrendPoint } from "@/lib/api/market";
+
+/** One month on the chart. `detail` is an extra column for the screen-reader table. */
+export interface ChartPoint {
+  month: string;
+  value: number | null;
+  detail?: number | null;
+}
 
 /**
- * Median-price line chart.
+ * Monthly price line chart (median list price, median sold price).
  *
  * Hand-drawn SVG rather than a charting library: the reference used Recharts,
  * but these charts are simple, and a server-rendered SVG keeps the page a
@@ -11,12 +17,18 @@ import type { TrendPoint } from "@/lib/api/market";
  */
 export function TrendChart({
   series,
+  label,
+  detailLabel,
   height = 220,
 }: {
-  series: TrendPoint[];
+  series: ChartPoint[];
+  /** What the line measures, e.g. "Median sold price". */
+  label: string;
+  /** Heading for `detail` in the accessible table, when points carry one. */
+  detailLabel?: string;
   height?: number;
 }) {
-  const points = series.filter((point) => point.medianListPrice !== null);
+  const points = series.filter((point): point is ChartPoint & { value: number } => point.value !== null);
 
   if (points.length < 2) {
     return (
@@ -26,7 +38,7 @@ export function TrendChart({
     );
   }
 
-  const values = points.map((p) => p.medianListPrice as number);
+  const values = points.map((p) => p.value);
   const min = Math.min(...values);
   const max = Math.max(...values);
   // Pad the domain so the line never sits flat against an edge.
@@ -44,7 +56,7 @@ export function TrendChart({
     inset.top + plotH - ((value - lo) / (hi - lo)) * plotH;
 
   const line = points
-    .map((point, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(point.medianListPrice as number).toFixed(1)}`)
+    .map((point, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(point.value).toFixed(1)}`)
     .join(" ");
 
   const area = `${line} L${x(points.length - 1).toFixed(1)},${(inset.top + plotH).toFixed(1)} L${x(0).toFixed(1)},${(inset.top + plotH).toFixed(1)} Z`;
@@ -62,7 +74,7 @@ export function TrendChart({
         viewBox={`0 0 ${width} ${height}`}
         className="h-auto w-full"
         role="img"
-        aria-label={`Median list price from ${formatMonthLabel(points[0].month)} to ${formatMonthLabel(points[points.length - 1].month)}, changing ${changePct >= 0 ? "up" : "down"} ${Math.abs(changePct).toFixed(1)} percent.`}
+        aria-label={`${label} from ${formatMonthLabel(points[0].month)} to ${formatMonthLabel(points[points.length - 1].month)}, changing ${changePct >= 0 ? "up" : "down"} ${Math.abs(changePct).toFixed(1)} percent.`}
       >
         {ticks.map((tick) => (
           <g key={tick}>
@@ -99,7 +111,7 @@ export function TrendChart({
           <circle
             key={point.month}
             cx={x(i)}
-            cy={y(point.medianListPrice as number)}
+            cy={y(point.value)}
             r={i === points.length - 1 ? 4.5 : 2.5}
             fill={i === points.length - 1 ? "var(--color-gold)" : "var(--color-navy)"}
           />
@@ -123,20 +135,20 @@ export function TrendChart({
 
       <figcaption className="sr-only">
         <table>
-          <caption>Median list price by month</caption>
+          <caption>{label} by month</caption>
           <thead>
             <tr>
               <th scope="col">Month</th>
-              <th scope="col">Median list price</th>
-              <th scope="col">New listings</th>
+              <th scope="col">{label}</th>
+              {detailLabel && <th scope="col">{detailLabel}</th>}
             </tr>
           </thead>
           <tbody>
             {points.map((point) => (
               <tr key={point.month}>
                 <th scope="row">{formatMonthLabel(point.month)}</th>
-                <td>{formatPriceCompact(point.medianListPrice)}</td>
-                <td>{point.newListings}</td>
+                <td>{formatPriceCompact(point.value)}</td>
+                {detailLabel && <td>{point.detail ?? ""}</td>}
               </tr>
             ))}
           </tbody>

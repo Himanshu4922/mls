@@ -7,6 +7,7 @@
  */
 
 import { apiFetch, type RequestOptions } from "@/lib/api/client";
+import { toNumber } from "@/lib/utils/format";
 import type {
   BackendValuationEstimate,
   BackendValuationSuggestion,
@@ -41,6 +42,45 @@ export interface ValuationSubject {
   lotDepth: number | null;
 }
 
+/**
+ * One column of the AVM report table (scope #10). Every field is null when
+ * the feed does not carry it; the table renders a dash.
+ */
+export interface AvmDetails {
+  address: string | null;
+  city: string | null;
+  province: string | null;
+  postalCode: string | null;
+  propertyStyle: string | null;
+  propertyType: string | null;
+  frontageFt: number | null;
+  depthFt: number | null;
+  lotArea: number | null;
+  lotAreaUnits: string | null;
+  yearBuilt: number | null;
+  floorAreaSqft: number | null;
+  basement: string | null;
+  storeys: number | null;
+  bedrooms: number | null;
+  bedroomsBelowGrade: number | null;
+  bathroomsFull: number | null;
+  bathroomsHalf: number | null;
+  fireplaces: number | null;
+  heating: string | null;
+  airConditioning: boolean | null;
+  pool: boolean | null;
+  parkingTotal: number | null;
+  parkingFeatures: string | null;
+  taxAnnualAmount: number | null;
+}
+
+/**
+ * `sold_proxy`: a listing that left the market; its price is the LAST ASKING
+ * price, not a confirmed sale price (the backend has no sold prices for
+ * comps). `active_listing`: currently for sale.
+ */
+export type CompSource = "sold_proxy" | "active_listing";
+
 export interface ValuationComp {
   listingKey: string | null;
   price: number | null;
@@ -50,6 +90,10 @@ export interface ValuationComp {
   address: string;
   city: string;
   distanceKm: number | null;
+  source: CompSource | null;
+  /** Off-market date for a sold proxy; listed date for an active comp. */
+  eventDate: string | null;
+  details: AvmDetails;
 }
 
 export interface ValuationResult {
@@ -61,6 +105,10 @@ export interface ValuationResult {
   trendPct30d: number;
   comps: ValuationComp[];
   confidence: string | null;
+  /** 0-5, derived by the backend from the model's confidence band. */
+  confidenceStars: number;
+  valuationDate: string | null;
+  subjectDetails: AvmDetails;
   /** True when too few comparables were found for a reliable estimate. */
   sparse: boolean;
   /** The backend always flags this model as beta; surface it in the UI. */
@@ -184,8 +232,14 @@ export async function estimateValue(
       address: (comp.unparsed_address as string) ?? "",
       city: (comp.city as string) ?? "",
       distanceKm: typeof comp.distance_km === "number" ? comp.distance_km : null,
+      source: comp.source === "sold_proxy" || comp.source === "active_listing" ? comp.source : null,
+      eventDate: typeof comp.event_date === "string" ? comp.event_date : null,
+      details: mapAvmDetails(comp.details),
     })),
     confidence: (data.confidence as string) ?? null,
+    confidenceStars: typeof data.confidence_stars === "number" ? data.confidence_stars : 0,
+    valuationDate: typeof data.valuation_date === "string" ? data.valuation_date : null,
+    subjectDetails: mapAvmDetails(data.subject_details),
     sparse: Boolean(data.sparse),
     beta: Boolean(data.beta),
     agentName:
@@ -194,5 +248,39 @@ export async function estimateValue(
       null,
     // Present when the backend could not geolocate the subject property.
     message: data.detail ?? null,
+  };
+}
+
+export function mapAvmDetails(raw: unknown): AvmDetails {
+  const row = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const num = (value: unknown) => toNumber(value);
+  const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
+  const bool = (value: unknown) => (typeof value === "boolean" ? value : null);
+  return {
+    address: text(row.address),
+    city: text(row.city),
+    province: text(row.province),
+    postalCode: text(row.postal_code),
+    propertyStyle: text(row.property_style),
+    propertyType: text(row.property_type),
+    frontageFt: num(row.frontage_ft),
+    depthFt: num(row.depth_ft),
+    lotArea: num(row.lot_area),
+    lotAreaUnits: text(row.lot_area_units),
+    yearBuilt: num(row.year_built),
+    floorAreaSqft: num(row.floor_area_sqft),
+    basement: text(row.basement),
+    storeys: num(row.storeys),
+    bedrooms: num(row.bedrooms),
+    bedroomsBelowGrade: num(row.bedrooms_below_grade),
+    bathroomsFull: num(row.bathrooms_full),
+    bathroomsHalf: num(row.bathrooms_half),
+    fireplaces: num(row.fireplaces),
+    heating: text(row.heating),
+    airConditioning: bool(row.air_conditioning),
+    pool: bool(row.pool),
+    parkingTotal: num(row.parking_total),
+    parkingFeatures: text(row.parking_features),
+    taxAnnualAmount: num(row.tax_annual_amount),
   };
 }

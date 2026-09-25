@@ -29,6 +29,7 @@ const NAV_LINKS: NavLinkItem[] = [
   { label: "Buy", href: "/listings?status=Active", match: (params) => !isRental(params) },
   { label: "Rent", href: "/listings?tx=rent", match: isRental },
   { label: "Preconstruction", href: "/preconstruction" },
+  { label: "Assignments", href: "/assignments" },
   { label: "Sell", href: "/sell" },
   { label: "Market Insights", href: "/market-trends" },
   { label: "Communities", href: "/communities" },

@@ -6,14 +6,12 @@
  * `year_built_min` and a repeatable `property_sub_type` are now applied in SQL,
  * so those queries are exact, fully paginated and no longer window-capped.
  *
- * ONE filter is still applied client-side: property TYPE. The UI offers six
- * canonical types (Detached, Condo, Townhome…) but this feed's
- * `property_sub_type` column does not carry them — 4,114 of 4,622 rows are the
- * single value "Single Family" (verified against `properties/facets/`). Passing
- * a UI type straight through as `property_sub_type=Condo Apartment` matches
- * zero rows, which would render an empty market as if it were the truth. So we
- * keep the windowed client-side match for type only, and the UI discloses it.
- * Remove `TYPE_NEEDS_CLIENT_FILTER` once the feed carries granular sub-types.
+ * Property TYPE is server-side too, via the backend's `home_type` filter
+ * (2026-09). This feed's `property_sub_type` is "Single Family" for 4,114 of
+ * 4,622 rows, so it cannot tell a condo from a house; `home_type` reads
+ * `structure_type` + `property_attached_yn` instead. "Luxury" has no feed
+ * field and is a price floor. Only a type with no server mapping still falls
+ * back to the windowed client-side match (disclosed in the UI as "About N").
  */
 
 import { apiFetch, type RequestOptions } from "@/lib/api/client";
@@ -42,11 +40,24 @@ const CLIENT_FILTER_WINDOW = 300;
 /** Backend caps `limit` at 100. */
 const MAX_PAGE_SIZE = 100;
 
-/**
- * Type is the only filter the backend cannot express against this feed.
- * See the file header — flipping this to `false` is the whole rollback.
- */
-const TYPE_NEEDS_CLIENT_FILTER = true;
+/** UI type → backend `home_type` (mls-v2 query_helpers.HOME_TYPE_Q). */
+export const HOME_TYPE_PARAM: Readonly<Record<string, string>> = {
+  Detached: "detached",
+  "Semi-Detached": "semi",
+  Townhome: "townhouse",
+  Condo: "condo",
+};
+/** "Luxury" is a price band, not a structure. */
+export const LUXURY_MIN_PRICE = 2_000_000;
+
+function typeIsServerSide(type: string): boolean {
+  return type in HOME_TYPE_PARAM || type === "Luxury";
+}
+
+/** Min price with the Luxury floor applied. */
+function effectivePriceMin(query: ListingQuery): number | undefined {
+  return query.type === "Luxury" ? Math.max(query.priceMin ?? 0, LUXURY_MIN_PRICE) : query.priceMin;
+}
 
 export const SORT_TO_ORDERBY: Record<ListingSort, string> = {
   // Backend ranks by similarity to `semantic` (AI search's "Best match").
@@ -60,7 +71,7 @@ export const SORT_TO_ORDERBY: Record<ListingSort, string> = {
 
 /** True when the query uses a filter the backend cannot express. */
 function needsClientFiltering(query: ListingQuery): boolean {
-  return TYPE_NEEDS_CLIENT_FILTER && Boolean(query.type);
+  return Boolean(query.type) && !typeIsServerSide(query.type!);
 }
 
 function applyClientFilters(items: PropertySummary[], query: ListingQuery): PropertySummary[] {
@@ -82,8 +93,9 @@ export function toBackendParams(query: ListingQuery, limit?: number, offset?: nu
   // and De-listed are strict too: this feed has almost none, and the fallback
   // would otherwise answer an empty Sold tab with every active listing.
   const group = backendStatusGroup(query.status);
+  // Keyword pages (power of sale, distress) must read as empty, not relaxed.
   const strict = Boolean(
-    query.postalCodes?.length || query.openHouse || (group && group !== "active"),
+    query.postalCodes?.length || query.openHouse || query.keywords?.length || (group && group !== "active"),
   );
   return {
     limit,
@@ -97,7 +109,7 @@ export function toBackendParams(query: ListingQuery, limit?: number, offset?: nu
     orderby: SORT_TO_ORDERBY[query.sort === "relevance" && !query.semantic ? "newest" : (query.sort ?? "newest")],
     semantic: query.semantic,
     // Server-side since G1 — exact counts, no window cap.
-    price_min: query.priceMin,
+    price_min: effectivePriceMin(query),
     price_max: query.priceMax,
     beds_min: query.bedsMin,
     baths_min: query.bathsMin,
@@ -107,6 +119,9 @@ export function toBackendParams(query: ListingQuery, limit?: number, offset?: nu
     // Repeatable: buildQuery() appends one key per entry, which DRF reads via
     // getlist(). Only sent when the caller passes real feed values.
     property_sub_type: query.propertySubTypes?.length ? query.propertySubTypes : undefined,
+    home_type: query.type ? HOME_TYPE_PARAM[query.type] : undefined,
+    // Matched against the listing description (public_remarks), OR'ed.
+    keywords: query.keywords?.length ? query.keywords.join(",") : undefined,
     lat_min: query.bounds?.latMin,
     lat_max: query.bounds?.latMax,
     lng_min: query.bounds?.lngMin,
@@ -226,7 +241,7 @@ export async function getPropertyFacets(
         status: query.status,
         transaction_type: query.transaction,
         has_lease: query.hasLease ? "true" : undefined,
-        price_min: query.priceMin,
+        price_min: effectivePriceMin(query),
         price_max: query.priceMax,
         beds_min: query.bedsMin,
         baths_min: query.bathsMin,
@@ -236,6 +251,7 @@ export async function getPropertyFacets(
         property_sub_type: query.propertySubTypes?.length
           ? query.propertySubTypes
           : undefined,
+        home_type: query.type ? HOME_TYPE_PARAM[query.type] : undefined,
         postal_code: query.postalCodes?.length ? query.postalCodes.join(",") : undefined,
       },
     });

@@ -37,7 +37,27 @@ const COPY = {
     message: (address: string) =>
       `I'd like more information about ${address}, including current pricing, available units and incentives.`,
   },
+  market: {
+    title: "Contact an agent",
+    hint: "No obligation. Get a local read on prices and what's selling.",
+    submit: "Contact agent",
+    intent: "explore",
+    message: (address: string) => `I'm interested in properties in ${address}. Please contact me.`,
+  },
+  assignment: {
+    title: "Ask about this assignment",
+    hint: "No obligation. An agent will reply with details and next steps.",
+    submit: "Send message",
+    intent: "buy",
+    message: (address: string) =>
+      `I'm interested in the assignment for ${address}. Please send me the details and next steps.`,
+  },
 } as const;
+
+/** listing_key used for assignment leads, so they stay distinguishable from MLS® keys. */
+export function assignmentLeadKey(id: number): string {
+  return `ASSIGNMENT-${id}`;
+}
 
 export function InquiryForm({
   listingKey,

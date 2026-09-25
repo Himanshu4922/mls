@@ -2,6 +2,10 @@ import Link from "next/link";
 import { Logo } from "@/components/layout/Logo";
 import { LinkButton } from "@/components/ui/Button";
 import { Eyebrow } from "@/components/ui/Badge";
+import { curatedPath, getCuratedPage } from "@/lib/seo/curatedPages";
+
+/** A few curated searches (scope #24) for the footer; the full set is on /site-map. */
+const POPULAR_SLUGS = ["power-of-sale", "detached-under-1m", "condos-under-500k", "luxury-homes", "open-houses", "condos-for-rent"];
 
 const COLUMNS: Array<{ heading: string; links: Array<{ label: string; href: string }> }> = [
   {
@@ -10,6 +14,7 @@ const COLUMNS: Array<{ heading: string; links: Array<{ label: string; href: stri
       { label: "Buy a home", href: "/listings?status=Active" },
       { label: "Rentals", href: "/listings?tx=rent" },
       { label: "Preconstruction", href: "/preconstruction" },
+      { label: "Assignments", href: "/assignments" },
       { label: "Map search", href: "/map-search" },
       { label: "Recently sold", href: "/recently-sold" },
       { label: "Communities", href: "/communities" },
@@ -22,6 +27,13 @@ const COLUMNS: Array<{ heading: string; links: Array<{ label: string; href: stri
       { label: "Sell with us", href: "/sell" },
       { label: "Market trends", href: "/market-trends" },
     ],
+  },
+  {
+    heading: "Popular searches",
+    links: POPULAR_SLUGS.flatMap((slug) => {
+      const page = getCuratedPage(slug);
+      return page ? [{ label: page.label, href: curatedPath(page) }] : [];
+    }),
   },
   {
     heading: "Company",
@@ -70,7 +82,7 @@ export function Footer() {
       </div>
 
       <div className="container-page py-14">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr_1fr]">
           <div>
             <Logo tone="dark" />
             <p className="mt-4 max-w-[280px] text-small leading-relaxed text-white/50">

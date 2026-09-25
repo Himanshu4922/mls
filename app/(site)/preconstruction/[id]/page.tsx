@@ -14,6 +14,7 @@ import {
   NearbySection,
 } from "@/components/precon/PreconSections";
 import { SimilarPrecon } from "@/components/precon/SimilarPrecon";
+import { ProjectAssignments } from "@/components/assignments/ProjectAssignments";
 import { Gallery } from "@/components/property/Gallery";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { ArticleBody } from "@/components/studio/ArticleBody";
@@ -231,6 +232,9 @@ export default async function PreconProjectPage({
         </aside>
       </div>
 
+      <Suspense fallback={null}>
+        <ProjectAssignments projectId={project.id} projectTitle={project.title} />
+      </Suspense>
       <Suspense fallback={null}>
         <SimilarPrecon projectId={project.id} />
       </Suspense>

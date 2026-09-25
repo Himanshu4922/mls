@@ -175,6 +175,11 @@ export interface ListingQuery {
    * matched client-side — see lib/api/properties.ts.
    */
   propertySubTypes?: string[];
+  /**
+   * Description keywords, OR'ed ("power of sale"). Curated pages only; not a
+   * URL param on /listings. Forces a strict (no-fallback) search.
+   */
+  keywords?: string[];
   sort?: ListingSort;
   limit?: number;
   offset?: number;

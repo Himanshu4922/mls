@@ -45,6 +45,9 @@ export interface BackendPropertySummary {
   /** Where most DDF rentals carry their monthly rent. Older backends omit it. */
   total_actual_rent?: string | null;
   property_sub_type: string | null;
+  /** "House", "Apartment", "Row / Townhouse"… Older backends omit it. */
+  structure_type?: string | null;
+  property_attached_yn?: boolean | null;
   city: string | null;
   city_region: string | null;
   directions: string | null;
@@ -204,6 +207,10 @@ export interface BackendValuationEstimate {
   beta: boolean;
   sparse: boolean;
   detail?: string;
+  /** AVM report fields (scope #10); absent on older backends. */
+  confidence_stars?: number;
+  valuation_date?: string;
+  subject_details?: Record<string, unknown>;
 }
 
 export interface BackendValuationSuggestion {

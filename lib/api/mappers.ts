@@ -65,6 +65,25 @@ export function normalizePropertyType(raw: string | null | undefined): {
   return { label: titleCase(value), uiType: null };
 }
 
+/**
+ * Home type from `structure_type` (+ attached flag) when the feed has it, else
+ * from `property_sub_type`. Needed because the sub-type is "Single Family" for
+ * condos and houses alike, which labelled every apartment "Detached".
+ */
+export function resolvePropertyType(
+  subType: string | null | undefined,
+  structureType: string | null | undefined,
+  attached: boolean | null | undefined,
+): { label: string | null; uiType: UiPropertyType | null } {
+  const structure = (structureType ?? "").trim().toLowerCase();
+  if (structure === "apartment") return { label: "Condo", uiType: "Condo" };
+  if (structure.startsWith("row")) return { label: "Townhome", uiType: "Townhome" };
+  if (structure === "house") {
+    return attached ? { label: "Semi-Detached", uiType: "Semi-Detached" } : { label: "Detached", uiType: "Detached" };
+  }
+  return normalizePropertyType(subType);
+}
+
 /** Maps a UI type back to a regex for client-side filtering (see API_GAPS G1). */
 export function matchesUiType(raw: string | null | undefined, uiType: string): boolean {
   const { label } = normalizePropertyType(raw);
@@ -196,7 +215,7 @@ export function mapPropertySummary(raw: BackendPropertySummary): PropertySummary
   // 1,215) and in lease_amount for the rest; list_price is null for both.
   const leaseAmount = toNumber(raw.lease_amount) ?? toNumber(raw.total_actual_rent);
   const isLease = (!listPrice || listPrice <= 0) && Boolean(leaseAmount && leaseAmount > 0);
-  const { label, uiType } = normalizePropertyType(raw.property_sub_type);
+  const { label, uiType } = resolvePropertyType(raw.property_sub_type, raw.structure_type, raw.property_attached_yn);
 
   // building_area_total is the RESO primary; some feeds only populate the
   // finished-area variants, so fall through rather than showing nothing.

@@ -26,6 +26,7 @@ import {
   TrendingCommunitiesSkeleton,
 } from "@/components/home/sections/TrendingCommunities";
 import { TrustedConnections } from "@/components/home/sections/TrustedConnections";
+import { KeywordLinks } from "@/components/search/KeywordLinks";
 import { WhyHomeAtlas } from "@/components/home/sections/WhyHomeAtlas";
 import { Eyebrow } from "@/components/ui/Badge";
 import { Section } from "@/components/ui/Section";
@@ -108,6 +109,9 @@ export default function HomePage() {
         <DailyNews />
       </Live>
       <ResourcesGuides />
+      <Section eyebrow="Popular searches" title="Search by keywords">
+        <KeywordLinks />
+      </Section>
     </>
   );
 }

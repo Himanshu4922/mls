@@ -2,10 +2,11 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { AvmReport } from "@/components/valuation/AvmReport";
 import { Stepper } from "@/components/ui/Stepper";
 import { Field, Input, NumericInput } from "@/components/ui/Field";
 import { Badge, Eyebrow } from "@/components/ui/Badge";
-import { EMPTY, formatNumber, formatPrice, formatPercent } from "@/lib/utils/format";
+import { formatPrice, formatPercent } from "@/lib/utils/format";
 import { AUTOCOMPLETE_MIN_CHARS } from "@/lib/api/valuation";
 import type {
   AddressSuggestion,
@@ -379,33 +380,7 @@ function ResultCard({
         )}
       </div>
 
-      {result.comps.length > 0 && (
-        <div className="rounded-surface border border-line bg-surface p-6">
-          <h3 className="text-h3 text-ink">Comparable properties</h3>
-          <p className="mt-1 text-caption text-ink-muted">
-            {result.comps.length} nearby {result.comps.length === 1 ? "sale" : "sales"} used in this estimate.
-          </p>
-          <ul className="mt-4 divide-y divide-line-soft">
-            {result.comps.slice(0, 5).map((comp, index) => (
-              <li key={`${comp.listingKey}-${index}`} className="flex items-baseline justify-between gap-4 py-2.5">
-                <div className="min-w-0">
-                  <p className="truncate text-small font-medium text-ink">
-                    {comp.address || EMPTY}
-                  </p>
-                  <p className="text-caption text-ink-muted">
-                    {comp.beds ?? EMPTY} bd · {comp.baths ?? EMPTY} ba
-                    {comp.livingArea ? ` · ${formatNumber(comp.livingArea)} sq ft` : ""}
-                    {comp.distanceKm !== null ? ` · ${comp.distanceKm.toFixed(1)} km away` : ""}
-                  </p>
-                </div>
-                <p className="shrink-0 text-small font-semibold text-ink">
-                  {formatPrice(comp.price)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <AvmReport result={result} />
 
       <div className="flex gap-3">
         <Button variant="secondary" onClick={onRestart}>

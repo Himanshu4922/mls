@@ -167,10 +167,35 @@ export interface SoldTrendPoint {
   unitsSold: number;
 }
 
+/** Sold-market property types (backend SOLD_PROPERTY_TYPES keys → TRREB subtypes). */
+export const SOLD_PROPERTY_TYPES = [
+  { key: "detached", label: "Detached" },
+  { key: "semi", label: "Semi-detached" },
+  { key: "townhouse", label: "Freehold townhouse" },
+  { key: "condo_townhouse", label: "Condo townhouse" },
+  { key: "condo_apartment", label: "Condo apartment" },
+] as const;
+export type SoldPropertyType = (typeof SOLD_PROPERTY_TYPES)[number]["key"];
+
+/** Market Trends ranges. 36 months is the most the sold feed covers. */
+export const MARKET_RANGES = [
+  { key: "1y", label: "1 year", months: 12 },
+  { key: "2y", label: "2 years", months: 24 },
+  { key: "3y", label: "3 years", months: 36 },
+] as const;
+
+export interface SoldCommunity {
+  name: string;
+  unitsSold: number;
+}
+
 export interface SoldTrends {
   city: string;
   windowMonths: number;
   months: SoldTrendPoint[];
+  /** Communities with sales in the window (city-wide requests only). */
+  communities: SoldCommunity[];
+  community: string | null;
   /**
    * Set when the upstream sold feed could not be reached. The page renders a
    * plain unavailable state instead of an empty chart that reads as "no sales".
@@ -192,11 +217,14 @@ export async function getSoldTrends(
   city: string,
   windowMonths = 12,
   options: RequestOptions = {},
+  filters: { community?: string; propertyType?: SoldPropertyType } = {},
 ): Promise<SoldTrends> {
   const empty: SoldTrends = {
     city,
     windowMonths,
     months: [],
+    communities: [],
+    community: filters.community ?? null,
     unavailable: true,
     generatedAt: null,
     stale: false,
@@ -210,18 +238,29 @@ export async function getSoldTrends(
       months?: Array<Record<string, unknown>>;
       generated_at?: string;
       stale?: boolean;
+      community?: string | null;
+      communities?: Array<{ name?: string; units_sold?: number }>;
     }>(`${MLS}/market/sold-trends/`, {
       revalidate: 1800,
       // A city missing from the backend's warm cache is fetched live from
       // AMPRE (~12s for Toronto), which the 15s default cuts too close.
       timeoutMs: 25_000,
       ...options,
-      params: { city, window: `${windowMonths}m` },
+      params: {
+        city,
+        window: `${windowMonths}m`,
+        community: filters.community,
+        property_type: filters.propertyType,
+      },
     });
 
     return {
       city: data.city ?? city,
       windowMonths: data.window_months ?? windowMonths,
+      communities: (data.communities ?? [])
+        .filter((row): row is { name: string; units_sold?: number } => typeof row.name === "string" && row.name !== "")
+        .map((row) => ({ name: row.name, unitsSold: row.units_sold ?? 0 })),
+      community: data.community ?? filters.community ?? null,
       months: (data.months ?? []).map((row) => ({
         month: String(row.month ?? ""),
         medianSoldPrice: num(row.median_sold_price),

@@ -1,7 +1,9 @@
 import type { MetadataRoute } from "next";
 import { absoluteUrl } from "@/components/seo/JsonLd";
+import { assignmentPath, getPublicAssignments, type PublicListing } from "@/lib/api/assignments";
 import { getAllBlogPosts } from "@/lib/api/blog";
 import { getAllPreconForSitemap, getListingKeysPage } from "@/lib/api/sitemap";
+import { CURATED_PAGES, curatedPath } from "@/lib/seo/curatedPages";
 import { listingsPageFromId, sitemapIds } from "@/lib/seo/sitemap";
 import { blogPath, preconPath, propertyPath } from "@/lib/seo/urls";
 
@@ -24,6 +26,7 @@ const STATIC_PATHS: Array<{ path: string; priority: number; changeFrequency: "da
   { path: "/sell", priority: 0.5, changeFrequency: "weekly" },
   { path: "/home-evaluation", priority: 0.5, changeFrequency: "weekly" },
   { path: "/recently-sold", priority: 0.6, changeFrequency: "daily" },
+  { path: "/assignments", priority: 0.7, changeFrequency: "daily" },
   { path: "/site-map", priority: 0.3, changeFrequency: "weekly" },
 ];
 
@@ -44,11 +47,19 @@ export default async function sitemap(props: {
   const id = await props.id;
 
   if (id === "static") {
-    return STATIC_PATHS.map((entry) => ({
-      url: absoluteUrl(entry.path),
-      changeFrequency: entry.changeFrequency,
-      priority: entry.priority,
-    }));
+    return [
+      ...STATIC_PATHS.map((entry) => ({
+        url: absoluteUrl(entry.path),
+        changeFrequency: entry.changeFrequency,
+        priority: entry.priority,
+      })),
+      // Curated searches (scope #6/#24): fixed config, so they ride with static.
+      ...CURATED_PAGES.map((page) => ({
+        url: absoluteUrl(curatedPath(page)),
+        changeFrequency: "daily" as const,
+        priority: 0.6,
+      })),
+    ];
   }
 
   if (id === "blog") {
@@ -61,6 +72,23 @@ export default async function sitemap(props: {
         changeFrequency: "monthly" as const,
         priority: 0.5,
       }));
+  }
+
+  if (id === "assignments") {
+    const rows: PublicListing[] = [];
+    // 48 per page is the backend cap; 40 pages bounds a runaway loop.
+    for (let page = 1; page <= 40; page++) {
+      const data = await getPublicAssignments({ page, pageSize: 48 }).catch(() => null);
+      if (!data || data.results.length === 0) break;
+      rows.push(...data.results);
+      if (rows.length >= data.count) break;
+    }
+    return rows.map((listing) => ({
+      url: absoluteUrl(assignmentPath(listing)),
+      lastModified: toDate(listing.publishedAt),
+      changeFrequency: "weekly" as const,
+      priority: 0.6,
+    }));
   }
 
   if (id === "precon") {

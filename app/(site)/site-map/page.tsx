@@ -5,6 +5,7 @@ import { getAllBlogPosts } from "@/lib/api/blog";
 import { MARKET_CITIES } from "@/lib/api/market";
 import { getAllPreconForSitemap } from "@/lib/api/sitemap";
 import { COMMUNITY_CITIES } from "@/lib/constants/cities";
+import { curatedGroups, curatedPath } from "@/lib/seo/curatedPages";
 import { blogPath, preconPath } from "@/lib/seo/urls";
 import { buildListingHref } from "@/lib/utils/searchParams";
 
@@ -35,6 +36,7 @@ export default async function HtmlSitemapPage() {
     { label: "Map search", href: "/map-search" },
     { label: "Recently sold homes", href: "/recently-sold" },
     { label: "Pre-construction projects", href: "/preconstruction" },
+    { label: "Pre-construction assignments", href: "/assignments" },
     { label: "Communities", href: "/communities" },
     { label: "Compare homes", href: "/compare" },
   ];
@@ -70,6 +72,13 @@ export default async function HtmlSitemapPage() {
             href: buildListingHref({ city, transaction: "rent" }),
           }))}
         />
+        {curatedGroups({ includeCities: true }).map(({ group, pages }) => (
+          <LinkGroup
+            key={group}
+            title={`Popular searches: ${group.toLowerCase()}`}
+            links={pages.map((page) => ({ label: page.label, href: curatedPath(page) }))}
+          />
+        ))}
         {posts.length > 0 && (
           <LinkGroup
             title="Blog"
