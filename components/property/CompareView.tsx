@@ -73,7 +73,11 @@ export function CompareView({ ids: idsFromUrl }: { ids: string[] }) {
   const setIdsAndUrl = useCallback((next: string[]) => {
     setSelection(next);
     const url = next.length > 0 ? `/compare?ids=${next.join(",")}` : "/compare";
-    setLastUrlSignature([...next].sort().join(","));
+    // Do NOT touch `lastUrlSignature` here. It tracks the `idsFromUrl` PROP,
+    // and `replaceState` never re-renders the server page, so the prop keeps
+    // its old value. Setting the signature to `next` made it differ from the
+    // prop on the very next render, which re-adopted the stale URL list and
+    // silently undid every add and remove.
     window.history.replaceState(null, "", url);
   }, []);
   // Bumped on each open so <SavedPicker> remounts with a clean tick list.
