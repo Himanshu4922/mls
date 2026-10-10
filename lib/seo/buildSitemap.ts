@@ -1,19 +1,16 @@
-import type { MetadataRoute } from "next";
 import { absoluteUrl } from "@/components/seo/JsonLd";
 import { assignmentPath, getPublicAssignments, type PublicListing } from "@/lib/api/assignments";
 import { getAllBlogPosts } from "@/lib/api/blog";
 import { getAllPreconForSitemap, getListingKeysPage } from "@/lib/api/sitemap";
 import { CURATED_PAGES, curatedPath } from "@/lib/seo/curatedPages";
-import { listingsPageFromId, sitemapIds } from "@/lib/seo/sitemap";
+import { listingsPageFromId } from "@/lib/seo/sitemap";
 import { blogPath, preconPath, propertyPath } from "@/lib/seo/urls";
 
 /*
- * Split sitemaps, served at /sitemap/{id}.xml (see lib/seo/sitemap.ts for the
- * id list and why robots.txt enumerates them). Every section catches backend
- * failures and returns what it has: a crawler hitting a 500 sitemap drops it,
- * while a short one is simply refreshed next time.
+ * One section of the sitemap, served at /sitemap/{id}.xml.
+ * A backend failure returns what we have: a crawler that gets a 500 drops
+ * the file, while a short one is refreshed on the next request.
  */
-export const revalidate = 3600;
 
 const STATIC_PATHS: Array<{ path: string; priority: number; changeFrequency: "daily" | "weekly" }> = [
   { path: "/", priority: 1, changeFrequency: "daily" },
@@ -30,22 +27,20 @@ const STATIC_PATHS: Array<{ path: string; priority: number; changeFrequency: "da
   { path: "/site-map", priority: 0.3, changeFrequency: "weekly" },
 ];
 
-export async function generateSitemaps() {
-  return (await sitemapIds()).map((id) => ({ id }));
+export interface SitemapEntry {
+  url: string;
+  lastModified?: Date;
+  changeFrequency?: "daily" | "weekly" | "monthly";
+  priority?: number;
 }
 
-/** ISO string → Date, or undefined for missing/garbage values. */
 function toDate(value: string | null | undefined): Date | undefined {
   if (!value) return undefined;
   const at = new Date(value);
   return Number.isNaN(at.getTime()) ? undefined : at;
 }
 
-export default async function sitemap(props: {
-  id: Promise<string>;
-}): Promise<MetadataRoute.Sitemap> {
-  const id = await props.id;
-
+export async function buildSitemap(id: string): Promise<SitemapEntry[]> {
   if (id === "static") {
     return [
       ...STATIC_PATHS.map((entry) => ({
@@ -53,7 +48,6 @@ export default async function sitemap(props: {
         changeFrequency: entry.changeFrequency,
         priority: entry.priority,
       })),
-      // Curated searches (scope #6/#24): fixed config, so they ride with static.
       ...CURATED_PAGES.map((page) => ({
         url: absoluteUrl(curatedPath(page)),
         changeFrequency: "daily" as const,
@@ -76,7 +70,6 @@ export default async function sitemap(props: {
 
   if (id === "assignments") {
     const rows: PublicListing[] = [];
-    // 48 per page is the backend cap; 40 pages bounds a runaway loop.
     for (let page = 1; page <= 40; page++) {
       const data = await getPublicAssignments({ page, pageSize: 48 }).catch(() => null);
       if (!data || data.results.length === 0) break;
@@ -116,4 +109,26 @@ export default async function sitemap(props: {
   }
 
   return [];
+}
+
+function escapeXml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+export function sitemapToXml(entries: SitemapEntry[]): string {
+  const urls = entries
+    .map((entry) => {
+      const lastMod = entry.lastModified
+        ? `<lastmod>${entry.lastModified.toISOString()}</lastmod>`
+        : "";
+      const freq = entry.changeFrequency ? `<changefreq>${entry.changeFrequency}</changefreq>` : "";
+      const priority = entry.priority != null ? `<priority>${entry.priority}</priority>` : "";
+      return `  <url><loc>${escapeXml(entry.url)}</loc>${lastMod}${freq}${priority}</url>`;
+    })
+    .join("\n");
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+${urls}
+</urlset>
+`;
 }

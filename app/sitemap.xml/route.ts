@@ -8,13 +8,7 @@ function escapeXml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-/**
- * Sitemap index at /sitemap.xml.
- *
- * Next serves each section at /sitemap/{id}.xml and does not emit this index,
- * so /sitemap.xml was falling through to the site 404. Crawlers and the
- * robots file use this address as the one entry point.
- */
+/** Index at /sitemap.xml. Child files stay at /sitemap/{id}.xml. */
 export async function GET() {
   const ids = await sitemapIds();
   const entries = ids

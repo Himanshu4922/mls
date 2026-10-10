@@ -4,8 +4,7 @@ import { getListingKeysPage } from "@/lib/api/sitemap";
  * Child sitemap ids, shared by app/sitemap.ts (`generateSitemaps`) and
  * app/robots.ts.
  *
- * Next serves each id at `/sitemap/{id}.xml`. The index at `/sitemap.xml`
- * (`app/sitemap.xml/route.ts`) and robots.txt both use this list.
+ * Each id is served at `/sitemap/{id}.xml`. `/sitemap.xml` is the index.
  *
  * One listings sitemap per backend page (10k keys): well under Google's 50k
  * cap, and each child renders from a single request. If the count request
