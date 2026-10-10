@@ -146,20 +146,90 @@ export async function getPropertySnapshots(
     .sort((a, b) => (a.recordedAt! < b.recordedAt! ? -1 : 1));
 }
 
+export interface ListingEngagement {
+  views7d: number;
+  views30d: number;
+  /** Site traffic for this listing over 7 days: low under 5 views, high at 15+. */
+  band: "low" | "medium" | "high";
+}
+
+/** Views of this listing on HomeAtlas. Not a board-wide market index. */
+export async function getListingEngagement(
+  listingKey: string,
+  options: RequestOptions = {},
+): Promise<ListingEngagement | null> {
+  try {
+    const data = await apiFetch<{
+      views_7d?: number;
+      views_30d?: number;
+      activity_band?: string;
+    }>(`${MLS}/listing-engagement/`, {
+      revalidate: 60,
+      ...options,
+      params: { listing_key: listingKey },
+    });
+    const band = data.activity_band;
+    return {
+      views7d: data.views_7d ?? 0,
+      views30d: data.views_30d ?? 0,
+      band: band === "high" || band === "medium" || band === "low" ? band : "low",
+    };
+  } catch {
+    return null;
+  }
+}
+
+export interface CensusProfile {
+  population: number;
+  medianAge: number;
+  averageHouseholdSize: number;
+  averageHouseholdIncome: string | null;
+  incomeDistribution: Array<{ range: string; value: number }>;
+  disclaimer: string | null;
+}
+
 /** Census profile for a forward sortation area (first 3 chars of a postal code). */
 export async function getCensusProfile(
   fsa: string,
   options: RequestOptions = {},
-): Promise<Record<string, unknown> | null> {
+): Promise<CensusProfile | null> {
   const code = fsa.replace(/\s/g, "").slice(0, 3).toUpperCase();
   if (code.length !== 3) return null;
   try {
-    return await apiFetch<Record<string, unknown>>(
+    const data = await apiFetch<{ profile?: Record<string, unknown> | null }>(
       `${MLS}/census/fsa/${encodeURIComponent(code)}/`,
       { revalidate: 86_400, ...options },
     );
+    return parseCensus(data.profile);
   } catch {
     // Census coverage is partial; absence is normal, not an error.
     return null;
   }
+}
+
+function parseCensus(profile: Record<string, unknown> | null | undefined): CensusProfile | null {
+  if (!profile) return null;
+  const disclaimer = typeof profile.disclaimer === "string" ? profile.disclaimer : null;
+  const population = typeof profile.population === "number" ? profile.population : 0;
+  // The seed file is a placeholder (population 0, "Import census profile").
+  if (population <= 0 || (disclaimer ?? "").toLowerCase().includes("placeholder")) return null;
+
+  const rows = Array.isArray(profile.incomeDistribution) ? profile.incomeDistribution : [];
+  return {
+    population,
+    medianAge: typeof profile.medianAge === "number" ? profile.medianAge : 0,
+    averageHouseholdSize:
+      typeof profile.averageHouseholdSize === "number" ? profile.averageHouseholdSize : 0,
+    averageHouseholdIncome:
+      typeof profile.averageHouseholdIncome === "string" ? profile.averageHouseholdIncome : null,
+    incomeDistribution: rows
+      .map((row) => {
+        if (!row || typeof row !== "object") return null;
+        const range = "range" in row && typeof row.range === "string" ? row.range : "";
+        const value = "value" in row && typeof row.value === "number" ? row.value : null;
+        return range && value !== null ? { range, value } : null;
+      })
+      .filter((row): row is { range: string; value: number } => row !== null),
+    disclaimer,
+  };
 }

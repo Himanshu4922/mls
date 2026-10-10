@@ -9,6 +9,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { EmptyState, ErrorState, Skeleton } from "@/components/ui/States";
 import { getPublicAssignments } from "@/lib/api/assignments";
 import { COMMUNITY_CITIES } from "@/lib/constants/cities";
+import { sampleAssignmentPage, USE_ASSIGNMENT_SAMPLES } from "@/lib/demo/assignments";
 
 export const metadata: Metadata = {
   title: "Exclusive pre-construction assignments",
@@ -119,10 +120,14 @@ async function Results({
   buildPageHref: (page: number) => string;
 }) {
   let data;
-  try {
-    data = await getPublicAssignments({ city, priceMax, page, pageSize: PAGE_SIZE });
-  } catch {
-    return <ErrorState title="Assignments are unavailable" description="Please try again in a moment." />;
+  if (USE_ASSIGNMENT_SAMPLES) {
+    data = sampleAssignmentPage({ city, priceMax, page, pageSize: PAGE_SIZE });
+  } else {
+    try {
+      data = await getPublicAssignments({ city, priceMax, page, pageSize: PAGE_SIZE });
+    } catch {
+      return <ErrorState title="Assignments are unavailable" description="Please try again in a moment." />;
+    }
   }
 
   if (data.count === 0) {

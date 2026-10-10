@@ -1,19 +1,20 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { PropertyGridSkeleton } from "@/components/ui/States";
 import { Switch } from "@/components/ui/Switch";
 import type { WatchedPanelProps } from "@/components/watched/types";
 import { useUpdateAlertPrefs } from "@/lib/queries/watched";
 import type { AlertPreferences } from "@/lib/api/watched";
+import { disablePush, enablePush } from "@/lib/push/browser";
 
 type AlertRow = { key: keyof AlertPreferences; label: string; hint?: string };
 
 /*
- * Grouped like HouseSigma's notification menu (scope #5b). Every row maps to
- * a preference the daily digest actually reads (mls-v2
- * newsletter_notifications.py). Two stored preferences are deliberately not
- * shown: `newListings` is read by nothing, and `pushWatchedProperty` waits
- * for real push notifications — a toggle that does nothing would mislead.
+ * Grouped like HouseSigma's notification menu (scope #5b). Every email row
+ * maps to a preference the daily digest reads. `newListings` is still hidden
+ * because nothing sends it. Browser push appears only when the backend has
+ * VAPID keys, so the toggle is never a no-op.
  */
 const NEW_LISTING_ROWS: AlertRow[] = [
   { key: "emailRecommend", label: "Recommended homes", hint: "New listings picked from what you browse and save" },
@@ -33,8 +34,38 @@ export function AlertsPanel({ overview }: WatchedPanelProps) {
   const update = useUpdateAlertPrefs();
   const prefs = overview?.alertPreferences ?? null;
   const error = update.isError ? update.error.message : null;
+  const [pushKey, setPushKey] = useState<string | null>(null);
+  const [pushError, setPushError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/push/vapid")
+      .then((response) => response.json())
+      .then((data: { enabled?: boolean; publicKey?: string }) => {
+        if (!cancelled && data.enabled && data.publicKey) setPushKey(data.publicKey);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (!prefs) return <PropertyGridSkeleton count={1} />;
+
+  async function togglePush(value: boolean) {
+    setPushError(null);
+    update.mutate({ pushWatchedProperty: value });
+    if (!pushKey) return;
+    if (value) {
+      const result = await enablePush(pushKey);
+      if (!result.ok) {
+        update.mutate({ pushWatchedProperty: false });
+        setPushError(result.error || "Notifications could not be turned on.");
+      }
+    } else {
+      await disablePush();
+    }
+  }
 
   function toggle(key: keyof AlertPreferences, value: boolean) {
     update.mutate({ [key]: value });
@@ -69,6 +100,31 @@ export function AlertsPanel({ overview }: WatchedPanelProps) {
         <AlertGroup title="New listings" rows={NEW_LISTING_ROWS} prefs={prefs} onToggle={toggle} pending={update.isPending || emailOff} />
         <AlertGroup title="Homes I've saved" rows={SAVED_HOME_ROWS} prefs={prefs} onToggle={toggle} pending={update.isPending || emailOff} />
       </fieldset>
+
+      {pushKey && (
+        <div className="mt-5">
+          <h3 className="text-caption font-semibold uppercase tracking-wide text-ink-muted">Browser</h3>
+          <div className="flex items-center justify-between gap-4 py-3">
+            <span id="alert-pushWatchedProperty" className="text-small text-ink">
+              Push notifications
+              <span className="block text-caption text-ink-muted">
+                Alerts on this device when homes you watch change.
+              </span>
+            </span>
+            <Switch
+              checked={prefs.pushWatchedProperty}
+              onCheckedChange={(value) => void togglePush(value)}
+              aria-labelledby="alert-pushWatchedProperty"
+              disabled={update.isPending}
+            />
+          </div>
+          {pushError && (
+            <p role="alert" className="text-caption text-negative">
+              {pushError}
+            </p>
+          )}
+        </div>
+      )}
 
       <p className="mt-5 rounded-control bg-surface-alt px-3 py-2 text-caption text-ink-muted">
         {emailOff

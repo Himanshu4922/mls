@@ -107,11 +107,16 @@ export interface PropertyDetail extends PropertySummary {
   lotFrontage: number | null;
   lotSizeDimensions: string | null;
   parkingTotal: number | null;
+  /** "3+1" when the feed splits above- and below-grade bedrooms. */
+  bedsLabel: string | null;
+  garageSpaces: number | null;
   taxAnnualAmount: number | null;
   associationFee: number | null;
   associationFeeFrequency: string | null;
   /** Grouped facts for the detail spec sections; empty groups are dropped. */
   factGroups: Array<{ title: string; facts: PropertyFact[] }>;
+  /** http(s) virtual-tour link from the feed. Absent when the listing has none. */
+  virtualTourUrl: string | null;
 }
 
 export interface CommunitySummary {

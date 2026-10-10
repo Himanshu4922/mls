@@ -263,6 +263,16 @@ export function mapPropertySummary(raw: BackendPropertySummary): PropertySummary
 /* Detail                                                                      */
 /* -------------------------------------------------------------------------- */
 
+/** Second measure in "35 x 110 ft". The feed stores both in one string. */
+function lotDepthLabel(dimensions: string | null | undefined): string | null {
+  const parts = (dimensions ?? "")
+    .split(/[x×]/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length < 2) return null;
+  return /ft/i.test(parts[1]) ? parts[1] : `${parts[1]} ft`;
+}
+
 function fact(label: string, value: string | number | null | undefined): PropertyFact | null {
   if (value === null || value === undefined) return null;
   const text = String(value).trim();
@@ -284,35 +294,53 @@ export function mapPropertyDetail(raw: BackendPropertyDetail): PropertyDetail {
   const assocFee = toNumber(raw.association_fee);
   const lotFrontage = toNumber(raw.frontage_length_numeric);
 
+  const above = toNumber(raw.bedrooms_above_grade);
+  const below = toNumber(raw.bedrooms_below_grade);
+  const bedsLabel =
+    above !== null && below !== null && below > 0 ? `${above}+${below}` : null;
+  const garageSpaces = toNumber(raw.garages);
+  const roomCount = (raw.rooms ?? []).filter((room) => titleCase(room.room_type)).length;
+
   const factGroups = [
-    group("Property details", [
+    group("Property", [
+      fact("Listing #", summary.mls),
+      fact("Status", statusLabel(summary.status)),
       fact("Property type", summary.type),
-      fact("Year built", raw.year_built),
-      fact("Stories", raw.stories),
-      fact("Architectural style", titleCase(raw.architectural_style)),
-      fact("Condition", titleCase(raw.property_condition)),
-      fact("Living area", livingArea ? `${formatNumber(livingArea)} sq ft` : null),
-      fact("Lot size", raw.lot_size_dimensions),
-      fact("Lot frontage", lotFrontage ? `${formatNumber(lotFrontage)} ft` : null),
+      fact("Style", titleCase(raw.architectural_style)),
+      fact("Community", summary.neighbourhood),
+      fact("Municipality", summary.community),
+      fact("Directions", titleCase(raw.directions)),
     ]),
-    group("Interior", [
-      fact("Bedrooms", raw.bedrooms_total),
-      fact("Bathrooms", raw.bathrooms_total_integer),
+    group("Building", [
+      fact("Bedrooms", bedsLabel ?? summary.beds),
+      fact("Bathrooms", summary.baths),
       fact("Partial baths", raw.bathrooms_partial),
       fact("Basement", titleCase(raw.basement)),
-      fact("Heating", titleCase(raw.heating)),
-      fact("Cooling", titleCase(raw.cooling)),
+      fact("Kitchens", raw.kitchens),
+      fact("Rooms", roomCount || null),
+      fact("Square feet", livingArea ? `${formatNumber(livingArea)} sq ft` : null),
+      fact("Year built", raw.year_built),
+      fact("Stories", raw.stories),
+      fact("Construction", titleCase(raw.construction_materials)),
       fact("Flooring", titleCase(raw.flooring)),
-      fact("Fireplaces", raw.fireplaces_total),
     ]),
-    group("Exterior & parking", [
+    group("Parking & Garage", [
+      fact("Garage", titleCase(raw.garage_size)),
+      fact("Garage spaces", garageSpaces),
       fact("Parking spaces", raw.parking_total),
       fact("Parking features", titleCase(raw.parking_features)),
-      fact("Construction", titleCase(raw.construction_materials)),
-      fact("Roof", titleCase(raw.roof)),
-      fact("Pool", titleCase(raw.pool_features)),
-      fact("View", titleCase(raw.view)),
-      fact("Waterfront", titleCase(raw.waterfront_features)),
+    ]),
+    group("Land", [
+      fact("Lot size", raw.lot_size_dimensions),
+      fact("Frontage", lotFrontage ? `${formatNumber(lotFrontage)} ft` : null),
+      fact("Depth", lotDepthLabel(raw.lot_size_dimensions)),
+      fact("Zoning", titleCase(raw.zoning)),
+    ]),
+    group("Utilities", [
+      fact("Water", titleCase(raw.water_source)),
+      fact("Sewer", titleCase(raw.sewer)),
+      fact("Cooling", titleCase(raw.cooling)),
+      fact("Heating", titleCase(raw.heating)),
     ]),
     group("Financial", [
       fact("Annual taxes", taxAnnual ? formatPrice(taxAnnual) : null),
@@ -345,11 +373,26 @@ export function mapPropertyDetail(raw: BackendPropertyDetail): PropertyDetail {
     lotFrontage,
     lotSizeDimensions: raw.lot_size_dimensions?.trim() || null,
     parkingTotal: raw.parking_total ?? null,
+    bedsLabel,
+    garageSpaces,
     taxAnnualAmount: taxAnnual,
     associationFee: assocFee,
     associationFeeFrequency: raw.association_fee_frequency?.trim() || null,
     factGroups,
+    virtualTourUrl: httpUrl(raw.virtual_tour_url),
   };
+}
+
+/** Only http(s) tour links are rendered. Anything else is dropped. */
+function httpUrl(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  try {
+    const url = new URL(trimmed);
+    return url.protocol === "https:" || url.protocol === "http:" ? url.href : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Amenity/feature chips shown on the detail page. */

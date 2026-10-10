@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Navbar } from "@/components/layout/Navbar";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { PhoneVerifyModal } from "@/components/auth/PhoneVerifyModal";
+import { AiAssistant } from "@/components/assistant/AiAssistant";
 
 /**
  * Full-bleed layout for the map: no announcement bar and no footer, matching
@@ -16,6 +17,7 @@ export default function MapLayout({ children }: { children: ReactNode }) {
       </main>
       <AuthModal />
       <PhoneVerifyModal />
+      <AiAssistant />
     </>
   );
 }

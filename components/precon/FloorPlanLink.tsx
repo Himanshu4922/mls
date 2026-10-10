@@ -1,5 +1,6 @@
 "use client";
 
+import { trackPreconActivity } from "@/lib/activity/client";
 import { Spinner } from "@/components/ui/Button";
 import { usePreconDocument } from "@/components/precon/usePreconDocument";
 
@@ -28,7 +29,10 @@ export function FloorPlanLink({ projectId, label }: { projectId: number; label: 
     <span className="inline-flex flex-col items-end gap-1">
       <button
         type="button"
-        onClick={() => open("floor_plan")}
+        onClick={() => {
+          trackPreconActivity(projectId, "floor_plans");
+          open("floor_plan");
+        }}
         aria-label={label}
         disabled={state.status === "loading"}
         className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-control border border-line px-2.5 py-1 text-caption font-medium text-ink transition-colors hover:border-navy hover:text-navy disabled:opacity-60"

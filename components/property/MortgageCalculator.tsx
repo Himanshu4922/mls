@@ -18,16 +18,29 @@ import { formatPrice } from "@/lib/utils/format";
 const DEFAULT_RATE = 4.79;
 const DEFAULT_YEARS = 25;
 
-export function MortgageCalculator({ price }: { price: number | null }) {
+export function MortgageCalculator({
+  price,
+  annualTax = null,
+  suggestedRent = null,
+}: {
+  price: number | null;
+  /** Annual property tax from the listing, when the feed has it. */
+  annualTax?: number | null;
+  /** Median asking rent of nearby rentals, used as the starting rental income. */
+  suggestedRent?: number | null;
+}) {
   const [homePrice, setHomePrice] = useState(price ?? 0);
   const [downPct, setDownPct] = useState(20);
+  const [rentIncome, setRentIncome] = useState(suggestedRent ?? 0);
+  const [taxAnnual, setTaxAnnual] = useState(annualTax ?? 0);
+  const [maintenance, setMaintenance] = useState(150);
   // Held as a string: a numeric state cannot represent the intermediate
   // "5." a user types on the way to "5.25".
   const [rateText, setRateText] = useState(String(DEFAULT_RATE));
   const rate = Number(rateText) || 0;
   const [years, setYears] = useState(DEFAULT_YEARS);
 
-  const { monthly, principal, totalInterest } = useMemo(() => {
+  const { monthly, totalInterest } = useMemo(() => {
     const loan = Math.max(0, homePrice * (1 - downPct / 100));
     const n = Math.max(1, years * 12);
 
@@ -48,89 +61,150 @@ export function MortgageCalculator({ price }: { price: number | null }) {
     };
   }, [homePrice, downPct, rate, years]);
 
+  const taxMonthly = Math.round(taxAnnual / 12);
+  const cashFlow = Math.round(rentIncome - monthly - taxMonthly - maintenance);
+  const flowPct = Math.min(Math.abs(cashFlow) / 500, 1);
+
   return (
-    <section className="mt-10 rounded-surface border border-line bg-surface-alt p-6">
-      <h2 className="text-h2 text-ink">Mortgage calculator</h2>
-      <p className="mt-1 text-caption text-ink-muted">
-        An estimate only — not a rate quote or a pre-approval.
-      </p>
+    <section className="rounded-2xl border border-line p-4 sm:p-6">
+      <h2 className="text-[18px] font-semibold text-ink">Mortgage Calculator</h2>
 
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <Field label="Home price" htmlFor="mc-price">
-          <NumericInput
-            id="mc-price"
-            min={0}
-            max={100000000}
-            value={homePrice || ""}
-            onChange={(event) => setHomePrice(Number(event.target.value) || 0)}
-          />
-        </Field>
+      <div className="mt-5 grid gap-5 sm:grid-cols-2">
+        <div className="space-y-4">
+          <MoneyField id="mc-price" label="Home Price" prefix="$" value={homePrice} onChange={setHomePrice} />
+          <MoneyField id="mc-down" label="Down Payment %" suffix="%" value={downPct} max={100} onChange={setDownPct} />
+          <MoneyField id="mc-rent" label="Rental Income / mo" prefix="$" value={rentIncome} onChange={setRentIncome} />
+          <Field label="Interest rate (%)" htmlFor="mc-rate">
+            <NumericInput
+              id="mc-rate"
+              decimals={2}
+              min={0}
+              max={25}
+              value={rateText}
+              onChange={(event) => setRateText(event.target.value)}
+            />
+          </Field>
+          <Field label="Amortization (years)" htmlFor="mc-years">
+            <NumericInput
+              id="mc-years"
+              min={1}
+              max={30}
+              value={years}
+              onChange={(event) =>
+                setYears(Math.min(30, Math.max(1, Number(event.target.value) || 1)))
+              }
+            />
+          </Field>
+          <div className="rounded-xl bg-surface-alt p-4">
+            <div className="mb-1 flex justify-between text-[13px]">
+              <span className="text-ink-muted">Mortgage Payment</span>
+              <span className="font-semibold text-navy">${Math.round(monthly).toLocaleString()}/mo</span>
+            </div>
+            <div className="flex justify-between text-[13px]">
+              <span className="text-ink-muted">Down payment</span>
+              <span className="font-semibold">{downPct}%</span>
+            </div>
+          </div>
+        </div>
 
-        <Field label="Down payment (%)" htmlFor="mc-down">
-          <NumericInput
-            id="mc-down"
-            min={0}
-            max={100}
-            value={downPct}
-            onChange={(event) =>
-              setDownPct(Math.min(100, Math.max(0, Number(event.target.value) || 0)))
-            }
-          />
-        </Field>
-
-        <Field label="Interest rate (%)" htmlFor="mc-rate">
-          <NumericInput
-            id="mc-rate"
-            decimals={2}
-            min={0}
-            max={25}
-            value={rateText}
-            onChange={(event) => setRateText(event.target.value)}
-          />
-        </Field>
-
-        <Field label="Amortization (years)" htmlFor="mc-years">
-          <NumericInput
-            id="mc-years"
-            min={1}
-            max={30}
-            value={years}
-            onChange={(event) =>
-              setYears(Math.min(30, Math.max(1, Number(event.target.value) || 1)))
-            }
-          />
-        </Field>
+        <div>
+          <h3 className="mb-4 text-[14px] font-semibold text-ink">Cash Flow Analysis</h3>
+          <div className="space-y-2.5 text-[13px]">
+            <FlowRow label="Mortgage Payment" value={-Math.round(monthly)} />
+            <FlowRow label="Property Tax" value={-taxMonthly} />
+            <FlowRow label="Maintenance" value={-maintenance} />
+            <FlowRow label="Rental Income" value={Math.round(rentIncome)} />
+            <div className="flex justify-between border-t border-line pt-3">
+              <span className="font-semibold text-ink">Monthly Cash Flow</span>
+              <span className={`text-[16px] font-bold ${cashFlow >= 0 ? "text-green-600" : "text-red-500"}`}>
+                {cashFlow >= 0 ? "+" : "−"}${Math.abs(cashFlow).toLocaleString()}
+              </span>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <MoneyField id="mc-tax" label="Annual tax" prefix="$" value={taxAnnual} onChange={setTaxAnnual} />
+            <MoneyField id="mc-maint" label="Maintenance / mo" prefix="$" value={maintenance} onChange={setMaintenance} />
+          </div>
+          <div className="mt-5 flex items-center justify-center">
+            <div className="relative h-28 w-28">
+              <svg className="h-28 w-28 -rotate-90" viewBox="0 0 100 100" aria-hidden="true">
+                <circle cx="50" cy="50" r="40" fill="none" stroke="#ececec" strokeWidth="12" />
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="40"
+                  fill="none"
+                  stroke={cashFlow >= 0 ? "#22c55e" : "#ef4444"}
+                  strokeWidth="12"
+                  strokeDasharray={`${flowPct * 251} 251`}
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <div className="text-[12px] text-ink-muted">Cash Flow</div>
+                <div className={`text-[13px] font-bold ${cashFlow >= 0 ? "text-green-600" : "text-red-500"}`}>
+                  ${Math.abs(cashFlow).toLocaleString()}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-
-      <dl className="mt-6 grid gap-px overflow-hidden rounded-control border border-line bg-line sm:grid-cols-3">
-        <Stat label="Monthly payment" value={formatPrice(monthly)} emphasis />
-        <Stat label="Loan amount" value={formatPrice(principal)} />
-        <Stat label="Total interest" value={formatPrice(totalInterest)} />
-      </dl>
-
-      <p className="mt-3 text-caption text-ink-subtle">
-        Assumes semi-annual compounding, as is standard for Canadian fixed-rate
-        mortgages. Excludes property tax, insurance and CMHC premiums.
+      <p className="mt-4 text-[11px] text-ink-subtle">
+        Payment uses semi-annual compounding. Tax starts from this listing when the feed includes it.
+        Total interest on the loan is {formatPrice(totalInterest)}.
       </p>
     </section>
   );
 }
 
-function Stat({
+function MoneyField({
+  id,
   label,
   value,
-  emphasis,
+  onChange,
+  prefix,
+  suffix,
+  max = 100000000,
 }: {
+  id: string;
   label: string;
-  value: string;
-  emphasis?: boolean;
+  value: number;
+  onChange: (value: number) => void;
+  prefix?: string;
+  suffix?: string;
+  max?: number;
 }) {
   return (
-    <div className="bg-surface px-4 py-4">
-      <dt className="text-caption text-ink-muted">{label}</dt>
-      <dd className={emphasis ? "mt-0.5 text-h2 text-ink" : "mt-0.5 text-h3 text-ink"}>
-        {value}
-      </dd>
+    <div>
+      <label htmlFor={id} className="mb-1 block text-[12px] text-ink-muted">
+        {label}
+      </label>
+      <div className="flex items-center gap-2 rounded-xl border border-line px-4 py-3">
+        {prefix && <span className="text-ink-muted">{prefix}</span>}
+        <input
+          id={id}
+          type="number"
+          min={0}
+          max={max}
+          value={value || ""}
+          onChange={(event) => onChange(Math.min(max, Math.max(0, Number(event.target.value) || 0)))}
+          className="w-full bg-transparent text-[14px] text-ink outline-none"
+        />
+        {suffix && <span className="text-ink-muted">{suffix}</span>}
+      </div>
     </div>
   );
 }
+
+function FlowRow({ label, value }: { label: string; value: number }) {
+  const positive = value > 0;
+  return (
+    <div className="flex justify-between">
+      <span className="text-ink-muted">{label}</span>
+      <span className={`font-medium ${positive ? "text-green-600" : "text-red-500"}`}>
+        {positive ? "+" : "−"}${Math.abs(value).toLocaleString()}
+      </span>
+    </div>
+  );
+}
+

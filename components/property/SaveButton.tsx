@@ -17,6 +17,7 @@ export function SaveButton({
   className,
   style,
   size = "md",
+  variant = "icon",
 }: {
   listingKey: string;
   address: string;
@@ -24,6 +25,8 @@ export function SaveButton({
   /** Lets a 3D parent place this at a fixed depth. */
   style?: React.CSSProperties;
   size?: "sm" | "md";
+  /** Icon heart on cards. Labeled Watch control on the property tab bar. */
+  variant?: "icon" | "inline";
 }) {
   const { isFavorite, toggleFavorite } = useWatched();
   const [pending, startTransition] = useTransition();
@@ -31,6 +34,36 @@ export function SaveButton({
   const saved = isFavorite(listingKey);
 
   const dims = size === "sm" ? "h-8 w-8" : "h-9 w-9";
+
+  function onToggle() {
+    startTransition(async () => {
+      const message = await toggleFavorite(listingKey);
+      setError(message);
+      if (message) setTimeout(() => setError(null), 4000);
+    });
+  }
+
+  if (variant === "inline") {
+    return (
+      <span className={cn("relative inline-flex", className)}>
+        <button
+          type="button"
+          aria-pressed={saved}
+          aria-label={saved ? `Remove ${address} from saved homes` : `Save ${address}`}
+          disabled={pending}
+          onClick={onToggle}
+          className={cn(
+            "inline-flex h-9 items-center gap-1.5 px-1 text-[13px] font-medium transition-colors disabled:opacity-60",
+            saved ? "text-gold" : "text-ink-muted hover:text-ink",
+          )}
+        >
+          <HeartGlyph filled={saved} />
+          {saved ? "Watching" : "Watch"}
+        </button>
+        {error && <SaveError message={error} />}
+      </span>
+    );
+  }
 
   return (
     /* Two spans, deliberately. The outer one takes ONLY the caller's classes:
@@ -64,40 +97,43 @@ export function SaveButton({
       aria-pressed={saved}
       aria-label={saved ? `Remove ${address} from saved homes` : `Save ${address}`}
       disabled={pending}
-      onClick={() =>
-        startTransition(async () => {
-          const message = await toggleFavorite(listingKey);
-          setError(message);
-          // Auto-dismiss so a transient failure does not stick to the card.
-          if (message) setTimeout(() => setError(null), 4000);
-        })
-      }
+      onClick={onToggle}
     >
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 18 18"
-        fill={saved ? "var(--color-gold)" : "none"}
-        aria-hidden="true"
-      >
-        <path
-          d="M1.5 7.125C1.5 5.41646 2.55333 3.88477 4.14871 3.2733C5.74408 2.66183 7.55129 3.09716 8.69325 4.368C8.77267 4.45292 8.88373 4.50111 9 4.50111C9.11627 4.50111 9.22733 4.45292 9.30675 4.368C10.4453 3.08865 12.257 2.64768 13.8562 3.26061C15.4554 3.87355 16.5082 5.41239 16.5 7.125C16.5 8.8425 15.375 10.125 14.25 11.25L10.131 15.2347C9.8483 15.5594 9.43972 15.747 9.00922 15.7497C8.57871 15.7525 8.16779 15.5701 7.881 15.249L3.75 11.25C2.625 10.125 1.5 8.85 1.5 7.125"
-          stroke={saved ? "var(--color-gold)" : "currentColor"}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth="1.5"
-        />
-      </svg>
+      <HeartGlyph filled={saved} />
       </button>
-      {error && (
-        <span
-          role="alert"
-          className="pointer-events-none absolute right-0 top-full z-20 mt-1.5 w-max max-w-[13rem] rounded-control bg-ink px-2.5 py-1.5 text-caption text-white shadow-pop"
-        >
-          {error}
-        </span>
-      )}
+      {error && <SaveError message={error} />}
       </span>
+    </span>
+  );
+}
+
+function HeartGlyph({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 18 18"
+      fill={filled ? "var(--color-gold)" : "none"}
+      aria-hidden="true"
+    >
+      <path
+        d="M1.5 7.125C1.5 5.41646 2.55333 3.88477 4.14871 3.2733C5.74408 2.66183 7.55129 3.09716 8.69325 4.368C8.77267 4.45292 8.88373 4.50111 9 4.50111C9.11627 4.50111 9.22733 4.45292 9.30675 4.368C10.4453 3.08865 12.257 2.64768 13.8562 3.26061C15.4554 3.87355 16.5082 5.41239 16.5 7.125C16.5 8.8425 15.375 10.125 14.25 11.25L10.131 15.2347C9.8483 15.5594 9.43972 15.747 9.00922 15.7497C8.57871 15.7525 8.16779 15.5701 7.881 15.249L3.75 11.25C2.625 10.125 1.5 8.85 1.5 7.125"
+        stroke={filled ? "var(--color-gold)" : "currentColor"}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
+
+function SaveError({ message }: { message: string }) {
+  return (
+    <span
+      role="alert"
+      className="pointer-events-none absolute right-0 top-full z-20 mt-1.5 w-max max-w-[13rem] rounded-control bg-ink px-2.5 py-1.5 text-caption text-white shadow-pop"
+    >
+      {message}
     </span>
   );
 }

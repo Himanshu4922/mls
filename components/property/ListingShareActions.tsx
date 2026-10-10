@@ -25,6 +25,7 @@ export function ListingShareActions({
   address,
   url,
   canCompare,
+  virtualTourUrl,
   className,
 }: {
   listingKey: string;
@@ -33,18 +34,36 @@ export function ListingShareActions({
   url: string;
   /** Compare is limited to active listings, matching the listing cards. */
   canCompare: boolean;
+  /** Shown only when the listing feed includes an http(s) tour link. */
+  virtualTourUrl?: string | null;
   className?: string;
 }) {
   const message = `Hi, I'm interested in ${address} (MLS® ${listingKey}). ${url}`;
   const whatsappLink = whatsappHref(message);
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-2", className)}>
-      {canCompare && <CompareButton listingKey={listingKey} address={address} variant="inline" />}
+    <div className={cn("contents", className)}>
       <ShareButton title={address} url={url} />
+      {virtualTourUrl && (
+        <a
+          href={virtualTourUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(ACTION, "border-gold text-navy hover:border-navy")}
+        >
+          Virtual Tour
+          <span className="sr-only">(opens in a new tab)</span>
+        </a>
+      )}
+      {canCompare && <CompareButton listingKey={listingKey} address={address} variant="inline" />}
       {WHATSAPP_NUMBER && (
-        <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className={ACTION}>
-          <WhatsAppGlyph />
+        <a
+          href={whatsappLink}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-whatsapp px-3 py-1.5 text-[13px] font-medium text-white hover:opacity-90"
+        >
+          <WhatsAppGlyph className="text-white" />
           WhatsApp
           <span className="sr-only">(opens WhatsApp)</span>
         </a>
@@ -114,9 +133,40 @@ function ShareButton({ title, url }: { title: string; url: string }) {
   );
 }
 
-function WhatsAppGlyph() {
+/** Sidebar card from HomeAtlasUI: green mark, title, and a short prompt. */
+export function ListingWhatsAppCard({
+  address,
+  listingKey,
+  url,
+}: {
+  address: string;
+  listingKey: string;
+  url: string;
+}) {
+  if (!WHATSAPP_NUMBER) return null;
+  const href = whatsappHref(
+    `Hi, I'm interested in ${address} (MLS® ${listingKey}). ${url}`,
+  );
+
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" className="text-whatsapp" fill="currentColor" aria-hidden="true">
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-3 rounded-2xl border border-whatsapp p-4 transition-colors hover:bg-[#f0fff4]"
+    >
+      <WhatsAppGlyph size={24} />
+      <span className="min-w-0">
+        <span className="block text-[14px] font-semibold text-ink">Live Response on WhatsApp</span>
+        <span className="block text-[12px] text-ink-muted">Ask a question about this listing</span>
+      </span>
+    </a>
+  );
+}
+
+function WhatsAppGlyph({ size = 14, className = "text-whatsapp" }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={cn("shrink-0", className)} fill="currentColor" aria-hidden="true">
       <path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.07-.3-.15-1.26-.46-2.39-1.47-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.7.63.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2.01-1.41.25-.7.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35M12.05 21.79h-.01a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 7c0 5.45-4.44 9.88-9.88 9.88m8.41-18.3A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.16-3.48-8.41" />
     </svg>
   );

@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-
-const SESSION_KEY = "homeatlas.session";
+import { browserSessionKey } from "@/lib/activity/client";
 
 /**
  * Records a listing view.
@@ -28,18 +27,7 @@ export function ViewTracker({
     if (sent.current === listingKey) return;
     sent.current = listingKey;
 
-    // Non-identifying per-browser id; the beacon serializer requires one.
-    let sessionKey: string;
-    try {
-      sessionKey = window.localStorage.getItem(SESSION_KEY) ?? "";
-      if (!sessionKey) {
-        sessionKey = crypto.randomUUID().replace(/-/g, "").slice(0, 32);
-        window.localStorage.setItem(SESSION_KEY, sessionKey);
-      }
-    } catch {
-      // Storage blocked — use an ephemeral id so the view still counts once.
-      sessionKey = Math.random().toString(36).slice(2, 18).padEnd(16, "0");
-    }
+    const sessionKey = browserSessionKey();
 
     const post = (url: string, body: unknown) =>
       fetch(url, {

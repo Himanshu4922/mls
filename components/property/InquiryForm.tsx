@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, TelInput, Textarea } from "@/components/ui/Field";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { USE_ASSIGNMENT_SAMPLES } from "@/lib/demo/assignments";
 import { useSubmitInquiry } from "@/lib/queries/inquiries";
 
 /**
@@ -21,9 +22,9 @@ import { useSubmitInquiry } from "@/lib/queries/inquiries";
  */
 const COPY = {
   showing: {
-    title: "Request a showing",
-    hint: "No obligation. A local agent will confirm availability.",
-    submit: "Request showing",
+    title: "Schedule viewing",
+    hint: "Tour with a HomeAtlas agent. No obligation.",
+    submit: "Schedule viewing",
     intent: "showing",
     message: (address: string, listingKey: string) =>
       `I'd like to schedule a showing for ${address} (MLS® ${listingKey}).`,
@@ -84,6 +85,11 @@ export function InquiryForm({
     const data = new FormData(event.currentTarget);
     const fullName = String(data.get("name") ?? "").trim();
     const [firstName, ...rest] = fullName.split(" ");
+
+    if (USE_ASSIGNMENT_SAMPLES && listingKey.startsWith("ASSIGNMENT-")) {
+      setSent(true);
+      return;
+    }
 
     try {
       await submit.mutateAsync({

@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils/cn";
 const STAFF_SECTIONS = [
   { href: "/studio/precon", label: "Pre-con" },
   { href: "/studio/assignments", label: "Assignments" },
+  { href: "/studio/activity", label: "Activity" },
   { href: "/studio/team", label: "Team" },
 ];
 

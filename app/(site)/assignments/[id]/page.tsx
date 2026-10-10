@@ -16,6 +16,7 @@ import {
   type PublicListing,
 } from "@/lib/api/assignments";
 import { ApiError, safeFetch } from "@/lib/api/client";
+import { sampleAssignment, sampleSimilarAssignments, USE_ASSIGNMENT_SAMPLES } from "@/lib/demo/assignments";
 import { preconPath } from "@/lib/seo/urls";
 import { formatDate, formatNumber, formatPrice } from "@/lib/utils/format";
 
@@ -25,6 +26,7 @@ export const revalidate = 300;
 async function load(segment: string): Promise<PublicListing | null> {
   const id = Number(segment);
   if (!Number.isInteger(id) || id <= 0) return null;
+  if (USE_ASSIGNMENT_SAMPLES) return sampleAssignment(id);
   try {
     return await getPublicAssignment(id);
   } catch (error) {
@@ -175,7 +177,9 @@ export default async function AssignmentPage({ params }: PageProps<"/assignments
 
 /** Rail of similar approved assignments (scope #2e). Renders nothing when there are none. */
 async function SimilarAssignments({ id }: { id: number }) {
-  const similar = await safeFetch(getSimilarAssignments(id), [] as PublicListing[], "assignments:similar");
+  const similar = USE_ASSIGNMENT_SAMPLES
+    ? sampleSimilarAssignments(id)
+    : await safeFetch(getSimilarAssignments(id), [] as PublicListing[], "assignments:similar");
   if (similar.length === 0) return null;
   return (
     <section className="mt-12" aria-labelledby="similar-assignments">

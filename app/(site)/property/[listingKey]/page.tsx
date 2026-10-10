@@ -2,13 +2,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { Gallery } from "@/components/property/Gallery";
 import { InquiryForm } from "@/components/property/InquiryForm";
-import { ListingShareActions } from "@/components/property/ListingShareActions";
-import { MortgageCalculator } from "@/components/property/MortgageCalculator";
-import { AmenitiesSection, SchoolsSection } from "@/components/property/Neighbourhood";
+import { ListingShareActions, ListingWhatsAppCard } from "@/components/property/ListingShareActions";
+import { KeyFacts, MarketDemand } from "@/components/property/KeyFacts";
+import { EstimatesPanel } from "@/components/property/EstimatesPanel";
+import { CommunityPanel } from "@/components/property/CommunityPanel";
+import { ComparablesBoard } from "@/components/property/ComparablesBoard";
+import { SchoolsSection } from "@/components/property/Neighbourhood";
 import { PriceHistory } from "@/components/property/PriceHistory";
-import { PropertyCard } from "@/components/property/PropertyCard";
 import { PropertyNote } from "@/components/property/PropertyNote";
 import { PropertyTabs } from "@/components/property/PropertyTabs";
 import { SaveButton } from "@/components/property/SaveButton";
@@ -17,9 +20,9 @@ import { ViewTracker } from "@/components/property/ViewTracker";
 import { Badge } from "@/components/ui/Badge";
 import { PropertyGridSkeleton, Skeleton, UnavailableNote } from "@/components/ui/States";
 import { ApiError, safeFetch } from "@/lib/api/client";
-import { getProperty, getSimilarProperties } from "@/lib/api/properties";
+import { getProperty, getSimilarProperties, searchProperties } from "@/lib/api/properties";
 import {
-  getNearbyAmenities,
+  getListingEngagement,
   getNearbySchools,
   getPropertySnapshots,
 } from "@/lib/api/neighbourhood";
@@ -30,7 +33,7 @@ import {
   formatNumber,
   formatPrice,
 } from "@/lib/utils/format";
-import type { PropertyDetail } from "@/lib/types/domain";
+import type { PropertyDetail, PropertySummary } from "@/lib/types/domain";
 import { absoluteUrl, JsonLd } from "@/components/seo/JsonLd";
 import { propertyJsonLd } from "@/lib/seo/jsonld";
 import { propertyPath } from "@/lib/seo/urls";
@@ -94,12 +97,37 @@ export default async function PropertyPage({
   const property = await load(listingKey);
   if (!property) notFound();
 
-  const location = [property.neighbourhood, property.community, property.stateOrProvince]
-    .filter(Boolean)
-    .join(", ");
+  const location = [
+    ...new Set(
+      [property.neighbourhood, property.community, property.stateOrProvince].filter(Boolean),
+    ),
+  ].join(", ");
+
+  const shareUrl = absoluteUrl(propertyPath(property.id));
+  const priceLabel =
+    property.price === null
+      ? EMPTY
+      : property.isLease
+        ? formatLeasePrice(property.price)
+        : formatPrice(property.price);
+  const soldClose = property.status === "sold" ? property.closePrice : null;
+  const headlinePrice =
+    soldClose !== null
+      ? property.isLease
+        ? formatLeasePrice(soldClose)
+        : formatPrice(soldClose)
+      : priceLabel;
+  const overAsk =
+    soldClose !== null && property.price
+      ? ((soldClose - property.price) / property.price) * 100
+      : null;
+  const similarHref = property.community
+    ? `/listings?city=${encodeURIComponent(property.community)}`
+    : "/listings";
+  const hasLocation = property.latitude !== null && property.longitude !== null;
 
   return (
-    <article className="container-page py-8">
+    <article className="pb-8">
       <JsonLd data={propertyJsonLd(property)} />
       {/* Records the view for popularity counts and "Recently Viewed". */}
       <ViewTracker
@@ -114,6 +142,7 @@ export default async function PropertyPage({
         }}
       />
 
+      <div className="container-page pt-6 sm:pt-8">
       <nav aria-label="Breadcrumb" className="mb-5">
         <Link
           href="/listings"
@@ -131,145 +160,195 @@ export default async function PropertyPage({
           Back to listings
         </Link>
       </nav>
+      </div>
 
+      <PropertyTabs
+        lead={
+          <>
       <Gallery images={property.images} address={property.address} />
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_360px]">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge tone={property.status === "sold" ? "negative" : "navy"}>
-                  {statusLabel(property.status)}
-                </Badge>
-                {property.badge && property.badge.tone !== "sold" && (
-                  <Badge tone="warm">{property.badge.label}</Badge>
-                )}
-              </div>
+      <header className="mt-5 sm:mt-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[1.75rem] font-semibold leading-tight text-ink sm:text-[2rem]">
+              {headlinePrice}
+              {overAsk !== null && (
+                <span
+                  className={`ml-3 inline-flex rounded-full px-3 py-1 align-middle text-[13px] font-semibold ${
+                    overAsk >= 0 ? "bg-red-100 text-red-600" : "bg-green-100 text-green-700"
+                  }`}
+                >
+                  {overAsk >= 0 ? "+" : ""}
+                  {overAsk.toFixed(1)}% {overAsk >= 0 ? "over asking" : "below asking"}
+                </span>
+              )}
+            </p>
+            <h1 className="mt-1 text-[15px] font-medium text-ink">{property.address}</h1>
+            <p className="text-[13px] text-ink-muted">{location || EMPTY}</p>
+          </div>
+          <div className="text-left sm:text-right">
+            <p className="text-[12px] text-ink-muted">
+              {property.status === "sold" ? "Asking price" : "MLS®"}
+            </p>
+            <p
+              className={
+                property.status === "sold"
+                  ? "text-[18px] font-medium text-ink-muted line-through"
+                  : "text-[18px] font-semibold text-navy"
+              }
+            >
+              {property.status === "sold" ? priceLabel : property.mls}
+            </p>
+            {property.status !== "sold" && (
+              <p className="text-[12px] text-ink-muted">Listed</p>
+            )}
+          </div>
+        </div>
 
-              <h1 className="mt-3 text-h1 text-ink">{property.address}</h1>
-              <p className="mt-1 text-small text-ink-muted">{location || EMPTY}</p>
-              <ListingShareActions
-                className="mt-4"
+        <dl className="mt-4 flex flex-wrap gap-2 sm:gap-3">
+          {property.bedsLabel || property.beds !== null ? (
+            <StatPill label="Bedrooms" value={property.bedsLabel ?? formatNumber(property.beds)} />
+          ) : null}
+          {property.baths !== null && (
+            <StatPill label="Bathrooms" value={formatNumber(property.baths)} />
+          )}
+          {(property.garageSpaces ?? property.parkingTotal) !== null && (
+            <StatPill
+              label="Garage"
+              value={formatNumber(property.garageSpaces ?? property.parkingTotal)}
+            />
+          )}
+          {property.sqft !== null && (
+            <StatPill label="Sq Ft" value={formatNumber(property.sqft)} />
+          )}
+        </dl>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {property.type && (
+            <span className="inline-flex items-center gap-2 rounded-xl bg-surface-alt px-4 py-2.5 text-[14px]">
+              <span className="font-semibold text-ink">{property.type}</span>
+              <span className="text-[12px] text-ink-muted">Type</span>
+            </span>
+          )}
+          <span className="text-ink-subtle" aria-hidden="true">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" />
+            </svg>
+          </span>
+          <Link
+            href="/preconstruction"
+            className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl bg-gold px-4 py-2.5 text-[13px] font-bold text-navy hover:bg-gold-deep sm:px-5"
+          >
+            Browse Similar Preconstruction
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" />
+            </svg>
+          </Link>
+          <TouredButton
+            listingKey={property.id}
+            snapshot={{
+              address: property.address,
+              price: property.price,
+              city: property.community,
+              image: property.image,
+              beds: property.beds,
+              baths: property.baths,
+            }}
+          />
+        </div>
+      </header>
+          </>
+        }
+        actions={
+          <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
+            {property.status === "active" && (
+              <SaveButton
+                variant="inline"
                 listingKey={property.id}
                 address={property.address}
-                url={absoluteUrl(propertyPath(property.id))}
-                canCompare={property.status === "active"}
               />
-            </div>
-
-            <div className="flex items-start gap-3">
-              <p className="text-display text-ink">
-                {property.price === null
-                  ? EMPTY
-                  : property.isLease
-                    ? formatLeasePrice(property.price)
-                    : formatPrice(property.price)}
-              </p>
-              {property.status === "active" && (
-                <SaveButton
-                  listingKey={property.id}
-                  address={property.address}
-                  className="relative shrink-0"
-                />
-              )}
-              {/* Not gated on status: a home can be toured after it sells. */}
-              <TouredButton
-                listingKey={property.id}
-                className="shrink-0"
-                snapshot={{
-                  address: property.address,
-                  price: property.price,
-                  city: property.community,
-                  image: property.image,
-                  beds: property.beds,
-                  baths: property.baths,
-                }}
-              />
-            </div>
-          </div>
-
-          <dl className="mt-6 grid grid-cols-2 gap-px overflow-hidden rounded-surface border border-line bg-line sm:grid-cols-4">
-            <KeyStat label="Bedrooms" value={property.beds === null ? EMPTY : formatNumber(property.beds)} />
-            <KeyStat label="Bathrooms" value={property.baths === null ? EMPTY : formatNumber(property.baths)} />
-            <KeyStat
-              label="Interior"
-              value={property.sqft === null ? EMPTY : `${formatNumber(property.sqft)} sq ft`}
+            )}
+            <ListingShareActions
+              listingKey={property.id}
+              address={property.address}
+              url={shareUrl}
+              canCompare={property.status === "active"}
+              virtualTourUrl={property.virtualTourUrl}
             />
-            <KeyStat label="Year built" value={property.yearBuilt === null ? EMPTY : String(property.yearBuilt)} />
-          </dl>
-
-          {/*
-            Tabbed sections, following HomeAtlasUI's detail layout. Only tabs
-            with a real data source are built: the reference also shipped
-            Climate Risk and an "AI Estimate", both hardcoded sample values
-            (a made-up flood percentage; price × 1.03), and mls-v2 supplies
-            neither. Schools here are the real nearby-schools endpoint, not the
-            reference's invented ratings.
-          */}
-          <div className="mt-10">
-            <PropertyTabs
-              tabs={[
+          </div>
+        }
+        aside={
+          <div className="space-y-4">
+            <InquiryForm listingKey={property.id} address={property.address} />
+            <ListingWhatsAppCard
+              address={property.address}
+              listingKey={property.mls}
+              url={shareUrl}
+            />
+            <Link
+              href={similarHref}
+              className="block rounded-surface bg-ink p-5 text-white"
+            >
+              <p className="text-caption font-semibold uppercase tracking-wider text-gold">
+                Nearby homes
+              </p>
+              <p className="mt-2 text-small font-medium">
+                {property.type ?? "Homes"}
+                {property.community ? ` in ${property.community}` : " across the GTA"}
+              </p>
+              <span className="mt-4 inline-flex rounded-control bg-gold px-3.5 py-2 text-caption font-semibold text-ink">
+                Browse listings
+              </span>
+            </Link>
+            <Suspense fallback={null}>
+              <SimilarHomes listingKey={property.id} city={property.community} />
+            </Suspense>
+          </div>
+        }
+        footnote={
+          <p className="mt-10 text-caption text-ink-subtle">
+            MLS® {property.mls} · Listing data provided by the Canadian Real Estate
+            Association. Information is deemed reliable but not guaranteed.
+          </p>
+        }
+        tabs={[
                 {
                   id: "overview",
                   label: "Overview",
                   content: (
-                    <div className="space-y-10">
+                    <div className="space-y-8">
+                      <KeyFacts groups={property.factGroups} />
+                      <Suspense fallback={null}>
+                        <DemandPanel listingKey={property.id} />
+                      </Suspense>
                       {property.description && (
                         <section>
-                          <h2 className="text-h2 text-ink">About this home</h2>
-                          <p className="mt-3 whitespace-pre-line text-body leading-relaxed text-ink-soft">
+                          <h2 className="mb-3 text-[18px] font-semibold text-ink">Description</h2>
+                          <p className="whitespace-pre-line text-[14px] leading-relaxed text-ink-muted">
                             {property.description}
                           </p>
                         </section>
                       )}
-
-                      {property.factGroups.map((group) => (
-                        <section key={group.title}>
-                          <h2 className="text-h2 text-ink">{group.title}</h2>
-                          <dl className="mt-4 grid gap-x-8 gap-y-3 sm:grid-cols-2">
-                            {group.facts.map((item) => (
-                              <div
-                                key={item.label}
-                                className="flex justify-between gap-4 border-b border-line-soft pb-2"
-                              >
-                                <dt className="text-small text-ink-muted">{item.label}</dt>
-                                <dd className="text-right text-small font-medium text-ink">
-                                  {item.value}
-                                </dd>
-                              </div>
-                            ))}
-                          </dl>
-                        </section>
-                      ))}
-
                       {property.rooms.length > 0 && (
-                        <section>
-                          <h2 className="text-h2 text-ink">Rooms</h2>
-                          <div className="mt-4 overflow-x-auto">
-                            <table className="w-full min-w-[420px] border-collapse text-small">
+                        <section className="overflow-hidden rounded-2xl border border-line">
+                          <div className="border-b border-line bg-surface-alt px-4 py-4 sm:px-6">
+                            <h2 className="text-[18px] font-semibold text-ink">Rooms</h2>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full min-w-[420px] text-[13px]">
                               <thead>
                                 <tr className="border-b border-line text-left text-ink-muted">
-                                  <th scope="col" className="py-2 pr-4 font-medium">Room</th>
-                                  <th scope="col" className="py-2 pr-4 font-medium">Level</th>
-                                  <th scope="col" className="py-2 font-medium">Dimensions</th>
+                                  <th scope="col" className="px-4 py-3 font-medium sm:px-6">Room</th>
+                                  <th scope="col" className="px-4 py-3 font-medium sm:px-6">Level</th>
+                                  <th scope="col" className="px-4 py-3 font-medium sm:px-6">Dimensions</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {property.rooms.map((room, index) => (
-                                  <tr
-                                    key={`${room.name}-${index}`}
-                                    className="border-b border-line-soft"
-                                  >
-                                    <td className="py-2.5 pr-4 font-medium text-ink">
-                                      {room.name}
-                                    </td>
-                                    <td className="py-2.5 pr-4 text-ink-muted">
-                                      {room.level ?? EMPTY}
-                                    </td>
-                                    <td className="py-2.5 text-ink-muted">
-                                      {room.dimensions ?? EMPTY}
-                                    </td>
+                                  <tr key={`${room.name}-${index}`} className="border-b border-line-soft">
+                                    <td className="px-4 py-3 font-medium text-ink sm:px-6">{room.name}</td>
+                                    <td className="px-4 py-3 text-ink-muted sm:px-6">{room.level ?? EMPTY}</td>
+                                    <td className="px-4 py-3 text-ink-muted sm:px-6">{room.dimensions ?? EMPTY}</td>
                                   </tr>
                                 ))}
                               </tbody>
@@ -277,138 +356,247 @@ export default async function PropertyPage({
                           </div>
                         </section>
                       )}
+                      <PropertyNote listingKey={property.id} />
                     </div>
                   ),
                 },
                 {
                   id: "history",
-                  label: "Listing history",
+                  label: "Listing History",
                   content: (
                     <Suspense fallback={<SectionSkeleton label="Loading price history" />}>
-                      <PriceHistorySection listingKey={property.id} />
+                      <PriceHistorySection listingKey={property.id} listingId={property.mls} />
                     </Suspense>
                   ),
                 },
                 {
-                  id: "neighbourhood",
-                  label: "Neighbourhood",
-                  available: property.latitude !== null && property.longitude !== null,
+                  id: "estimates",
+                  label: "Estimates",
                   content: (
-                    <Suspense
-                      fallback={<SectionSkeleton label="Loading neighbourhood data" />}
-                    >
-                      <NeighbourhoodSections
+                    <Suspense fallback={<SectionSkeleton label="Loading estimate" />}>
+                      <EstimatesPanel property={property} />
+                    </Suspense>
+                  ),
+                },
+                {
+                  id: "comparables",
+                  label: "Comparables",
+                  content: (
+                    <Suspense fallback={<PropertyGridSkeleton count={2} />}>
+                      <ComparablesSection property={property} />
+                    </Suspense>
+                  ),
+                },
+                {
+                  id: "schools",
+                  label: "Schools",
+                  content: hasLocation ? (
+                    <Suspense fallback={<SectionSkeleton label="Loading schools" />}>
+                      <SchoolsPanel
                         latitude={property.latitude ?? 0}
                         longitude={property.longitude ?? 0}
+                        city={property.community}
+                      />
+                    </Suspense>
+                  ) : (
+                    <LocationUnavailable
+                      title="Nearby schools"
+                      detail="School data needs a map location, and this listing does not include one."
+                    />
+                  ),
+                },
+                {
+                  id: "community",
+                  label: "Community",
+                  content: (
+                    <Suspense fallback={<SectionSkeleton label="Loading community" />}>
+                      <CommunityPanel
+                        city={property.community}
+                        postalCode={property.postalCode}
+                        latitude={property.latitude}
+                        longitude={property.longitude}
                       />
                     </Suspense>
                   ),
                 },
-                {
-                  id: "finance",
-                  label: "Mortgage",
-                  content: <MortgageCalculator price={property.price} />,
-                },
-                {
-                  id: "notes",
-                  label: "My notes",
-                  content: <PropertyNote listingKey={property.id} />,
-                },
               ]}
-            />
-          </div>
-
-          <p className="mt-10 text-caption text-ink-subtle">
-            MLS® {property.mls} · Listing data provided by the Canadian Real Estate
-            Association. Information is deemed reliable but not guaranteed.
-          </p>
-        </div>
-
-        <aside className="lg:sticky lg:top-28 lg:h-fit">
-          <InquiryForm listingKey={property.id} address={property.address} />
-
-          {/*
-            The reference showed walk/transit scores here. No backend or
-            third-party source supplies them today (API_GAPS G5), so the section
-            is omitted rather than filled with invented numbers.
-          */}
-          <UnavailableNote className="mt-4">
-            Neighbourhood walk and transit scores are not yet available for this
-            listing.
-          </UnavailableNote>
-        </aside>
-      </div>
-
-      <Suspense fallback={<PropertyGridSkeleton count={3} />}>
-        <SimilarHomes listingKey={property.id} />
-      </Suspense>
+      />
     </article>
   );
 }
 
-function KeyStat({ label, value }: { label: string; value: string }) {
+function StatPill({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null;
   return (
-    <div className="bg-surface px-4 py-4">
-      <dt className="text-caption text-ink-muted">{label}</dt>
-      <dd className="mt-0.5 text-h3 text-ink">{value}</dd>
+    <div className="inline-flex items-center gap-2 rounded-xl bg-surface-alt px-3.5 py-2.5 sm:px-4">
+      <dd className="text-[14px] font-semibold text-ink">{value}</dd>
+      <dt className="text-[12px] text-ink-muted">{label}</dt>
     </div>
   );
 }
 
-async function SimilarHomes({ listingKey }: { listingKey: string }) {
-  const similar = await safeFetch(
-    getSimilarProperties(listingKey),
-    [],
-    "property:similar",
-  );
-  if (similar.length === 0) return null;
-
+function LocationUnavailable({ title, detail }: { title: string; detail: string }) {
   return (
-    <section className="mt-16">
-      <h2 className="text-h2 text-ink">Similar homes</h2>
-      <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {similar.slice(0, 3).map((item) => (
-          <PropertyCard key={item.id} property={item} />
-        ))}
-      </div>
+    <section>
+      <h2 className="text-h2 text-ink">{title}</h2>
+      <UnavailableNote className="mt-3">{detail}</UnavailableNote>
     </section>
   );
 }
 
-async function PriceHistorySection({ listingKey }: { listingKey: string }) {
+async function SimilarHomes({
+  listingKey,
+  city,
+}: {
+  listingKey: string;
+  city: string | null;
+}) {
+  let similar = await safeFetch(getSimilarProperties(listingKey), [], "property:similar");
+  similar = similar.filter((item) => item.id !== listingKey);
+
+  // Fill out the sidebar when recommendations are short. Same city, active.
+  if (similar.length < 3 && city) {
+    const found = await safeFetch(
+      searchProperties({ city, status: "Active", limit: 4 }),
+      {
+        items: [] as PropertySummary[],
+        total: 0,
+        nextOffset: null,
+        previousOffset: null,
+        approximate: false,
+        truncated: false,
+      },
+      "property:similar-city",
+    );
+    const extra = found.items.filter(
+      (item) => item.id !== listingKey && !similar.some((row) => row.id === item.id),
+    );
+    similar = [...similar, ...extra];
+  }
+
+  if (similar.length === 0) return null;
+
+  return (
+    <section className="rounded-2xl border border-line p-4 sm:p-5">
+      <h2 className="mb-4 text-[15px] font-semibold text-ink">
+        Similar{city ? ` in ${city}` : " nearby"}
+      </h2>
+      <ul className="space-y-1">
+        {similar.slice(0, 3).map((item) => (
+          <li key={item.id}>
+            <CompactSimilar property={item} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function CompactSimilar({ property }: { property: PropertySummary }) {
+  const price =
+    property.price === null
+      ? EMPTY
+      : property.isLease
+        ? formatLeasePrice(property.price)
+        : formatPrice(property.price);
+  return (
+    <Link href={propertyPath(property.id)} className="-mx-2 flex gap-3 rounded-xl p-2 hover:bg-surface-alt">
+      <SafeImage
+        src={property.image}
+        alt=""
+        width={64}
+        height={48}
+        className="h-12 w-16 shrink-0 rounded-lg object-cover"
+      />
+      <span className="min-w-0">
+        <span className="block text-[13px] font-semibold text-ink">{price}</span>
+        <span className="block truncate text-[11px] text-ink-muted">{property.address}</span>
+        <span className="block text-[11px] text-ink-muted">
+          {property.beds ?? EMPTY}bd · {property.baths ?? EMPTY}ba
+          {property.type ? ` · ${property.type}` : ""}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
+async function PriceHistorySection({
+  listingKey,
+  listingId,
+}: {
+  listingKey: string;
+  listingId: string;
+}) {
   const snapshots = await safeFetch(
     getPropertySnapshots(listingKey),
     [],
     "property:snapshots",
   );
-  return <PriceHistory snapshots={snapshots} />;
+  return <PriceHistory snapshots={snapshots} listingId={listingId} />;
 }
 
-/**
- * Schools and amenities share a coordinate pair, so they are fetched together
- * and stream in as one unit rather than blocking the main content.
- */
-async function NeighbourhoodSections({
+async function SchoolsPanel({
   latitude,
   longitude,
+  city,
 }: {
   latitude: number;
   longitude: number;
+  city: string | null;
 }) {
-  const [schools, amenities] = await Promise.all([
-    safeFetch(getNearbySchools(latitude, longitude), [], "property:schools"),
-    safeFetch(
-      getNearbyAmenities(latitude, longitude),
-      { groceries: [], cafes: [], parks: [], transit: [] },
-      "property:amenities",
-    ),
+  const schools = await safeFetch(
+    getNearbySchools(latitude, longitude, { radius: 15_000 }),
+    [],
+    "property:schools",
+  );
+  return <SchoolsSection schools={schools} city={city} />;
+}
+
+async function DemandPanel({ listingKey }: { listingKey: string }) {
+  const engagement = await getListingEngagement(listingKey);
+  return <MarketDemand engagement={engagement} />;
+}
+
+async function ComparablesSection({ property }: { property: PropertyDetail }) {
+  const city = property.community ?? undefined;
+  const empty = {
+    items: [] as PropertySummary[],
+    total: 0,
+    nextOffset: null,
+    previousOffset: null,
+    approximate: false,
+    truncated: false,
+  };
+  const [recommended, sold, rent, active, engagement] = await Promise.all([
+    safeFetch(getSimilarProperties(property.id), [], "property:similar"),
+    city
+      ? safeFetch(searchProperties({ city, status: "Sold", limit: 4 }), empty, "property:sold-comps")
+      : Promise.resolve(empty),
+    city
+      ? safeFetch(
+          searchProperties({ city, transaction: "rent", status: "Active", limit: 4 }),
+          empty,
+          "property:rent-comps",
+        )
+      : Promise.resolve(empty),
+    city
+      ? safeFetch(searchProperties({ city, status: "Active", limit: 8 }), empty, "property:sale-comps")
+      : Promise.resolve(empty),
+    getListingEngagement(property.id),
   ]);
+  const dropSelf = (items: PropertySummary[]) => items.filter((item) => item.id !== property.id);
+  const sale = dropSelf(recommended);
+  const citySale = dropSelf(active.items).filter((item) => !sale.some((row) => row.id === item.id));
 
   return (
-    <>
-      <SchoolsSection schools={schools} />
-      <AmenitiesSection amenities={amenities} />
-    </>
+    <ComparablesBoard
+      sale={[...sale, ...citySale]}
+      sold={dropSelf(sold.items)}
+      rent={dropSelf(rent.items)}
+      engagement={engagement}
+      price={property.price}
+      annualTax={property.taxAnnualAmount}
+    />
   );
 }
 

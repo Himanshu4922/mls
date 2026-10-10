@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import type { PreconDocumentType } from "@/lib/api/preconstruction";
 import type { PreconDocuments } from "@/lib/precon/parse";
+import { trackPreconActivity } from "@/lib/activity/client";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -35,6 +36,11 @@ export function ListingActionBar({
   const { open, state, reset } = usePreconDocument(projectId);
   const [contactOpen, setContactOpen] = useState(false);
 
+  function openDocument(type: PreconDocumentType) {
+    trackPreconActivity(projectId, type === "floor_plan" ? "floor_plans" : "pricing");
+    open(type);
+  }
+
   const buttons = (compact: boolean) => (
     <>
       <DocButton
@@ -42,7 +48,7 @@ export function ListingActionBar({
         label="Floor plans"
         available={documents.floorPlan}
         state={state}
-        onOpen={open}
+        onOpen={openDocument}
         compact={compact}
         variant="primary"
         icon={<PlanIcon />}
@@ -52,7 +58,7 @@ export function ListingActionBar({
         label="Pricing"
         available={documents.priceList}
         state={state}
-        onOpen={open}
+        onOpen={openDocument}
         compact={compact}
         variant="secondary"
         icon={<TagIcon />}
@@ -61,7 +67,10 @@ export function ListingActionBar({
         variant="secondary"
         size={compact ? "sm" : "md"}
         block
-        onClick={() => setContactOpen(true)}
+        onClick={() => {
+          trackPreconActivity(projectId, "contact");
+          setContactOpen(true);
+        }}
         className="border-gold text-ink hover:border-gold hover:bg-gold-soft hover:text-ink"
       >
         <ChatIcon />

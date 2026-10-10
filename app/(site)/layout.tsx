@@ -4,6 +4,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { AuthModal } from "@/components/auth/AuthModal";
 import { PhoneVerifyModal } from "@/components/auth/PhoneVerifyModal";
+import { AiAssistant } from "@/components/assistant/AiAssistant";
 import { CompareTray } from "@/components/property/CompareTray";
 
 /** Chrome-wrapped pages. The map search route uses its own full-bleed layout. */
@@ -20,6 +21,7 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
       <PhoneVerifyModal />
       {/* Mounted at layout level so a compare selection survives navigation. */}
       <CompareTray />
+      <AiAssistant />
     </>
   );
 }

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Suspense } from "react";
 import { ListingActionBar } from "@/components/listing/ListingActionBar";
+import { PreconActivityTracker } from "@/components/precon/PreconActivityTracker";
 import { PreconSectionNav } from "@/components/precon/PreconSectionNav";
 import {
   AmenitiesSection,
@@ -126,6 +127,7 @@ export default async function PreconProjectPage({
   return (
     <article className="container-page py-8">
       <JsonLd data={preconJsonLd(project)} />
+      <PreconActivityTracker projectId={project.id} />
 
       <nav aria-label="Breadcrumb" className="mb-5">
         <Link

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Geist } from "next/font/google";
 import "./globals.css";
+import { CookieConsent } from "@/components/consent/CookieConsent";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { WatchedProvider } from "@/components/providers/WatchedProvider";
@@ -87,7 +88,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         </a>
         <QueryProvider>
           <AuthProvider initialUser={user}>
-            <WatchedProvider>{children}</WatchedProvider>
+            <WatchedProvider>
+              {children}
+              <CookieConsent />
+            </WatchedProvider>
           </AuthProvider>
         </QueryProvider>
       </body>

@@ -44,7 +44,7 @@ export function Gallery({
 
   if (count === 0) {
     return (
-      <div className="flex h-[320px] items-center justify-center rounded-surface border border-line bg-surface-alt text-small text-ink-muted sm:h-[420px]">
+      <div className="flex h-[220px] items-center justify-center rounded-surface border border-line bg-surface-alt text-small text-ink-muted sm:h-[300px] lg:h-[380px]">
         No photos available for this listing
       </div>
     );
@@ -56,7 +56,7 @@ export function Gallery({
         <button
           type="button"
           onClick={() => setLightbox(true)}
-          className="relative h-[280px] overflow-hidden rounded-surface bg-surface-alt sm:h-[420px]"
+          className="relative h-[220px] overflow-hidden rounded-surface bg-surface-alt sm:h-[300px] lg:h-[380px]"
           aria-label={`View photo 1 of ${count} full screen`}
         >
           <SafeImage

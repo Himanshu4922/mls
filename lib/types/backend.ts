@@ -116,6 +116,14 @@ export interface BackendPropertyDetail extends Omit<BackendPropertySummary, "med
   frontage_length_numeric: string | null;
   parking_total: number | null;
   parking_features: string | null;
+  garages?: number | null;
+  garage_size?: string | null;
+  kitchens?: number | null;
+  bedrooms_above_grade?: number | null;
+  bedrooms_below_grade?: number | null;
+  zoning?: string | null;
+  water_source?: string | null;
+  sewer?: string | null;
   bathrooms_partial: number | null;
   stories: number | null;
   tax_annual_amount: string | null;

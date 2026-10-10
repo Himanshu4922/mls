@@ -368,12 +368,21 @@ export async function getSimilarProperties(
   options: RequestOptions = {},
 ): Promise<PropertySummary[]> {
   const data = await apiFetch<
-    { results?: BackendPropertySummary[] } | BackendPropertySummary[]
+    | BackendPropertySummary[]
+    | {
+        results?: BackendPropertySummary[];
+        /** Ranked matches. Each row wraps the listing under `property`. */
+        for_this_home?: Array<{ property?: BackendPropertySummary | null }>;
+      }
   >(`${MLS}/properties/${encodeURIComponent(listingKey)}/recommendations/`, {
     revalidate: 600,
     ...options,
   });
-  const rows = Array.isArray(data) ? data : (data.results ?? []);
+  if (Array.isArray(data)) return data.map(mapPropertySummary);
+  const ranked = (data.for_this_home ?? [])
+    .map((row) => row.property)
+    .filter((row): row is BackendPropertySummary => Boolean(row?.listing_key));
+  const rows = ranked.length > 0 ? ranked : (data.results ?? []);
   return rows.map(mapPropertySummary);
 }
 
