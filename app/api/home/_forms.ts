@@ -38,3 +38,8 @@ export function finiteNumber(value: unknown): number | null {
   const n = typeof value === "string" && value.trim() ? Number(value) : value;
   return typeof n === "number" && Number.isFinite(n) ? n : null;
 }
+
+/** The nearby-alert columns store 6 decimal places (about 10 cm). */
+export function roundCoordinate(value: number, places = 6): number {
+  return Number(value.toFixed(places));
+}

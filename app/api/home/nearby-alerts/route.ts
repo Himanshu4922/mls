@@ -6,7 +6,7 @@ import {
   NEARBY_RADIUS_MIN_KM,
 } from "@/lib/api/homeForms";
 import { requireAccessToken } from "@/lib/auth/session";
-import { fail, finiteNumber, homeErrorJson, readJsonObject } from "../_forms";
+import { fail, finiteNumber, homeErrorJson, readJsonObject, roundCoordinate } from "../_forms";
 
 const SIGN_IN = "Sign in to set up nearby alerts.";
 
@@ -51,8 +51,8 @@ export async function POST(request: Request) {
   try {
     const created = await createNearbyAlert(token, {
       label,
-      latitude,
-      longitude,
+      latitude: roundCoordinate(latitude),
+      longitude: roundCoordinate(longitude),
       radius_km: radiusKm,
       consent: true,
     });

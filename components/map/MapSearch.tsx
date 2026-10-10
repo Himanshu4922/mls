@@ -185,10 +185,16 @@ export function MapSearch() {
   const rowRefs = useRef(new Map<string, HTMLElement>());
   const listRef = useRef<HTMLUListElement>(null);
   const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null);
+  // A place the visitor searched for wins over a late automatic locate,
+  // which would otherwise pull the map back to where they are standing.
+  const placeChosen = useRef(false);
   // Auto-centre only when the URL doesn't already say where to look.
   const userLocation = useUserLocation({
     autoCenter: !params.get("poly"),
-    onLocated: (point) => setFlyTarget(point),
+    onLocated: (point, auto) => {
+      if (auto && placeChosen.current) return;
+      setFlyTarget(point);
+    },
   });
   const [viewport, setViewport] = useState<MapViewport | null>(null);
   // Debounce viewport changes so a drag doesn't fire a request per frame.
@@ -392,7 +398,12 @@ export function MapSearch() {
               ))}
         </MapContainer>
 
-        <PlaceSearch onSelect={(result) => setFlyTarget([result.latitude, result.longitude])} />
+        <PlaceSearch
+          onSelect={(result) => {
+            placeChosen.current = true;
+            setFlyTarget([result.latitude, result.longitude]);
+          }}
+        />
 
         <MapControls
           drawMode={drawing.mode}
@@ -644,6 +655,10 @@ function ListFoot({
  * Place search overlaid on the map, backed by `locations/geocode/`.
  * Selecting a result flies the viewport there; the bounds watcher then reloads.
  */
+function preferCanada(results: GeocodeResult[]): GeocodeResult | undefined {
+  return results.find((result) => /canada/i.test(result.label)) ?? results[0];
+}
+
 function PlaceSearch({ onSelect }: { onSelect: (result: GeocodeResult) => void }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -651,6 +666,19 @@ function PlaceSearch({ onSelect }: { onSelect: (result: GeocodeResult) => void }
   const search = usePlaceSearch(debouncedQuery);
   // Too short to search: no suggestions, even if an older set is cached.
   const results = search.isEnabled ? (search.data ?? NO_RESULTS) : NO_RESULTS;
+  const term = debouncedQuery.trim();
+  const settled = search.isEnabled && !search.isFetching && !search.isPlaceholderData;
+  // Enter before the suggestions arrive should still move the map.
+  const goWhenReady = useRef(false);
+  const flownFor = useRef("");
+
+  function choose(result: GeocodeResult) {
+    goWhenReady.current = false;
+    flownFor.current = term;
+    onSelect(result);
+    setQuery(result.label);
+    setOpen(false);
+  }
 
   // Open the list when a fresh set of suggestions arrives (adjusting state
   // during render rather than in an effect).
@@ -660,38 +688,79 @@ function PlaceSearch({ onSelect }: { onSelect: (result: GeocodeResult) => void }
     if (!search.isPlaceholderData && search.data) setOpen(search.data.length > 0);
   }
 
+  useEffect(() => {
+    if (term.length < 4) {
+      if (!term) flownFor.current = "";
+      return;
+    }
+    if (!settled) return;
+    const pick = preferCanada(results);
+    if (!pick) return;
+    if (goWhenReady.current) {
+      choose(pick);
+      return;
+    }
+    // Typing a city and stopping is the search. Don't wait for a click,
+    // and don't fly again for the same text.
+    if (flownFor.current === term) return;
+    flownFor.current = term;
+    onSelect(pick);
+    // choose() also writes the label back into the box, which would search
+    // the long name again. Leaving the typed text alone avoids that loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settled, term, results, onSelect]);
+
   return (
-    <div className="absolute left-4 top-4 z-[400] w-[min(320px,calc(100%-2rem))]">
+    <div className="absolute left-4 top-4 z-[1100] w-[min(320px,calc(100%-2rem))]">
       <label htmlFor="map-place-search" className="sr-only">
         Search for a city or neighbourhood
       </label>
       <input
         id="map-place-search"
         value={query}
-        onChange={(event) => setQuery(event.target.value)}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setOpen(true);
+          goWhenReady.current = false;
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            setOpen(false);
+            return;
+          }
+          if (event.key !== "Enter") return;
+          event.preventDefault();
+          const pick = preferCanada(results);
+          if (pick && settled) choose(pick);
+          else goWhenReady.current = true;
+        }}
         onBlur={() => window.setTimeout(() => setOpen(false), 150)}
         onFocus={() => results.length > 0 && setOpen(true)}
         placeholder="Search a city or neighbourhood…"
         className="h-11 w-full rounded-control border border-line bg-surface px-4 text-small text-ink shadow-card outline-none placeholder:text-ink-subtle focus:border-navy"
       />
 
-      {open && results.length > 0 && query.trim().length >= PLACE_SEARCH_MIN_CHARS && (
+      {open && query.trim().length >= PLACE_SEARCH_MIN_CHARS && (
         <ul className="mt-1 max-h-60 overflow-auto rounded-control border border-line bg-surface shadow-pop">
           {results.map((result, index) => (
             <li key={`${result.label}-${index}`}>
               <button
                 type="button"
-                onClick={() => {
-                  onSelect(result);
-                  setQuery(result.label);
-                  setOpen(false);
-                }}
+                // mousedown would blur the input and unmount this list before click.
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => choose(result)}
                 className="block w-full px-4 py-2.5 text-left text-caption text-ink-soft transition-colors hover:bg-surface-alt"
               >
                 {result.label}
               </button>
             </li>
           ))}
+          {settled && results.length === 0 && (
+            <li className="px-4 py-2.5 text-caption text-ink-muted">No places found.</li>
+          )}
+          {search.isError && (
+            <li className="px-4 py-2.5 text-caption text-ink-muted">Place search is unavailable right now.</li>
+          )}
         </ul>
       )}
     </div>
