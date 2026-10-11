@@ -7,6 +7,7 @@ import {
   IconRent,
   IconSell,
 } from "@/components/home/icons";
+import { listOf } from "@/lib/site/read";
 
 /**
  * Quick-action cards under the hero (HomeAtlasUI HomePage L204-232).
@@ -26,12 +27,33 @@ const ACTIONS: Array<{
   { label: "Sell", desc: "Request a home valuation", href: "/sell", Icon: IconSell },
 ];
 
-export function QuickActions() {
+const ICONS: Record<string, ComponentType<{ className?: string }>> = {
+  buy: IconBuy,
+  rent: IconRent,
+  precon: IconPrecon,
+  sell: IconSell,
+};
+
+export function QuickActions({ content }: { content?: Record<string, unknown> }) {
+  const custom = listOf<{ icon?: string; label?: string; description?: string; href?: string }>(
+    content,
+    "items",
+    [],
+  );
+  const actions = custom.length
+    ? custom.map((item) => ({
+        label: item.label || "Explore",
+        desc: item.description || "",
+        href: item.href || "/listings",
+        Icon: ICONS[item.icon || "buy"] ?? IconBuy,
+      }))
+    : ACTIONS;
+
   return (
     <section aria-label="Quick actions" className="bg-surface py-10 sm:py-14 lg:py-16">
       <div className="container-page">
-        <ul className="grid grid-cols-2 gap-4 sm:gap-5 lg:grid-cols-4">
-          {ACTIONS.map(({ label, desc, href, Icon }) => (
+        <ul className={`grid grid-cols-2 gap-4 sm:gap-5 ${actions.length > 4 ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
+          {actions.map(({ label, desc, href, Icon }) => (
             <li key={label} className="h-full">
               <Link
                 href={href}

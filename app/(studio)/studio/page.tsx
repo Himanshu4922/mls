@@ -25,16 +25,16 @@ export default async function StudioPostsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-h1 text-ink">Posts</h1>
-          <p className="mt-1 text-small text-ink-muted">
-            Write, edit and publish articles for the public blog.
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-surface border border-line bg-surface p-5 sm:p-6">
+        <div className="max-w-2xl">
+          <h1 className="text-h1 text-ink">Blog posts</h1>
+          <p className="mt-2 text-body text-ink-muted">
+            Write an article, save it as a draft, then publish when it should appear on the public blog.
           </p>
         </div>
         <Link
           href="/studio/new"
-          className="rounded-control bg-navy px-4 py-2 text-small font-medium text-white transition-opacity hover:opacity-90"
+          className="inline-flex h-11 items-center rounded-control bg-navy px-5 text-small font-medium text-white hover:bg-navy-deep"
         >
           New post
         </Link>

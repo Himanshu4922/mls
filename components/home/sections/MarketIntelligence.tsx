@@ -13,6 +13,7 @@ import {
   formatNumber,
   formatPriceCompact,
 } from "@/lib/utils/format";
+import { headingLines, textOf } from "@/lib/site/read";
 import { buildListingHref } from "@/lib/utils/searchParams";
 import { ArrowGlyph } from "./sectionIcons";
 
@@ -27,7 +28,7 @@ import { ArrowGlyph } from "./sectionIcons";
  * reference labelled them "<City> Q3 2024 Report", but the destination shows
  * current data, not a dated report, so the period is dropped from the label.
  */
-export async function MarketIntelligence() {
+export async function MarketIntelligence({ content }: { content?: Record<string, unknown> }) {
   const snapshot = await getMarketSnapshot();
   const liveStats = snapshot ? snapshotStats(snapshot) : [];
   const live = snapshot !== null && liveStats.length > 0;
@@ -59,11 +60,14 @@ export async function MarketIntelligence() {
     <Section tone="alt">
       <div className="grid items-start gap-8 lg:grid-cols-2 lg:gap-16">
         <div>
-          <Eyebrow>Know before you move</Eyebrow>
+          <Eyebrow>{textOf(content, "eyebrow", "Know before you move")}</Eyebrow>
           <h2 className="mt-2 text-display text-ink">
-            Market Intelligence,
-            <br />
-            Made Useful.
+            {headingLines(textOf(content, "title", "Market Intelligence,\nMade Useful.")).map((line, index) => (
+              <span key={line}>
+                {index > 0 && <br />}
+                {line}
+              </span>
+            ))}
           </h2>
         </div>
 

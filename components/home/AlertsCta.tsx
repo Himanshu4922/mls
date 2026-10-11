@@ -42,7 +42,8 @@ const ALERT_TYPES = [
 
 type AlertKey = (typeof ALERT_TYPES)[number]["key"];
 
-export function AlertsCta() {
+export function AlertsCta({ content }: { content?: Record<string, unknown> }) {
+  const alertCopy = Array.isArray(content?.alerts) ? content.alerts : null;
   const { user, openAuth } = useAuth();
   const router = useRouter();
 
@@ -103,22 +104,25 @@ export function AlertsCta() {
         <div className="grid items-center gap-10 lg:grid-cols-2">
           <div>
             <p className="text-eyebrow uppercase text-white/70">
-              Stay ahead of the market
+              {typeof content?.eyebrow === "string" && content.eyebrow.trim() ? content.eyebrow : "Stay ahead of the market"}
             </p>
-            <h2 className="mt-3 text-h1 text-white">Smart alerts</h2>
+            <h2 className="mt-3 text-h1 text-white">{typeof content?.title === "string" && content.title.trim() ? content.title : "Smart alerts"}</h2>
             <p className="mt-4 max-w-xl text-body text-white/80">
-              Follow an area and we&apos;ll tell you when homes are listed, when prices
-              move, and when they sell. Manage everything from your saved homes at any
-              time.
+              {typeof content?.description === "string" && content.description.trim()
+                ? content.description
+                : "Follow an area and we'll tell you when homes are listed, when prices move, and when they sell. Manage everything from your saved homes at any time."}
             </p>
 
             <ul className="mt-8 grid gap-4 sm:grid-cols-3">
-              {ALERT_TYPES.map((item) => (
-                <li key={item.key} className="rounded-control bg-white/10 p-4">
-                  <p className="text-small font-semibold text-white">{item.label}</p>
-                  <p className="mt-1 text-caption text-white/70">{item.description}</p>
-                </li>
-              ))}
+              {ALERT_TYPES.map((item, index) => {
+                const custom = alertCopy?.[index] as { label?: string; description?: string } | undefined;
+                return (
+                  <li key={item.key} className="rounded-control bg-white/10 p-4">
+                    <p className="text-small font-semibold text-white">{custom?.label || item.label}</p>
+                    <p className="mt-1 text-caption text-white/70">{custom?.description || item.description}</p>
+                  </li>
+                );
+              })}
             </ul>
           </div>
 

@@ -7,6 +7,8 @@ import { QueryProvider } from "@/components/providers/QueryProvider";
 import { WatchedProvider } from "@/components/providers/WatchedProvider";
 import { JsonLd, SITE_URL, absoluteUrl } from "@/components/seo/JsonLd";
 import { getCurrentUser } from "@/lib/auth/session";
+import { WhatsappProvider } from "@/components/providers/WhatsappProvider";
+import { getSeoDocument, getWhatsappNumber } from "@/lib/site/load";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
@@ -17,22 +19,26 @@ const inter = Inter({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: "HomeAtlas — GTA Real Estate Intelligence",
-    template: "%s · HomeAtlas",
-  },
-  description:
-    "Search active MLS® listings across the Greater Toronto Area, track market trends, and get an instant home valuation.",
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
-  ),
-  openGraph: {
-    siteName: "HomeAtlas",
-    type: "website",
-    locale: "en_CA",
-  },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const seo = await getSeoDocument();
+  const title = seo?.title || "HomeAtlas — GTA Real Estate Intelligence";
+  const description =
+    seo?.description ||
+    "Search active MLS® listings across the Greater Toronto Area, track market trends, and get an instant home valuation.";
+  return {
+    title: { default: title, template: "%s · HomeAtlas" },
+    description,
+    metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+    openGraph: {
+      siteName: "HomeAtlas",
+      type: "website",
+      locale: "en_CA",
+      title,
+      description,
+      images: seo?.shareImageUrl ? [{ url: seo.shareImageUrl, alt: seo.shareImageAlt || title }] : undefined,
+    },
+  };
+}
 
 /*
  * Site-wide structured data: who publishes the site, and a sitelinks search
@@ -75,6 +81,7 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   // Resolved server-side so the first paint already reflects the session.
   const user = await getCurrentUser();
+  const whatsappNumber = await getWhatsappNumber();
 
   return (
     <html lang="en-CA" className={cn("h-full", inter.variable, "font-sans", geist.variable)}>
@@ -88,10 +95,12 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         </a>
         <QueryProvider>
           <AuthProvider initialUser={user}>
-            <WatchedProvider>
-              {children}
-              <CookieConsent />
-            </WatchedProvider>
+            <WhatsappProvider number={whatsappNumber}>
+              <WatchedProvider>
+                {children}
+                <CookieConsent />
+              </WatchedProvider>
+            </WhatsappProvider>
           </AuthProvider>
         </QueryProvider>
       </body>

@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/States";
 import { safeFetch } from "@/lib/api/client";
 import { getCommunityImages } from "@/lib/api/home";
 import { getBulkCatalogStats } from "@/lib/api/market";
+import { textOf } from "@/lib/site/read";
 import { formatNumber, formatPrice } from "@/lib/utils/format";
 
 /**
@@ -31,7 +32,7 @@ const SECTION = {
 const RAIL =
   "flex snap-x snap-mandatory gap-5 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
-export async function TrendingCommunities() {
+export async function TrendingCommunities({ content }: { content?: Record<string, unknown> }) {
   const [rows, communityImages] = await Promise.all([
     // Tiles show no sold figures, so skip the slow AMPRE sold lookup.
     safeFetch(getBulkCatalogStats({ gta: true, includeSold: false }), [], "home:communities"),
@@ -46,7 +47,15 @@ export async function TrendingCommunities() {
   if (trending.length === 0) return null;
 
   return (
-    <Section {...SECTION}>
+    <Section
+      tone={SECTION.tone}
+      eyebrow={textOf(content, "eyebrow", SECTION.eyebrow)}
+      title={textOf(content, "title", SECTION.title)}
+      action={{
+        label: textOf(content, "actionLabel", SECTION.action.label),
+        href: textOf(content, "actionHref", SECTION.action.href),
+      }}
+    >
       <ul className={RAIL}>
         {trending.map((row) => {
           const image = communityImage(row.city, communityImages);

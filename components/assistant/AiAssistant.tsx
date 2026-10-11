@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { whatsappHref } from "@/lib/constants/contact";
+import { WhatsappLink } from "@/components/providers/WhatsappProvider";
 import { browserSessionKey } from "@/lib/activity/client";
 import { cn } from "@/lib/utils/cn";
 
@@ -137,14 +137,12 @@ export function AiAssistant() {
                   </ul>
                 )}
                 {message.handoff === "whatsapp" && (
-                  <a
-                    href={whatsappHref("Hi, I was using the HomeAtlas assistant and would like to talk to someone.")}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <WhatsappLink
+                    message="Hi, I was using the HomeAtlas assistant and would like to talk to someone."
                     className="mt-2 inline-block font-medium text-navy underline underline-offset-2"
                   >
                     Continue on WhatsApp
-                  </a>
+                  </WhatsappLink>
                 )}
                 {message.handoff === "contact" && (
                   <Link href="/market-trends" className="mt-2 inline-block font-medium text-navy underline underline-offset-2">

@@ -12,6 +12,7 @@ import { Section } from "@/components/ui/Section";
 import { safeFetch } from "@/lib/api/client";
 import { getPropertyTypes } from "@/lib/api/properties";
 import type { UiPropertyType } from "@/lib/types/domain";
+import { textOf } from "@/lib/site/read";
 import { formatNumber } from "@/lib/utils/format";
 
 /**
@@ -42,7 +43,23 @@ const TILES: Array<{
   { label: "Rentals", href: "/listings?tx=rent", Icon: IconRental, uiType: "Rental" },
 ];
 
-export async function PropertyTypes() {
+const ICONS: Record<string, ComponentType<{ className?: string }>> = {
+  detached: IconDetached,
+  condo: IconCondo,
+  townhome: IconTownhome,
+  luxury: IconLuxury,
+  openHouse: IconOpenHouse,
+  rental: IconRental,
+};
+
+const UI_TYPES: Record<string, UiPropertyType | undefined> = {
+  detached: "Detached",
+  condo: "Condo",
+  townhome: "Townhome",
+  rental: "Rental",
+};
+
+export async function PropertyTypes({ content }: { content?: Record<string, unknown> }) {
   const facets = await safeFetch(getPropertyTypes(), [], "home:property-types");
   const counts = new Map<string, number>();
   for (const facet of facets) {
@@ -50,10 +67,24 @@ export async function PropertyTypes() {
     counts.set(facet.uiType, (counts.get(facet.uiType) ?? 0) + facet.count);
   }
 
+  const custom = Array.isArray(content?.items) ? content.items : [];
+  const tiles = custom.length
+    ? custom.map((item) => {
+        const row = item && typeof item === "object" ? (item as { icon?: string; label?: string; href?: string }) : {};
+        const icon = row.icon || "detached";
+        return {
+          label: row.label || "Homes",
+          href: row.href || "/listings",
+          Icon: ICONS[icon] ?? IconDetached,
+          uiType: UI_TYPES[icon],
+        };
+      })
+    : TILES;
+
   return (
-    <Section tone="alt" title="Explore by Property Type" className="border-y border-line">
+    <Section tone="alt" title={textOf(content, "title", "Explore by Property Type")} className="border-y border-line">
       <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-        {TILES.map(({ label, href, Icon, uiType }) => {
+        {tiles.map(({ label, href, Icon, uiType }) => {
           const count = uiType ? counts.get(uiType) : undefined;
           return (
             <li key={label} className="h-full">

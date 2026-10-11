@@ -1,8 +1,9 @@
 import { Eyebrow } from "@/components/ui/Badge";
 import { getPartners } from "@/lib/api/home";
 import { connectionIconFor, type Partner } from "@/lib/api/homeMappers";
-import { whatsappHref } from "@/lib/constants/contact";
+import { WhatsappLink } from "@/components/providers/WhatsappProvider";
 import { trustedConnections } from "@/lib/home/contentSections";
+import { headingLines, textOf } from "@/lib/site/read";
 import { ConnectionGlyph } from "./contentIcons";
 
 /**
@@ -36,7 +37,7 @@ function fromPartner(p: Partner): ConnectionView {
   };
 }
 
-export async function TrustedConnections() {
+export async function TrustedConnections({ content }: { content?: Record<string, unknown> }) {
   const partners = await getPartners();
   const items: ConnectionView[] =
     partners && partners.length > 0
@@ -52,15 +53,17 @@ export async function TrustedConnections() {
     <section className="bg-surface py-10 sm:py-14 lg:py-16">
       <div className="container-page">
         <div className="mb-10 text-center sm:mb-12">
-          <Eyebrow>Your real estate network</Eyebrow>
+          <Eyebrow>{textOf(content, "eyebrow", "Your real estate network")}</Eyebrow>
           <h2 className="mt-3 text-display text-ink">
-            Trusted Connections for
-            <br />
-            Your Journey
+            {headingLines(textOf(content, "title", "Trusted Connections for\nYour Journey")).map((line, index) => (
+              <span key={line}>
+                {index > 0 && <br />}
+                {line}
+              </span>
+            ))}
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-body text-ink-muted">
-            We connect you with top-tier professionals to ensure every aspect of
-            your real estate experience is seamless, secure, and exceptional.
+            {textOf(content, "description", "We connect you with top-tier professionals to ensure every aspect of your real estate experience is seamless, secure, and exceptional.")}
           </p>
         </div>
         <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -89,10 +92,8 @@ export async function TrustedConnections() {
                   </span>
                 </a>
               )}
-              <a
-                href={whatsappHref(item.message)}
-                target="_blank"
-                rel="noopener noreferrer"
+              <WhatsappLink
+                message={item.message}
                 className="mt-4 self-start text-small font-medium text-navy transition-colors hover:text-gold"
               >
                 Connect Now →
@@ -100,7 +101,7 @@ export async function TrustedConnections() {
                   {" "}
                   with {item.title} (opens WhatsApp)
                 </span>
-              </a>
+              </WhatsappLink>
             </li>
           ))}
         </ul>

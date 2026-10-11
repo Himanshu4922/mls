@@ -4,6 +4,7 @@ import { Section } from "@/components/ui/Section";
 import { getMarketDeals } from "@/lib/api/home";
 import { dealHref, formatDay, type PriceDropDeal } from "@/lib/api/homeMappers";
 import { marketDeals } from "@/lib/home/staticSections";
+import { textOf } from "@/lib/site/read";
 import { formatPrice } from "@/lib/utils/format";
 import { buildListingHref } from "@/lib/utils/searchParams";
 import { DealGlyph } from "./sectionIcons";
@@ -20,19 +21,19 @@ import { DealGlyph } from "./sectionIcons";
  * instead — each a real link to the search it describes; their counts are the
  * reference's sample figures.
  */
-export async function GtaMarketDeals() {
+export async function GtaMarketDeals({ content }: { content?: Record<string, unknown> }) {
   const deals = await getMarketDeals(4);
   const live = deals !== null && deals.length > 0;
 
   return (
     <Section
       tone="alt"
-      eyebrow="Exclusive opportunities"
-      title="GTA Market Deals"
+      eyebrow={textOf(content, "eyebrow", "Exclusive opportunities")}
+      title={textOf(content, "title", "GTA Market Deals")}
     >
       {live && (
         <p className="-mt-3 mb-6 text-caption text-ink-subtle sm:-mt-5 sm:mb-8">
-          Largest recent price reductions on active GTA listings
+          {textOf(content, "caption", "Largest recent price reductions on active GTA listings")}
         </p>
       )}
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">

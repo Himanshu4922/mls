@@ -6,6 +6,7 @@ import { getSoldBelowPurchase } from "@/lib/api/home";
 import { formatDay, type SoldBelowRow } from "@/lib/api/homeMappers";
 import { formatFullPrice, properties } from "@/lib/home/sampleData";
 import { soldBelowPicks } from "@/lib/home/staticSections";
+import { textOf } from "@/lib/site/read";
 import { formatPrice } from "@/lib/utils/format";
 import { buildListingHref } from "@/lib/utils/searchParams";
 
@@ -23,18 +24,22 @@ import { buildListingHref } from "@/lib/utils/searchParams";
  * purchase price, not the asking price, so the badge says that instead.
  * Cards open the sold search for the same city and type.
  */
-export async function SoldBelowLastPurchase() {
+export async function SoldBelowLastPurchase({ content }: { content?: Record<string, unknown> }) {
   const rows = await getSoldBelowPurchase(3);
   const live = rows !== null && rows.length > 0;
 
   return (
     <Section
-      eyebrow="Buyer's opportunity"
-      title="Sold Below Last Purchase"
-      description="Properties that recently sold below their previous purchase price — potential value opportunities"
+      eyebrow={textOf(content, "eyebrow", "Buyer's opportunity")}
+      title={textOf(content, "title", "Sold Below Last Purchase")}
+      description={textOf(
+        content,
+        "description",
+        "Properties that recently sold below their previous purchase price — potential value opportunities",
+      )}
       action={{
-        label: "View All Sold Data",
-        href: buildListingHref({ status: "Sold" }),
+        label: textOf(content, "actionLabel", "View All Sold Data"),
+        href: textOf(content, "actionHref", buildListingHref({ status: "Sold" })),
       }}
     >
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

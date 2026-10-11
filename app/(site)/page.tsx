@@ -1,9 +1,7 @@
-import Image from "next/image";
 import { Suspense, type ReactNode } from "react";
 import type { Metadata } from "next";
 import { AlertsCta } from "@/components/home/AlertsCta";
-import { HeroSearch } from "@/components/home/HeroSearch";
-import { ListingsFreshness, ListingsFreshnessFallback } from "@/components/home/ListingsFreshness";
+import { Hero } from "@/components/home/Hero";
 import { BuyersIncentives } from "@/components/home/sections/BuyersIncentives";
 import { DailyNews } from "@/components/home/sections/DailyNews";
 import { FeaturedListings } from "@/components/home/sections/FeaturedListings";
@@ -28,9 +26,10 @@ import {
 import { TrustedConnections } from "@/components/home/sections/TrustedConnections";
 import { KeywordLinks } from "@/components/search/KeywordLinks";
 import { WhyHomeAtlas } from "@/components/home/sections/WhyHomeAtlas";
-import { Eyebrow } from "@/components/ui/Badge";
 import { Section } from "@/components/ui/Section";
 import { PropertyGridSkeleton } from "@/components/ui/States";
+import { getHomepageDocument } from "@/lib/site/load";
+import { SECTION_IDS, type SectionId, type SiteSection } from "@/lib/site/types";
 
 /**
  * Homepage — section order follows HomeAtlasUI's HomePage.tsx, as specified
@@ -54,66 +53,132 @@ export const revalidate = 600;
 // Title/description come from the root layout; only the canonical is page-specific.
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
-export default function HomePage() {
+export default async function HomePage() {
+  const document = await getHomepageDocument();
+  const sections = document?.sections?.length
+    ? document.sections
+    : SECTION_IDS.map((id) => ({ id, visible: true, content: {} }));
+
   return (
     <>
-      <Hero />
-      <QuickActions />
-
-      <Live fallback={<TrendingCommunitiesSkeleton />}>
-        <TrendingCommunities />
-      </Live>
-      <Live fallback={<RailFallback title="Featured MLS listings" />}>
-        <FeaturedListings />
-      </Live>
-      <Live fallback={null}>
-        <PropertyTypes />
-      </Live>
-      <Live fallback={<RailFallback title="New preconstruction projects" />}>
-        <NewPrecon />
-      </Live>
-      <Live fallback={<RailFallback title="Today's new listings" />}>
-        <TodaysNewListings />
-      </Live>
-
-      <Live fallback={<RailFallback title="High Return Properties" tone="dark" />}>
-        <HighReturnProperties />
-      </Live>
-      <Live fallback={<RailFallback title="GTA Market Deals" tone="alt" />}>
-        <GtaMarketDeals />
-      </Live>
-      <Live fallback={<RailFallback title="Sold Below Last Purchase" />}>
-        <SoldBelowLastPurchase />
-      </Live>
-      <TopRatedSchools />
-      <Live fallback={null}>
-        <BuyersIncentives />
-      </Live>
-      <Live fallback={null}>
-        <MarketIntelligence />
-      </Live>
-      <NeighbourAlerts />
-      <AlertsCta />
-      <ThinkingOfSelling />
-      <WhyHomeAtlas />
-
-      <Live fallback={null}>
-        <ResearchInsights />
-      </Live>
-
-      <Live fallback={null}>
-        <TrustedConnections />
-      </Live>
-      <HowItWorks />
-      <Live fallback={null}>
-        <DailyNews />
-      </Live>
-      <ResourcesGuides />
-      <Section eyebrow="Popular searches" title="Search by keywords">
-        <KeywordLinks />
-      </Section>
+      {sections.map((section) =>
+        section.visible || section.id === "hero" ? <HomeBlock key={section.id} section={section} /> : null,
+      )}
     </>
   );
+}
+
+function HomeBlock({ section }: { section: SiteSection }) {
+  const content = section.content;
+  switch (section.id as SectionId) {
+    case "hero":
+      return <Hero content={content} />;
+    case "quickActions":
+      return <QuickActions content={content} />;
+    case "trendingCommunities":
+      return (
+        <Live fallback={<TrendingCommunitiesSkeleton />}>
+          <TrendingCommunities content={content} />
+        </Live>
+      );
+    case "featuredListings":
+      return (
+        <Live fallback={<RailFallback title="Featured MLS listings" />}>
+          <FeaturedListings content={content} />
+        </Live>
+      );
+    case "propertyTypes":
+      return (
+        <Live fallback={null}>
+          <PropertyTypes content={content} />
+        </Live>
+      );
+    case "newPrecon":
+      return (
+        <Live fallback={<RailFallback title="New preconstruction projects" />}>
+          <NewPrecon content={content} />
+        </Live>
+      );
+    case "todaysNew":
+      return (
+        <Live fallback={<RailFallback title="Today's new listings" />}>
+          <TodaysNewListings content={content} />
+        </Live>
+      );
+    case "highReturn":
+      return (
+        <Live fallback={<RailFallback title="High Return Properties" tone="dark" />}>
+          <HighReturnProperties content={content} />
+        </Live>
+      );
+    case "marketDeals":
+      return (
+        <Live fallback={<RailFallback title="GTA Market Deals" tone="alt" />}>
+          <GtaMarketDeals content={content} />
+        </Live>
+      );
+    case "soldBelow":
+      return (
+        <Live fallback={<RailFallback title="Sold Below Last Purchase" />}>
+          <SoldBelowLastPurchase content={content} />
+        </Live>
+      );
+    case "schools":
+      return <TopRatedSchools content={content} />;
+    case "incentives":
+      return (
+        <Live fallback={null}>
+          <BuyersIncentives content={content} />
+        </Live>
+      );
+    case "marketIntelligence":
+      return (
+        <Live fallback={null}>
+          <MarketIntelligence content={content} />
+        </Live>
+      );
+    case "neighbourAlerts":
+      return <NeighbourAlerts content={content} />;
+    case "alertsCta":
+      return <AlertsCta content={content} />;
+    case "thinkingOfSelling":
+      return <ThinkingOfSelling content={content} />;
+    case "whyHomeAtlas":
+      return <WhyHomeAtlas content={content} />;
+    case "research":
+      return (
+        <Live fallback={null}>
+          <ResearchInsights content={content} />
+        </Live>
+      );
+    case "partners":
+      return (
+        <Live fallback={null}>
+          <TrustedConnections content={content} />
+        </Live>
+      );
+    case "howItWorks":
+      return <HowItWorks content={content} />;
+    case "dailyNews":
+      return (
+        <Live fallback={null}>
+          <DailyNews content={content} />
+        </Live>
+      );
+    case "resources":
+      return <ResourcesGuides content={content} />;
+    case "keywords":
+      return (
+        <Section
+          eyebrow={typeof content.eyebrow === "string" ? content.eyebrow : "Popular searches"}
+          title={typeof content.title === "string" ? content.title : "Search by keywords"}
+        >
+          <KeywordLinks />
+        </Section>
+      );
+    default:
+      return null;
+  }
 }
 
 /** Streams a data-backed section so the rest of the page isn't blocked on it. */
@@ -126,70 +191,5 @@ function RailFallback({ title, tone }: { title: string; tone?: "default" | "alt"
     <Section title={title} tone={tone}>
       <PropertyGridSkeleton count={3} />
     </Section>
-  );
-}
-
-function Hero() {
-  return (
-    <section className="relative isolate overflow-hidden bg-navy">
-      {/* Hero photograph. `priority` because this is the LCP element on the
-          homepage; the navy background shows through while it decodes. */}
-      <Image
-        src="/images/hero/hero-bg.jpg"
-        alt=""
-        fill
-        priority
-        sizes="100vw"
-        quality={85}
-        className="-z-10 object-cover object-[60%_center]"
-        aria-hidden="true"
-      />
-      {/* Matches the reference’s rgba(21,21,21,0.55) scrim. The extra left-side
-          gradient keeps the headline legible over the bright downtown skyline. */}
-      <div className="absolute inset-0 -z-10 bg-ink/55" aria-hidden="true" />
-      <div
-        className="absolute inset-0 -z-10 bg-linear-to-r from-navy-deep/80 via-navy-deep/30 to-transparent"
-        aria-hidden="true"
-      />
-
-      <div className="container-page flex items-center py-12 sm:min-h-150 sm:py-16 lg:min-h-180 lg:py-20">
-        <div className="grid w-full items-center gap-10 lg:grid-cols-5 lg:gap-14">
-          {/* Copy */}
-          <div className="lg:col-span-2">
-            <Eyebrow>GTA property intelligence</Eyebrow>
-            {/* Fluid rather than stepped: the forced line breaks below mean a
-                stepped size jumps the block by a whole line at each breakpoint. */}
-            <h1 className="mt-4 text-[clamp(2.25rem,1.3rem+4.05vw,4.5rem)] font-semibold leading-[0.95] tracking-[-0.02em] text-white">
-              Real Estate,
-              <br />
-              Made
-              <br />
-              Remarkably
-              <br />
-              <span className="font-normal text-gold">Smarter.</span>
-            </h1>
-            <p className="mt-5 max-w-md text-body text-white/80">
-              Search live MLS® listings, discover pre-construction projects, compare
-              communities, and make informed decisions with real market data and
-              trusted local expertise.
-            </p>
-
-            {/* The reference paired three stock avatars with "Trusted by 12,000+
-                GTA homeowners". Neither ships here: the photos aren't licensed and
-                the headcount is a figure no backend can source — same reasoning as
-                AnnouncementBar. This line states only what is verifiably true:
-                the real time of the last listing sync. */}
-            <Suspense fallback={<ListingsFreshnessFallback />}>
-              <ListingsFreshness />
-            </Suspense>
-          </div>
-
-          {/* Search widget */}
-          <div className="lg:col-span-3 lg:flex lg:justify-end">
-            <HeroSearch />
-          </div>
-        </div>
-      </div>
-    </section>
   );
 }

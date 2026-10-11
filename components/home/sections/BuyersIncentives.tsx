@@ -2,7 +2,8 @@ import { Eyebrow } from "@/components/ui/Badge";
 import { Section } from "@/components/ui/Section";
 import { getIncentives } from "@/lib/api/home";
 import { formatDay, type Incentive } from "@/lib/api/homeMappers";
-import { whatsappHref } from "@/lib/constants/contact";
+import { WhatsappLink } from "@/components/providers/WhatsappProvider";
+import { textOf } from "@/lib/site/read";
 import { buyerIncentives } from "@/lib/home/staticSections";
 import { ArrowGlyph, IncentiveGlyph, WhatsAppGlyph } from "./sectionIcons";
 
@@ -35,18 +36,17 @@ function sampleIncentives(): Incentive[] {
   }));
 }
 
-export async function BuyersIncentives() {
+export async function BuyersIncentives({ content }: { content?: Record<string, unknown> }) {
   const live = await getIncentives();
   const items = live && live.length > 0 ? live : sampleIncentives();
 
   return (
     <Section>
       <div className="mb-8 text-center sm:mb-12">
-        <Eyebrow>Maximize your savings</Eyebrow>
-        <h2 className="mt-2 text-h1 text-ink">{"Buyer's Incentives"}</h2>
+        <Eyebrow>{textOf(content, "eyebrow", "Maximize your savings")}</Eyebrow>
+        <h2 className="mt-2 text-h1 text-ink">{textOf(content, "title", "Buyer's Incentives")}</h2>
         <p className="mx-auto mt-3 max-w-xl text-body text-ink-muted">
-          Explore government programs and financial incentives available to GTA
-          homebuyers. Choose from multiple options that apply to your situation.
+          {textOf(content, "description", "Explore government programs and financial incentives available to GTA homebuyers. Choose from multiple options that apply to your situation.")}
         </p>
         <p className="mt-2 text-caption text-ink-subtle">
           Program amounts change — confirm eligibility with an agent.
@@ -98,33 +98,27 @@ export async function BuyersIncentives() {
                 )}
               </p>
             )}
-            <a
-              href={whatsappHref(
-                `Hi, I'd like to know if I qualify for the ${item.title}.`,
-              )}
-              target="_blank"
-              rel="noopener noreferrer"
+            <WhatsappLink
+              message={`Hi, I'd like to know if I qualify for the ${item.title}.`}
               className="inline-flex items-center gap-1 self-start text-small font-medium text-navy transition-colors hover:text-gold-deep"
             >
               Learn if you qualify
               <ArrowGlyph />
               <span className="sr-only">(opens WhatsApp)</span>
-            </a>
+            </WhatsappLink>
           </li>
         ))}
       </ul>
 
       <div className="flex justify-center">
-        <a
-          href={whatsappHref(CTA_MESSAGE)}
-          target="_blank"
-          rel="noopener noreferrer"
+        <WhatsappLink
+          message={CTA_MESSAGE}
           className="inline-flex h-12 items-center gap-2.5 rounded-control bg-navy px-8 text-body font-semibold text-white transition-colors hover:bg-navy-deep"
         >
           <WhatsAppGlyph />
           Ask on WhatsApp
           <span className="sr-only">(opens WhatsApp)</span>
-        </a>
+        </WhatsappLink>
       </div>
     </Section>
   );

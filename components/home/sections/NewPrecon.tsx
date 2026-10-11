@@ -1,4 +1,5 @@
 import { PreconCard } from "@/components/precon/PreconCard";
+import { textOf } from "@/lib/site/read";
 import { Section } from "@/components/ui/Section";
 import { safeFetch } from "@/lib/api/client";
 import { getPreconProjects } from "@/lib/api/preconstruction";
@@ -11,7 +12,7 @@ import { getPreconProjects } from "@/lib/api/preconstruction";
  * non-functional decoration over a static grid and are not ported — the
  * header's "View All Projects" link is the way onward.
  */
-export async function NewPrecon() {
+export async function NewPrecon({ content }: { content?: Record<string, unknown> }) {
   const { items } = await safeFetch(
     getPreconProjects({
       limit: 3,
@@ -24,9 +25,12 @@ export async function NewPrecon() {
 
   return (
     <Section
-      eyebrow="Invest ahead"
-      title="New Preconstruction Projects"
-      action={{ label: "View All Projects", href: "/preconstruction" }}
+      eyebrow={textOf(content, "eyebrow", "Invest ahead")}
+      title={textOf(content, "title", "New Preconstruction Projects")}
+      action={{
+        label: textOf(content, "actionLabel", "View All Projects"),
+        href: textOf(content, "actionHref", "/preconstruction"),
+      }}
     >
       <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {items.slice(0, 3).map((project) => (

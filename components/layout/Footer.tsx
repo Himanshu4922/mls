@@ -3,6 +3,7 @@ import { Logo } from "@/components/layout/Logo";
 import { LinkButton } from "@/components/ui/Button";
 import { Eyebrow } from "@/components/ui/Badge";
 import { curatedPath, getCuratedPage } from "@/lib/seo/curatedPages";
+import type { ChromeDocument } from "@/lib/site/types";
 
 /** A few curated searches (scope #24) for the footer; the full set is on /site-map. */
 const POPULAR_SLUGS = ["power-of-sale", "detached-under-1m", "condos-under-500k", "luxury-homes", "open-houses", "condos-for-rent"];
@@ -64,19 +65,33 @@ const SOCIALS = [
   },
 ];
 
-export function Footer() {
+const SOCIAL_PATHS: Record<string, string> = {
+  facebook: SOCIALS[0].path,
+  x: SOCIALS[1].path,
+  linkedin: SOCIALS[2].path,
+};
+
+export function Footer({ footer }: { footer?: ChromeDocument["footer"] }) {
+  const columns = footer?.columns?.length ? footer.columns : COLUMNS;
+  const socials = footer?.socials?.length
+    ? footer.socials.filter((item) => item.href).map((item) => ({
+        label: item.network,
+        href: item.href,
+        path: SOCIAL_PATHS[item.network] || SOCIALS[0].path,
+      }))
+    : SOCIALS;
   return (
     <footer className="bg-ink text-white">
       <div className="border-b border-white/10 py-16">
         <div className="container-page flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-center">
           <div>
-            <Eyebrow>Still looking?</Eyebrow>
+            <Eyebrow>{footer?.bannerEyebrow || "Still looking?"}</Eyebrow>
             <h2 className="mt-2 text-h1 text-white">
-              Let our team find your perfect home.
+              {footer?.bannerHeading || "Let our team find your perfect home."}
             </h2>
           </div>
-          <LinkButton href="/listings" variant="accent" size="lg" className="shrink-0">
-            Browse all listings →
+          <LinkButton href={footer?.bannerHref || "/listings"} variant="accent" size="lg" className="shrink-0">
+            {footer?.bannerLabel || "Browse all listings"} →
           </LinkButton>
         </div>
       </div>
@@ -86,11 +101,10 @@ export function Footer() {
           <div>
             <Logo tone="dark" />
             <p className="mt-4 max-w-[280px] text-small leading-relaxed text-white/50">
-              HomeAtlas is a real estate intelligence platform providing GTA home
-              valuations and market data.
+              {footer?.blurb || "HomeAtlas is a real estate intelligence platform providing GTA home valuations and market data."}
             </p>
             <ul className="mt-6 flex gap-2.5">
-              {SOCIALS.map((social) => (
+              {socials.map((social) => (
                 <li key={social.label}>
                   <a
                     href={social.href}
@@ -108,7 +122,7 @@ export function Footer() {
             </ul>
           </div>
 
-          {COLUMNS.map((column) => (
+          {columns.map((column) => (
             <nav key={column.heading} aria-label={column.heading}>
               <h3 className="text-small font-semibold text-white">{column.heading}</h3>
               <ul className="mt-4 space-y-2.5">

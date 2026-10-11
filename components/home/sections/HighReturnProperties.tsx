@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Section } from "@/components/ui/Section";
 import { getInvestorPicks } from "@/lib/api/home";
 import type { InvestorPick } from "@/lib/api/homeMappers";
+import { textOf } from "@/lib/site/read";
 import { formatPrice } from "@/lib/utils/format";
 
 /**
@@ -58,19 +59,22 @@ function liveCard(pick: InvestorPick): CardView {
   };
 }
 
-export async function HighReturnProperties() {
+export async function HighReturnProperties({ content }: { content?: Record<string, unknown> }) {
   const feed = await getInvestorPicks(3);
   if (feed === null || feed.picks.length === 0) return null;
   const cards = feed.picks.map(liveCard);
-  const caption = feed.basisNote ?? DEFAULT_BASIS;
+  const caption = feed.basisNote ?? textOf(content, "caption", DEFAULT_BASIS);
 
   return (
     <Section
       tone="dark"
-      eyebrow="For investors"
-      title="High Return Properties"
-      description="Top rental yield opportunities in the GTA — strong cash flow potential"
-      action={{ label: "View All Investor Properties", href: "/listings" }}
+      eyebrow={textOf(content, "eyebrow", "For investors")}
+      title={textOf(content, "title", "High Return Properties")}
+      description={textOf(content, "description", "Top rental yield opportunities in the GTA — strong cash flow potential")}
+      action={{
+        label: textOf(content, "actionLabel", "View All Investor Properties"),
+        href: textOf(content, "actionHref", "/listings"),
+      }}
     >
       <p className="-mt-3 mb-6 text-caption text-white/50 sm:-mt-5 sm:mb-8">
         {caption}

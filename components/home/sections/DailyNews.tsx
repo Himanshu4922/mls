@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Section } from "@/components/ui/Section";
 import { getNews, type HomeNewsArticle } from "@/lib/api/homeForms";
 import { newsArticles } from "@/lib/home/contentSections";
+import { textOf } from "@/lib/site/read";
 import { NewsGlyph } from "./contentIcons";
 import { NewsletterForm } from "./NewsletterForm";
 
@@ -15,7 +16,7 @@ import { NewsletterForm } from "./NewsletterForm";
  * empty or unreachable, the reference's sample headlines render instead and
  * link to the blog, the site's own editorial hub.
  */
-export async function DailyNews() {
+export async function DailyNews({ content }: { content?: Record<string, unknown> }) {
   const news = await getNews(3);
   // Only http(s) links are rendered; anything else is dropped, not linked.
   const safe = (news ?? []).filter((article) => /^https?:\/\//i.test(article.url));
@@ -23,18 +24,21 @@ export async function DailyNews() {
 
   return (
     <Section
-      eyebrow="Stay informed"
-      title="Daily Real Estate & Financial News"
-      description="Latest updates on GTA market, mortgage rates, and investment trends"
-      action={{ label: "All News", href: "/blog" }}
+      eyebrow={textOf(content, "eyebrow", "Stay informed")}
+      title={textOf(content, "title", "Daily Real Estate & Financial News")}
+      description={textOf(content, "description", "Latest updates on GTA market, mortgage rates, and investment trends")}
+      action={{
+        label: textOf(content, "actionLabel", "All News"),
+        href: textOf(content, "actionHref", "/blog"),
+      }}
     >
       {live ? <LiveNews articles={live} /> : <SampleNews />}
 
       <div className="flex flex-col items-start justify-between gap-5 rounded-surface bg-surface-alt p-6 sm:flex-row sm:items-center sm:p-8">
         <div>
-          <h3 className="text-h3 text-ink">Get Daily Market Updates in Your Inbox</h3>
+          <h3 className="text-h3 text-ink">{textOf(content, "newsletterTitle", "Get Daily Market Updates in Your Inbox")}</h3>
           <p className="mt-1 text-small text-ink-muted">
-            GTA market news, rate changes, and investment opportunities — every morning.
+            {textOf(content, "newsletterDescription", "GTA market news, rate changes, and investment opportunities — every morning.")}
           </p>
         </div>
         <div className="w-full shrink-0 sm:w-auto">

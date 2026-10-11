@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/ui/States";
 import { safeFetch } from "@/lib/api/client";
 import { getNewlyListed } from "@/lib/api/properties";
 import type { PropertySummary } from "@/lib/types/domain";
+import { textOf } from "@/lib/site/read";
 import { cn } from "@/lib/utils/cn";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -23,7 +24,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  *
  * `revalidate` on the fetch is 600s, so "now" is at most ~10 minutes stale.
  */
-export async function TodaysNewListings() {
+export async function TodaysNewListings({ content }: { content?: Record<string, unknown> }) {
   // Strict 24h window first; if nothing was listed today, fall back to the
   // plain four newest under the neutral subtitle.
   const today = await safeFetch<PropertySummary[]>(
@@ -65,10 +66,10 @@ export async function TodaysNewListings() {
                 aria-hidden="true"
                 className="h-2 w-2 animate-pulse rounded-full bg-gold"
               />
-              Live
+              {textOf(content, "eyebrow", "Live")}
             </p>
             <h2 className="mt-2 text-h1 text-ink">
-              Today&rsquo;s New Listings
+              {textOf(content, "title", "Today's New Listings")}
             </h2>
             <p className="mt-2 text-small text-ink-muted">
               {anyToday
@@ -78,10 +79,10 @@ export async function TodaysNewListings() {
             </p>
           </div>
           <Link
-            href="/listings?sort=newest"
+            href={textOf(content, "actionHref", "/listings?sort=newest")}
             className="text-small font-semibold text-navy transition-colors hover:text-gold"
           >
-            View All →
+            {textOf(content, "actionLabel", "View All")} →
           </Link>
         </div>
 

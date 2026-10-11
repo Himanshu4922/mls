@@ -11,8 +11,9 @@ export const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "1416
   "",
 );
 
-/** wa.me link, optionally with a prefilled message. */
-export function whatsappHref(message?: string): string {
-  const base = `https://wa.me/${WHATSAPP_NUMBER}`;
+/** wa.me link, optionally with a prefilled message and a CMS number. */
+export function whatsappHref(message?: string, number?: string): string {
+  const digits = (number || "").replace(/\D/g, "");
+  const base = `https://wa.me/${digits.length >= 10 ? digits : WHATSAPP_NUMBER}`;
   return message ? `${base}?text=${encodeURIComponent(message)}` : base;
 }

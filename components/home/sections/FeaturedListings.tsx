@@ -7,6 +7,7 @@ import {
   getFeaturedProperties,
   getNewlyListed,
 } from "@/lib/api/properties";
+import { boolOf, textOf } from "@/lib/site/read";
 import type { PropertySummary } from "@/lib/types/domain";
 
 /**
@@ -18,17 +19,19 @@ import type { PropertySummary } from "@/lib/types/domain";
  * exclusive listings, then the newest, so the slot never renders empty; the
  * description stays honest about which one is showing.
  */
-export async function FeaturedListings() {
+export async function FeaturedListings({ content }: { content?: Record<string, unknown> }) {
   const featured = await safeFetch(
     getFeaturedProperties(3),
     { listings: [], pinnedCount: 0 },
     "home:featured",
   );
   let listings: PropertySummary[] = featured.listings;
-  let description =
-    featured.pinnedCount > 0
+  const automatic = boolOf(content, "useAutomaticDescription", true);
+  let description = automatic
+    ? featured.pinnedCount > 0
       ? "Hand-picked homes from the HomeAtlas team."
-      : "Homes offered directly through HomeAtlas.";
+      : "Homes offered directly through HomeAtlas."
+    : textOf(content, "description", "Hand-picked homes from the HomeAtlas team.");
 
   if (listings.length === 0) {
     listings = await safeFetch<PropertySummary[]>(
@@ -43,15 +46,18 @@ export async function FeaturedListings() {
       [],
       "home:featured-newest",
     );
-    description = "The newest homes on the market.";
+    if (automatic) description = "The newest homes on the market.";
   }
 
   return (
     <Section
-      eyebrow="Curated for you"
-      title="Featured MLS® Listings"
+      eyebrow={textOf(content, "eyebrow", "Curated for you")}
+      title={textOf(content, "title", "Featured MLS® Listings")}
       description={description}
-      action={{ label: "View All Listings", href: "/listings" }}
+      action={{
+        label: textOf(content, "actionLabel", "View All Listings"),
+        href: textOf(content, "actionHref", "/listings"),
+      }}
     >
       {listings.length === 0 ? (
         <EmptyState

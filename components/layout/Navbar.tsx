@@ -68,12 +68,14 @@ function NavLinksWithQuery(props: NavLinksProps) {
 }
 
 interface NavLinksProps {
+  links: NavLinkItem[];
   pathname: string;
   listClassName: string;
   linkClassName: (active: boolean) => string;
 }
 
 function NavLinkList({
+  links,
   pathname,
   params,
   listClassName,
@@ -81,7 +83,7 @@ function NavLinkList({
 }: NavLinksProps & { params: URLSearchParams | null }) {
   return (
     <ul className={listClassName}>
-      {NAV_LINKS.map((link) => {
+      {links.map((link) => {
         const active = isLinkActive(link, pathname, params);
         return (
           <li key={link.label}>
@@ -99,7 +101,22 @@ function NavLinkList({
   );
 }
 
-export function Navbar() {
+function decorate(link: { label: string; href: string }): NavLinkItem {
+  if (link.href.includes("tx=rent") || link.href.includes("type=Rental")) return { ...link, match: isRental };
+  if (link.href.startsWith("/listings")) return { ...link, match: (params) => !isRental(params) };
+  return link;
+}
+
+export function Navbar({
+  links,
+  ctaLabel = "Home Evaluation",
+  ctaHref = "/home-evaluation",
+}: {
+  links?: Array<{ label: string; href: string }>;
+  ctaLabel?: string;
+  ctaHref?: string;
+}) {
+  const navLinks = links?.length ? links.map(decorate) : NAV_LINKS;
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, openAuth, signOut } = useAuth();
@@ -121,6 +138,7 @@ export function Navbar() {
 
         <nav aria-label="Primary" className="hidden lg:block">
           <NavLinks
+            links={navLinks}
             pathname={pathname}
             listClassName="flex items-center gap-6"
             linkClassName={(active) =>
@@ -134,13 +152,13 @@ export function Navbar() {
 
         <div className="hidden items-center gap-3 lg:flex">
           <LinkButton
-            href="/home-evaluation"
+            href={ctaHref}
             variant="secondary"
             size="sm"
             className="border-gold/40 bg-gold-soft hover:bg-gold-soft/80"
           >
             <StarGlyph />
-            Home Evaluation
+            {ctaLabel}
           </LinkButton>
 
           {/* Keyed by pathname: remounting on navigation closes an open panel,
@@ -178,6 +196,7 @@ export function Navbar() {
         <div id={menuId} className="border-t border-line bg-surface lg:hidden">
           <nav aria-label="Mobile" className="container-page py-2">
             <NavLinks
+              links={navLinks}
               pathname={pathname}
               listClassName="flex flex-col"
               linkClassName={(active) =>
@@ -196,12 +215,12 @@ export function Navbar() {
 
             <div className="flex gap-3 py-4">
               <LinkButton
-                href="/home-evaluation"
+                href={ctaHref}
                 variant="secondary"
                 size="md"
                 className="flex-1 border-gold/40 bg-gold-soft"
               >
-                Home Evaluation
+                {ctaLabel}
               </LinkButton>
               {user ? (
                 <Button variant="primary" size="md" className="flex-1" onClick={signOut}>
@@ -277,7 +296,7 @@ function UserMenu({
               onSelect={close}
               className="border-t border-line font-medium text-navy"
             >
-              Blog Studio
+              Admin console
             </MenuItem>
           )}
           <MenuItem

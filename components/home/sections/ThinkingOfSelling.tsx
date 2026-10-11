@@ -2,6 +2,8 @@ import Image from "next/image";
 import { Eyebrow } from "@/components/ui/Badge";
 import { LinkButton } from "@/components/ui/Button";
 import { sellingImage } from "@/lib/home/contentSections";
+import { isOptimizableImage } from "@/lib/api/homeMappers";
+import { textOf } from "@/lib/site/read";
 
 /**
  * "Thinking of Selling?" — HomeAtlasUI HomePage L968-997.
@@ -9,36 +11,37 @@ import { sellingImage } from "@/lib/home/contentSections";
  * "Get Free Valuation" opens the valuation tool; "Learn More" (a dead button
  * in the reference) opens the seller page.
  */
-export function ThinkingOfSelling() {
+export function ThinkingOfSelling({ content }: { content?: Record<string, unknown> }) {
+  const image = textOf(content, "imageUrl", sellingImage);
   return (
     <section className="bg-surface py-10 sm:py-14 lg:py-16">
       <div className="container-page">
         <div className="grid min-h-90 overflow-hidden rounded-surface bg-ink lg:grid-cols-2">
           <div className="flex flex-col justify-center p-8 sm:p-12">
-            <Eyebrow>Maximize your value</Eyebrow>
-            <h2 className="mt-4 text-display text-white">Thinking of Selling?</h2>
+            <Eyebrow>{textOf(content, "eyebrow", "Maximize your value")}</Eyebrow>
+            <h2 className="mt-4 text-display text-white">{textOf(content, "title", "Thinking of Selling?")}</h2>
             <p className="mt-4 max-w-md text-body text-white/70">
-              Get a free home valuation in minutes. Our GTA specialists combine market
-              data with local knowledge to get you the best possible price.
+              {textOf(content, "description", "Get a free home valuation in minutes. Our GTA specialists combine market data with local knowledge to get you the best possible price.")}
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <LinkButton href="/home-evaluation" variant="accent" size="lg">
-                Get Free Valuation
+              <LinkButton href={textOf(content, "primaryHref", "/home-evaluation")} variant="accent" size="lg">
+                {textOf(content, "primaryLabel", "Get Free Valuation")}
               </LinkButton>
               <LinkButton
-                href="/sell"
+                href={textOf(content, "secondaryHref", "/sell")}
                 variant="ghost"
                 size="lg"
                 className="border border-white/30 text-white hover:border-white/60 hover:bg-transparent hover:text-white"
               >
-                Learn More
+                {textOf(content, "secondaryLabel", "Learn More")}
               </LinkButton>
             </div>
           </div>
           <div className="relative hidden lg:block">
             <Image
-              src={sellingImage}
-              alt="Luxury Toronto living room"
+              src={image}
+              alt={textOf(content, "imageAlt", "A bright living room")}
+              unoptimized={!isOptimizableImage(image)}
               fill
               sizes="(min-width: 1024px) 50vw, 0px"
               className="object-cover"

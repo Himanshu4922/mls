@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CompareButton } from "@/components/property/CompareButton";
-import { WHATSAPP_NUMBER, whatsappHref } from "@/lib/constants/contact";
+import { useWhatsappHref, useWhatsappNumber } from "@/components/providers/WhatsappProvider";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils/cn";
  * WhatsApp carries its brand green on the icon only (white on that green is
  * too low-contrast to read).
  *
- * The number comes from lib/constants/contact.ts (NEXT_PUBLIC_WHATSAPP_NUMBER).
+ * The number comes from the published site contact, with the deployment number as a fallback.
  */
 
 const ACTION =
@@ -39,7 +39,8 @@ export function ListingShareActions({
   className?: string;
 }) {
   const message = `Hi, I'm interested in ${address} (MLS® ${listingKey}). ${url}`;
-  const whatsappLink = whatsappHref(message);
+  const whatsappNumber = useWhatsappNumber();
+  const whatsappLink = useWhatsappHref(message);
 
   return (
     <div className={cn("contents", className)}>
@@ -56,7 +57,7 @@ export function ListingShareActions({
         </a>
       )}
       {canCompare && <CompareButton listingKey={listingKey} address={address} variant="inline" />}
-      {WHATSAPP_NUMBER && (
+      {whatsappNumber && (
         <a
           href={whatsappLink}
           target="_blank"
@@ -143,8 +144,7 @@ export function ListingWhatsAppCard({
   listingKey: string;
   url: string;
 }) {
-  if (!WHATSAPP_NUMBER) return null;
-  const href = whatsappHref(
+  const href = useWhatsappHref(
     `Hi, I'm interested in ${address} (MLS® ${listingKey}). ${url}`,
   );
 

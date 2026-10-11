@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Section } from "@/components/ui/Section";
 import { guides } from "@/lib/home/contentSections";
+import { listOf, textOf } from "@/lib/site/read";
 import { BookGlyph } from "./contentIcons";
 import { ArrowGlyph } from "./sectionIcons";
 
@@ -10,15 +11,23 @@ import { ArrowGlyph } from "./sectionIcons";
  * Guide copy is the reference's. No guide pages exist yet, so each card opens
  * the closest live page (blog, market trends, communities, sell).
  */
-export function ResourcesGuides() {
+export function ResourcesGuides({ content }: { content?: Record<string, unknown> }) {
+  const cards = listOf<{ tag: string; title: string; description?: string; desc?: string; href: string }>(
+    content,
+    "items",
+    guides.map((guide) => ({ tag: guide.tag, title: guide.title, description: guide.desc, href: guide.href })),
+  );
   return (
     <Section
-      eyebrow="Learn more"
-      title="Resources & Guides"
-      action={{ label: "View All", href: "/blog" }}
+      eyebrow={textOf(content, "eyebrow", "Learn more")}
+      title={textOf(content, "title", "Resources & Guides")}
+      action={{
+        label: textOf(content, "actionLabel", "View All"),
+        href: textOf(content, "actionHref", "/blog"),
+      }}
     >
       <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {guides.map((guide) => (
+        {cards.map((guide) => (
           <li key={guide.title}>
             <Link
               href={guide.href}
@@ -29,7 +38,7 @@ export function ResourcesGuides() {
               </div>
               <p className="text-eyebrow uppercase text-gold">{guide.tag}</p>
               <h3 className="mt-2 text-body font-semibold text-ink">{guide.title}</h3>
-              <p className="mt-2 text-small text-ink-muted">{guide.desc}</p>
+              <p className="mt-2 text-small text-ink-muted">{guide.description || guide.desc}</p>
               <span className="mt-auto flex items-center gap-1 pt-3 text-small font-medium text-ink transition-colors group-hover:text-gold">
                 Read More <ArrowGlyph />
               </span>

@@ -26,14 +26,22 @@ const ITEMS: Array<{ text: string; cta?: { label: string; href: string } }> = [
   { text: "VIP pre-construction access before public launch" },
 ];
 
-export function AnnouncementBar() {
+export function AnnouncementBar({
+  items = ITEMS,
+}: {
+  items?: Array<{ text: string; cta?: { label: string; href: string }; label?: string; href?: string }>;
+}) {
+  const lines = items.map((item) => ({
+    text: item.text,
+    cta: item.cta || (item.label && item.href ? { label: item.label, href: item.href } : undefined),
+  }));
   return (
     <div className="flex h-9 w-full items-center overflow-hidden bg-navy">
       {/* aria-hidden: the duplicated track would read twice; links repeat in nav. */}
       <div className="marquee-track" aria-hidden="true">
         {[0, 1].map((pass) => (
           <div key={pass} className="flex items-center">
-            {ITEMS.map((item, index) => (
+            {lines.map((item, index) => (
               <span key={`${pass}-${index}`} className="flex items-center gap-3 whitespace-nowrap pr-10">
                 <StarGlyph />
                 <span className="text-[0.6875rem] text-white/85">{item.text}</span>

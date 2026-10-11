@@ -42,7 +42,7 @@ export function Modal({
   title: string;
   description?: string;
   children: ReactNode;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "full";
   footer?: ReactNode;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -121,10 +121,20 @@ export function Modal({
 
   if (!open || typeof document === "undefined") return null;
 
-  const widths = { sm: "max-w-md", md: "max-w-xl", lg: "max-w-3xl" };
+  const widths = {
+    sm: "max-w-md",
+    md: "max-w-xl",
+    lg: "max-w-3xl",
+    full: "h-[calc(100dvh-1rem)] max-h-none w-full max-w-[90rem] sm:h-[calc(100dvh-2rem)]",
+  };
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex items-end justify-center overscroll-contain sm:items-center sm:p-4">
+    <div
+      className={cn(
+        "fixed inset-0 z-[200] flex justify-center overscroll-contain",
+        size === "full" ? "items-center p-2 sm:p-4" : "items-end sm:items-center sm:p-4",
+      )}
+    >
       <div
         className="absolute inset-0 bg-ink/50 backdrop-blur-[2px]"
         onClick={onClose}
@@ -138,12 +148,13 @@ export function Modal({
         aria-describedby={description ? descId : undefined}
         tabIndex={-1}
         className={cn(
-          "animate-fade-up relative flex max-h-[92vh] w-full flex-col overflow-hidden bg-surface shadow-pop",
+          "animate-fade-up relative flex w-full flex-col overflow-hidden bg-surface shadow-pop",
           "rounded-t-2xl sm:rounded-2xl",
+          size === "full" ? "max-h-none" : "max-h-[92vh]",
           widths[size],
         )}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">
+        <header className={cn("flex items-start justify-between gap-4 border-b border-line px-6 py-5", size === "full" && "shrink-0")}>
           <div>
             <h2 id={titleId} className="text-h2 text-ink">
               {title}
@@ -166,7 +177,16 @@ export function Modal({
           </IconButton>
         </header>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5">{children}</div>
+        <div
+          className={cn(
+            "min-h-0 flex-1",
+            size === "full"
+              ? "flex flex-col overflow-hidden px-4 py-4 sm:px-6"
+              : "overflow-y-auto overscroll-contain px-6 py-5",
+          )}
+        >
+          {children}
+        </div>
 
         {footer && (
           <footer className="border-t border-line bg-surface-alt px-6 py-4">{footer}</footer>
