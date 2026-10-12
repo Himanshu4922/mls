@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
+import { StudioAlert, StudioBack, StudioPage } from "@/components/studio/chrome";
 import { SubmissionReviewPanel } from "@/components/studio/SubmissionReviewPanel";
 import { SubmissionStatusPill } from "@/components/studio/StudioPills";
 import { ApiError } from "@/lib/api/client";
@@ -27,11 +28,7 @@ export default async function ReviewSubmissionPage({ params }: PageProps<"/studi
     submission = await getReviewSubmission(session.token, id);
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) notFound();
-    return (
-      <p role="alert" className="rounded-surface border border-negative/30 bg-surface p-4 text-small text-ink">
-        We couldn&apos;t load this submission. Refresh to try again.
-      </p>
-    );
+    return <StudioAlert>We couldn&apos;t load this submission. Refresh to try again.</StudioAlert>;
   }
 
   const photos = submission.media.filter((m) => m.type === "photo");
@@ -40,28 +37,28 @@ export default async function ReviewSubmissionPage({ params }: PageProps<"/studi
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link href="/studio/assignments" className="text-caption text-ink-muted hover:text-navy">
-          ← Review queue
-        </Link>
-        <div className="mt-1 flex flex-wrap items-center gap-3">
-          <h1 className="text-h1 text-ink">{submission.title}</h1>
-          <SubmissionStatusPill status={submission.status} label={submission.statusLabel} />
-        </div>
-        <p className="mt-1 text-small text-ink-muted">
-          #{submission.id} · {submission.purposeLabel} · submitted {dateOrDash(submission.submittedAt)}
-          {submission.reviewedAt && ` · last reviewed ${formatDate(submission.reviewedAt)}`}
-          {submission.reviewedByEmail && ` by ${submission.reviewedByEmail}`}
-          {submission.status === "approved" && isAssignment && (
-            <>
-              {" · "}
-              <Link href={`/assignments/${submission.id}`} target="_blank" className="font-medium text-navy hover:underline">
-                View public page ↗
-              </Link>
-            </>
-          )}
-        </p>
-      </div>
+      <StudioBack href="/studio/assignments">Review queue</StudioBack>
+      <StudioPage
+        kicker="Listings"
+        title={submission.title}
+        meta={<SubmissionStatusPill status={submission.status} label={submission.statusLabel} />}
+        description={[
+          `#${submission.id}`,
+          submission.purposeLabel,
+          `submitted ${dateOrDash(submission.submittedAt)}`,
+          submission.reviewedAt ? `last reviewed ${formatDate(submission.reviewedAt)}` : "",
+          submission.reviewedByEmail ? `by ${submission.reviewedByEmail}` : "",
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+        actions={
+          submission.status === "approved" && isAssignment ? (
+            <Link href={`/assignments/${submission.id}`} target="_blank" className="text-caption font-medium text-navy hover:underline">
+              View public page
+            </Link>
+          ) : null
+        }
+      />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="min-w-0 space-y-6">
@@ -168,7 +165,7 @@ export default async function ReviewSubmissionPage({ params }: PageProps<"/studi
 
 function Section({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
   return (
-    <section className="rounded-surface border border-line bg-surface p-5">
+    <section className="rounded-surface border border-line bg-surface p-5 shadow-card">
       <h2 className="text-h3 text-ink">{title}</h2>
       {note && <p className="mt-1 text-caption text-ink-muted">{note}</p>}
       <div className="mt-4">{children}</div>

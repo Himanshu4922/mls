@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { StudioEmpty, StudioSegment, segmentItem, studioTableWrap } from "@/components/studio/chrome";
+import { LinkButton } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialogs";
 import { SearchInput } from "@/components/ui/Field";
 import type { StudioPost } from "@/lib/api/studio";
@@ -61,43 +63,35 @@ export function PostListTable({ posts }: { posts: StudioPost[] }) {
 
   if (posts.length === 0) {
     return (
-      <div className="rounded-surface border border-line bg-surface p-10 text-center">
-        <h2 className="text-h3 text-ink">No posts yet</h2>
-        <p className="mx-auto mt-2 max-w-sm text-small text-ink-muted">
-          Write your first article. It starts as a draft, so nothing goes live
-          until you publish it.
-        </p>
-        <Link
-          href="/studio/new"
-          className="mt-5 inline-block rounded-control bg-navy px-4 py-2 text-small font-medium text-white"
-        >
-          New post
-        </Link>
-      </div>
+      <StudioEmpty
+        title="No posts yet"
+        action={
+          <LinkButton href="/studio/new" size="sm">
+            New post
+          </LinkButton>
+        }
+      >
+        Write your first article. It starts as a draft, so nothing goes live until you publish it.
+      </StudioEmpty>
     );
   }
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex flex-wrap gap-1.5">
+        <StudioSegment label="Filter posts">
           {(["all", "published", "scheduled", "draft"] as StatusFilter[]).map((value) => (
             <button
               key={value}
               type="button"
               onClick={() => setFilter(value)}
               aria-pressed={filter === value}
-              className={cn(
-                "rounded-full border px-3 py-1.5 text-caption font-medium capitalize transition-colors",
-                filter === value
-                  ? "border-navy bg-navy text-white"
-                  : "border-line bg-surface text-ink-muted hover:border-navy hover:text-ink",
-              )}
+              className={cn(segmentItem(filter === value), "capitalize")}
             >
-              {value} ({counts[value]})
+              {value} {counts[value]}
             </button>
           ))}
-        </div>
+        </StudioSegment>
 
         <SearchInput
           label="Search posts by title"
@@ -109,11 +103,9 @@ export function PostListTable({ posts }: { posts: StudioPost[] }) {
       </div>
 
       {visible.length === 0 ? (
-        <p className="rounded-surface border border-line bg-surface p-8 text-center text-small text-ink-muted">
-          No posts match that filter.
-        </p>
+        <StudioEmpty title="No posts match">Try another status, or clear the search.</StudioEmpty>
       ) : (
-        <div className="overflow-x-auto rounded-surface border border-line bg-surface">
+        <div className={studioTableWrap}>
           <table className="w-full min-w-[46rem] border-collapse text-small">
             <thead>
               <tr className="border-b border-line text-left text-caption text-ink-muted">

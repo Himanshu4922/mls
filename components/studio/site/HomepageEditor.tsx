@@ -73,8 +73,8 @@ function HomepageForm({
 
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[16.5rem_minmax(0,1fr)]">
-      <div className="rounded-surface border border-line bg-surface lg:sticky lg:top-6 lg:max-h-[calc(100dvh-3rem)] lg:overflow-y-auto">
-        <p className="border-b border-line px-4 py-3 text-small font-semibold text-ink">Sections, top to bottom</p>
+      <div className="rounded-surface border border-line bg-surface lg:sticky lg:top-0 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto">
+        <p className="border-b border-line px-4 py-3 text-caption font-medium text-ink-muted">Sections</p>
         <ol>
           {draft.sections.map((item, itemIndex) => {
             const info = SECTION_META[item.id];
@@ -85,10 +85,10 @@ function HomepageForm({
                 <button
                   type="button"
                   onClick={() => setActive(item.id)}
-                  className={`min-w-0 flex-1 px-4 py-3 text-left ${selected ? "bg-navy text-white" : "hover:bg-surface-alt"}`}
+                  className={`min-w-0 flex-1 border-l-2 px-4 py-3 text-left ${selected ? "border-gold bg-navy-tint" : "border-transparent hover:bg-surface-alt"}`}
                 >
-                  <span className={`block text-small font-medium ${selected ? "text-white" : "text-ink"}`}>{info.label}</span>
-                  <span className={`mt-0.5 block text-caption ${selected ? "text-white/80" : "text-ink-muted"}`}>
+                  <span className="block text-small font-medium text-ink">{info.label}</span>
+                  <span className="mt-0.5 block text-caption text-ink-muted">
                     {hidden ? "Hidden" : "Shown"}
                   </span>
                 </button>

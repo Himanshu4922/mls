@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArticleBody } from "@/components/studio/ArticleBody";
+import { studioCanvasBleed } from "@/components/studio/chrome";
 import { VideoEmbed } from "@/components/media/VideoEmbed";
 import { getVideoEmbed } from "@/lib/utils/video";
 import { getStudioPost } from "@/lib/api/studio";
@@ -44,24 +45,24 @@ export default async function PreviewPage({ params }: PageProps<"/studio/[slug]/
 
   return (
     <div className="space-y-6">
-      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-surface border border-gold/40 bg-gold-soft px-4 py-3 shadow-card">
-        <p className="text-small text-ink">
-          <strong>Preview.</strong>{" "}
+      <div className={`sticky top-0 z-20 -mt-6 flex flex-wrap items-center justify-between gap-3 bg-navy py-3 text-white sm:-mt-7 lg:-mt-8 ${studioCanvasBleed}`}>
+        <p className="text-small">
+          <strong className="font-semibold text-gold">Preview.</strong>{" "}
           {isLive
-            ? "This post is live — this is what readers see."
-            : "This is a draft. It is not visible to the public yet."}
+            ? "This post is live. This is what readers see."
+            : "This is a draft. Visitors cannot see it yet."}
         </p>
         <div className="flex gap-3 text-caption">
           <Link
             href={`/studio/${encodeURIComponent(post.slug)}`}
-            className="font-medium text-navy hover:underline"
+            className="font-medium text-white underline decoration-gold underline-offset-4 hover:text-gold"
           >
             Back to editing
           </Link>
           {isLive && (
             <Link
               href={`/blog/${encodeURIComponent(post.slug)}`}
-              className="font-medium text-navy hover:underline"
+              className="font-medium text-white underline decoration-gold underline-offset-4 hover:text-gold"
             >
               Open live page
             </Link>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { RichTextEditor } from "@/components/studio/RichTextEditor";
+import { StudioBack } from "@/components/studio/chrome";
 import { PreconStatusPill } from "@/components/studio/StudioPills";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialogs";
@@ -244,12 +245,11 @@ export function PreconEditor({ project }: { project: StudioPrecon | null }) {
         void submit();
       }}
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-4 border-b border-line pb-5">
         <div className="min-w-0">
-          <Link href="/studio/precon" className="text-caption text-ink-muted hover:text-navy">
-            ← All projects
-          </Link>
-          <div className="mt-1 flex flex-wrap items-center gap-3">
+          <StudioBack href="/studio/precon">All projects</StudioBack>
+          <p className="mt-3 text-caption font-medium text-ink-muted">Listings</p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-3">
             <h1 className="truncate text-h1 text-ink">{saved ? saved.title : "New project"}</h1>
             {saved && <PreconStatusPill status={saved.status} />}
           </div>

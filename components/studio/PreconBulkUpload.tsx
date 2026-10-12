@@ -31,7 +31,7 @@ export function PreconBulkUpload() {
   }
 
   return (
-    <details className="group rounded-surface border border-line bg-surface">
+    <details className="group rounded-surface border border-line bg-surface shadow-card">
       <summary className="cursor-pointer list-none px-4 py-3 text-small font-medium text-ink">
         <span className="mr-2 inline-block transition-transform group-open:rotate-90" aria-hidden="true">
           ›

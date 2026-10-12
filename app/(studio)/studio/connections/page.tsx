@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { StudioAlert, StudioPage } from "@/components/studio/chrome";
 import { ConnectionsEditor } from "@/components/studio/ConnectionsEditor";
 import { getStudioConnections } from "@/lib/api/integrations";
 import { requireStudioAccess } from "@/lib/auth/session";
@@ -20,20 +21,12 @@ export default async function StudioConnectionsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-h1 text-ink">Connections</h1>
-        <p className="mt-2 max-w-2xl text-small text-ink-muted">
-          Keys for the website and the server. Each box shows the value in use now. Change it and choose Save connections. Clearing a box removes the value saved here.
-        </p>
-      </div>
-      {error || !initial ? (
-        <p role="alert" className="rounded-surface border border-negative/30 bg-surface p-4 text-small text-ink">
-          {error || "Could not load connections."}
-        </p>
-      ) : (
-        <ConnectionsEditor initial={initial} />
-      )}
-    </div>
+    <StudioPage
+      kicker="Workspace"
+      title="Connections"
+      description="The value in use for each setting. Save stores it in this console and the site starts using it. Remove clears only that saved value."
+    >
+      {error || !initial ? <StudioAlert>{error || "Could not load connections."}</StudioAlert> : <ConnectionsEditor initial={initial} />}
+    </StudioPage>
   );
 }

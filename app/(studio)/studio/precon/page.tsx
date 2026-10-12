@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { StudioAlert, StudioEmpty, StudioPage, StudioSegment, segmentItem, studioSearch, studioTableWrap } from "@/components/studio/chrome";
 import { PreconBulkUpload } from "@/components/studio/PreconBulkUpload";
 import { PreconStatusPill } from "@/components/studio/StudioPills";
+import { LinkButton } from "@/components/ui/Button";
 import { Pagination } from "@/components/ui/Pagination";
 import { salesStageLabel } from "@/lib/api/preconstruction";
 import { listStudioPrecon, PRECON_STATUSES, type StudioPreconSummary } from "@/lib/api/studioAdmin";
 import { requireStudioAccess } from "@/lib/auth/session";
 import { preconPath } from "@/lib/seo/urls";
-import { cn } from "@/lib/utils/cn";
 import { formatDate, formatPrice } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "Pre-con projects" };
@@ -49,42 +50,31 @@ export default async function StudioPreconPage({ searchParams }: PageProps<"/stu
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-h1 text-ink">Pre-con projects</h1>
-          <p className="mt-1 text-small text-ink-muted">
-            Create and edit pre-construction projects, their photos, documents and sales stage.
-          </p>
-        </div>
-        <Link
-          href="/studio/precon/new"
-          className="rounded-control bg-navy px-4 py-2 text-small font-medium text-white transition-opacity hover:opacity-90"
-        >
+    <StudioPage
+      kicker="Listings"
+      title="Pre-construction"
+      description="Create and edit projects, their photos, documents, and sales stage. Import a spreadsheet when you have a batch."
+      actions={
+        <LinkButton href="/studio/precon/new" size="sm">
           New project
-        </Link>
-      </div>
-
+        </LinkButton>
+      }
+    >
       <PreconBulkUpload />
 
       <div className="flex flex-wrap items-center gap-3">
-        <nav aria-label="Filter by status" className="flex flex-wrap gap-1.5">
+        <StudioSegment label="Filter by status">
           {[{ value: "", label: "All" }, ...PRECON_STATUSES].map((option) => (
             <Link
               key={option.value || "all"}
               href={listHref({ q, status: option.value })}
               aria-current={status === option.value ? "page" : undefined}
-              className={cn(
-                "rounded-full border px-3 py-1.5 text-caption font-medium transition-colors",
-                status === option.value
-                  ? "border-navy bg-navy text-white"
-                  : "border-line bg-surface text-ink-muted hover:border-navy hover:text-ink",
-              )}
+              className={segmentItem(status === option.value)}
             >
               {option.label}
             </Link>
           ))}
-        </nav>
+        </StudioSegment>
         {/* A plain GET form: search works before hydration and stays in the URL. */}
         <form action="/studio/precon" className="ml-auto flex w-full gap-2 sm:w-auto">
           {status && <input type="hidden" name="status" value={status} />}
@@ -92,30 +82,28 @@ export default async function StudioPreconPage({ searchParams }: PageProps<"/stu
             type="search"
             name="q"
             defaultValue={q}
-            placeholder="Search name, address, developer or ID…"
+            placeholder="Name, address, developer, or ID"
             aria-label="Search projects"
-            className="h-10 w-full rounded-control border border-line bg-surface px-3 text-small text-ink focus:border-navy focus:outline-none focus:ring-1 focus:ring-navy sm:w-72"
+            className={studioSearch}
           />
-          <button type="submit" className="rounded-control border border-line bg-surface px-3 text-small font-medium text-ink hover:border-navy">
+          <button type="submit" className="h-10 rounded-control border border-line bg-surface px-3 text-small font-medium text-ink shadow-card hover:border-navy">
             Search
           </button>
         </form>
       </div>
 
       {error ? (
-        <p role="alert" className="rounded-surface border border-negative/30 bg-surface p-4 text-small text-ink">
-          {error}
-        </p>
+        <StudioAlert>{error}</StudioAlert>
       ) : projects.length === 0 ? (
-        <p className="rounded-surface border border-line bg-surface p-8 text-center text-small text-ink-muted">
-          {q || status ? "No projects match that filter." : "No projects yet. Create one or import a spreadsheet."}
-        </p>
+        <StudioEmpty title={q || status ? "No projects match" : "No projects yet"}>
+          {q || status ? "Try another status or clear the search." : "Create one, or import a spreadsheet."}
+        </StudioEmpty>
       ) : (
         <>
           <p className="text-caption text-ink-muted">
             {count.toLocaleString("en-CA")} {count === 1 ? "project" : "projects"}
           </p>
-          <div className="overflow-x-auto rounded-surface border border-line bg-surface">
+          <div className={studioTableWrap}>
             <table className="w-full min-w-[52rem] border-collapse text-small">
               <thead>
                 <tr className="border-b border-line text-left text-caption text-ink-muted">
@@ -181,6 +169,6 @@ export default async function StudioPreconPage({ searchParams }: PageProps<"/stu
           <Pagination page={page} totalPages={totalPages} buildHref={(next) => listHref({ q, status, page: next })} />
         </>
       )}
-    </div>
+    </StudioPage>
   );
 }

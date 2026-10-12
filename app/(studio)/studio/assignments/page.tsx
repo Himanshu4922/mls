@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { StudioAlert, StudioEmpty, StudioPage, StudioSegment, segmentItem, studioSearch, studioTableWrap } from "@/components/studio/chrome";
 import { SubmissionStatusPill } from "@/components/studio/StudioPills";
 import { Pagination } from "@/components/ui/Pagination";
 import {
@@ -11,7 +12,6 @@ import {
   type ReviewSubmissionSummary,
 } from "@/lib/api/studioAdmin";
 import { requireStudioAccess } from "@/lib/auth/session";
-import { cn } from "@/lib/utils/cn";
 import { formatDate, formatPrice } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "Assignment review" };
@@ -64,49 +64,37 @@ export default async function StudioAssignmentsPage({ searchParams }: PageProps<
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-h1 text-ink">Assignment review</h1>
-        <p className="mt-1 max-w-2xl text-small text-ink-muted">
-          Check submitted listings, link assignments to their pre-con project, and approve, reject or request
-          changes. The submitter is emailed each decision.
-        </p>
-      </div>
-
+    <StudioPage
+      kicker="Listings"
+      title="Review queue"
+      description="Check submitted listings, link assignments to their project, then approve, reject, or request changes. The submitter is emailed each decision."
+    >
       <div className="flex flex-wrap items-center gap-3">
-        <nav aria-label="Review queues" className="flex flex-wrap gap-1.5">
+        <StudioSegment label="Review queues">
           {REVIEW_QUEUES.map((entry) => (
             <Link
               key={entry.key}
               href={queueHref({ queue: entry.key, purpose, q })}
               aria-current={queue === entry.key ? "page" : undefined}
-              className={cn(
-                "rounded-full border px-3 py-1.5 text-caption font-medium transition-colors",
-                queue === entry.key
-                  ? "border-navy bg-navy text-white"
-                  : "border-line bg-surface text-ink-muted hover:border-navy hover:text-ink",
-              )}
+              className={segmentItem(queue === entry.key)}
             >
               {entry.label}
-              {counts ? ` (${counts[entry.key]})` : ""}
+              {counts ? ` ${counts[entry.key]}` : ""}
             </Link>
           ))}
-        </nav>
-        <nav aria-label="Listing type" className="flex gap-1.5">
+        </StudioSegment>
+        <StudioSegment label="Listing type">
           {PURPOSES.map((option) => (
             <Link
               key={option.label}
               href={queueHref({ queue, purpose: option.value, q })}
               aria-current={purpose === option.value ? "page" : undefined}
-              className={cn(
-                "rounded-control px-2.5 py-1 text-caption font-medium",
-                purpose === option.value ? "bg-surface-alt text-ink" : "text-ink-muted hover:text-ink",
-              )}
+              className={segmentItem(purpose === option.value)}
             >
               {option.label}
             </Link>
           ))}
-        </nav>
+        </StudioSegment>
         <form action="/studio/assignments" className="ml-auto flex w-full gap-2 sm:w-auto">
           {queue !== "open" && <input type="hidden" name="queue" value={queue} />}
           <input type="hidden" name="purpose" value={purpose || "all"} />
@@ -114,27 +102,25 @@ export default async function StudioAssignmentsPage({ searchParams }: PageProps<
             type="search"
             name="q"
             defaultValue={q}
-            placeholder="Search address, project, name or email…"
+            placeholder="Address, project, name, or email"
             aria-label="Search submissions"
-            className="h-10 w-full rounded-control border border-line bg-surface px-3 text-small text-ink focus:border-navy focus:outline-none focus:ring-1 focus:ring-navy sm:w-72"
+            className={studioSearch}
           />
-          <button type="submit" className="rounded-control border border-line bg-surface px-3 text-small font-medium text-ink hover:border-navy">
+          <button type="submit" className="h-10 rounded-control border border-line bg-surface px-3 text-small font-medium text-ink shadow-card hover:border-navy">
             Search
           </button>
         </form>
       </div>
 
       {error ? (
-        <p role="alert" className="rounded-surface border border-negative/30 bg-surface p-4 text-small text-ink">
-          {error}
-        </p>
+        <StudioAlert>{error}</StudioAlert>
       ) : items.length === 0 ? (
-        <p className="rounded-surface border border-line bg-surface p-8 text-center text-small text-ink-muted">
-          {queue === "open" && !q ? "Nothing waiting for review." : "No submissions match that filter."}
-        </p>
+        <StudioEmpty title={queue === "open" && !q ? "Nothing waiting" : "No submissions match"}>
+          {queue === "open" && !q ? "New listings will land in To review." : "Try another queue or clear the search."}
+        </StudioEmpty>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-surface border border-line bg-surface">
+          <div className={studioTableWrap}>
             <table className="w-full min-w-[52rem] border-collapse text-small">
               <thead>
                 <tr className="border-b border-line text-left text-caption text-ink-muted">
@@ -188,6 +174,6 @@ export default async function StudioAssignmentsPage({ searchParams }: PageProps<
           <Pagination page={page} totalPages={totalPages} buildHref={(next) => queueHref({ queue, purpose, q, page: next })} />
         </>
       )}
-    </div>
+    </StudioPage>
   );
 }

@@ -8,6 +8,7 @@ import { ConfirmDialog, PromptDialog } from "@/components/ui/Dialogs";
 import type { FaqItem, StudioPost, StudioPostInput } from "@/lib/api/studio";
 import type { BlogCategory } from "@/lib/api/blog";
 import { useCreateCategory, useSavePost } from "@/lib/queries/studio";
+import { studioStickyTop } from "@/components/studio/chrome";
 import { cn } from "@/lib/utils/cn";
 import { toArticleHtml, toPlainText } from "@/lib/utils/markdown";
 
@@ -240,12 +241,18 @@ export function PostEditor({ post, categories }: PostEditorProps) {
       {/* Sticky action bar so Save is always reachable in a long post. It sits
           flush under the Studio header (the negative margins cancel <main>'s
           padding); a fixed height on lg lets the toolbar stick right below it. */}
-      <div className="sticky top-0 z-20 -mx-4 -mt-6 flex flex-wrap items-center gap-3 border-b border-line bg-surface-alt/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:h-14 lg:flex-nowrap lg:px-8 lg:py-0">
-        <Link href="/studio" className="text-caption text-ink-muted hover:text-navy">
+      <div className={cn(studioStickyTop, "flex min-h-14 flex-wrap items-center gap-3 py-2.5 lg:flex-nowrap")}>
+        <Link href="/studio" className="text-caption font-medium text-ink-muted hover:text-navy">
           ← Posts
         </Link>
 
-        <span className="text-caption text-ink-muted" aria-live="polite">
+        <span
+          className={cn(
+            "inline-flex items-center gap-2 rounded-full px-2.5 py-0.5 text-caption font-medium",
+            dirty ? "bg-gold-soft text-ink" : "text-ink-muted",
+          )}
+          aria-live="polite"
+        >
           {saving
             ? "Saving…"
             : dirty

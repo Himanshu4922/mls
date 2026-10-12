@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { StudioAlert, StudioEmpty, StudioPage } from "@/components/studio/chrome";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Field";
 import { Switch } from "@/components/ui/Switch";
@@ -129,27 +130,30 @@ export function EditorialManager({
   if (list.isPending && !list.data) return <EditorialListSkeleton />;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4 rounded-surface border border-line bg-surface p-5 sm:p-6">
-        <div className="max-w-2xl">
-          <h1 className="text-h1 text-ink">{title}</h1>
-          <p className="mt-2 text-body text-ink-muted">{lede}</p>
-        </div>
-        {createBody && (
-          <Button type="button" variant="primary" disabled={busy} onClick={() => void create()}>Add new</Button>
-        )}
-      </div>
-      {error && <p role="alert" className="rounded-surface border border-negative/30 bg-surface px-4 py-3 text-body text-negative">{error}</p>}
-      {items.length === 0 && (
-        <p className="rounded-surface border border-line bg-surface p-8 text-body text-ink-muted">Nothing here yet.</p>
-      )}
+    <StudioPage
+      kicker="Editorial"
+      title={title}
+      description={lede}
+      actions={
+        createBody ? (
+          <Button type="button" variant="primary" size="sm" disabled={busy} onClick={() => void create()}>
+            Add new
+          </Button>
+        ) : null
+      }
+    >
+      {error && <StudioAlert>{error}</StudioAlert>}
+      {items.length === 0 && <StudioEmpty title="Nothing here yet" />}
       <ul className="space-y-4">
         {items.map((row) => {
           const heading = String(row.title || row.name || row.city_label || "Untitled");
           return (
-            <li key={String(row[idKey])} className="space-y-4 rounded-surface border border-line bg-surface p-5">
-              <h2 className="text-h3 text-ink">{heading}</h2>
-              {resource === "news" && row.source ? <p className="-mt-2 text-small text-ink-muted">{String(row.source)}</p> : null}
+            <li key={String(row[idKey])} className="overflow-hidden rounded-surface border border-line bg-surface">
+              <div className="border-b border-line bg-navy-tint/60 px-5 py-3">
+                <h2 className="text-h3 text-ink">{heading}</h2>
+                {resource === "news" && row.source ? <p className="mt-0.5 text-small text-ink-muted">{String(row.source)}</p> : null}
+              </div>
+              <div className="space-y-4 p-5">
               <div className="grid gap-4 sm:grid-cols-2">
                 {fields.map((field) => {
                   if (resource === "news" && field !== "is_hidden") return null;
@@ -198,10 +202,11 @@ export function EditorialManager({
                   </Button>
                 )}
               </div>
+              </div>
             </li>
           );
         })}
       </ul>
-    </div>
+    </StudioPage>
   );
 }

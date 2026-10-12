@@ -17,7 +17,7 @@ const SUBMISSION_STATUS: Record<string, string> = {
   withdrawn: "bg-surface-alt text-ink-subtle",
 };
 
-const PILL = "inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-caption font-medium";
+const PILL = "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-caption font-medium ring-1 ring-inset ring-black/5";
 
 export function PreconStatusPill({ status }: { status: string }) {
   const entry = PRECON_STATUS[status] ?? { label: status, tone: "bg-surface-alt text-ink-muted" };

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { StudioAlert, StudioPage } from "@/components/studio/chrome";
 import { PostListTable } from "@/components/studio/PostListTable";
+import { LinkButton } from "@/components/ui/Button";
 import { listStudioPosts, type StudioPost } from "@/lib/api/studio";
 import { requireStudioAccess } from "@/lib/auth/session";
 
@@ -24,32 +25,17 @@ export default async function StudioPostsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4 rounded-surface border border-line bg-surface p-5 sm:p-6">
-        <div className="max-w-2xl">
-          <h1 className="text-h1 text-ink">Blog posts</h1>
-          <p className="mt-2 text-body text-ink-muted">
-            Write an article, save it as a draft, then publish when it should appear on the public blog.
-          </p>
-        </div>
-        <Link
-          href="/studio/new"
-          className="inline-flex h-11 items-center rounded-control bg-navy px-5 text-small font-medium text-white hover:bg-navy-deep"
-        >
+    <StudioPage
+      kicker="Editorial"
+      title="Blog posts"
+      description="Write an article, save it as a draft, then publish when it should appear on the public blog."
+      actions={
+        <LinkButton href="/studio/new" size="sm">
           New post
-        </Link>
-      </div>
-
-      {error ? (
-        <p
-          role="alert"
-          className="rounded-surface border border-negative/30 bg-surface p-4 text-small text-ink"
-        >
-          {error}
-        </p>
-      ) : (
-        <PostListTable posts={posts} />
-      )}
-    </div>
+        </LinkButton>
+      }
+    >
+      {error ? <StudioAlert>{error}</StudioAlert> : <PostListTable posts={posts} />}
+    </StudioPage>
   );
 }

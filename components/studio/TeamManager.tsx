@@ -57,10 +57,10 @@ export function TeamManager({
     <div className="space-y-5">
       <form
         onSubmit={grant}
-        className="rounded-surface border border-line bg-surface p-4"
+        className="rounded-surface border border-line bg-surface p-5 shadow-card"
       >
         <label htmlFor="team-email" className="block text-small font-medium text-ink">
-          Give someone access
+          Invite a writer
         </label>
         <p className="mt-1 text-caption text-ink-muted">
           They need an account on the site first. Ask them to sign up, then enter
@@ -96,7 +96,7 @@ export function TeamManager({
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-surface border border-line bg-surface">
+      <div className="overflow-x-auto rounded-surface border border-line bg-surface shadow-card">
         <table className="w-full min-w-[36rem] border-collapse text-small">
           <thead>
             <tr className="border-b border-line text-left text-caption text-ink-muted">

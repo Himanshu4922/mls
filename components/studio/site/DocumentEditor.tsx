@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { StudioAlert, StudioPage } from "@/components/studio/chrome";
 import { Button } from "@/components/ui/Button";
 import { SiteEditorSkeleton } from "@/components/studio/StudioSkeletons";
 import { PreviewFrame } from "@/components/studio/site/PreviewFrame";
@@ -138,26 +139,30 @@ export function DocumentEditor({
 
   return (
     <div className="space-y-6">
-      <div className="rounded-surface border border-line bg-surface p-5 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-5">
-          <div className="max-w-2xl">
-            <h1 className="text-h1 text-ink">{title}</h1>
-            <p className="mt-2 text-body text-ink-muted">{lede}</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" aria-haspopup="dialog" aria-expanded={previewOpen} onClick={() => setPreviewOpen(true)}>
+      <StudioPage
+        kicker="Public site"
+        title={title}
+        description={lede}
+        actions={
+          <>
+            <Button type="button" variant="secondary" size="sm" aria-haspopup="dialog" aria-expanded={previewOpen} onClick={() => setPreviewOpen(true)}>
               Open preview
             </Button>
-            <Button type="button" variant="secondary" disabled={busy || !unsaved} onClick={() => void save()}>
+            <Button type="button" variant="secondary" size="sm" disabled={busy || !unsaved} onClick={() => void save()}>
               Save draft
             </Button>
-            <Button type="button" variant="primary" disabled={busy || invalid} onClick={() => void publish()}>
+            <Button type="button" variant="primary" size="sm" disabled={busy || invalid} onClick={() => void publish()}>
               Publish to the site
             </Button>
-          </div>
-        </div>
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-          <p className={`text-small ${unsaved ? "font-medium text-ink" : "text-ink-muted"}`}>
+          </>
+        }
+        note={
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className={`flex items-center gap-2 text-small ${unsaved ? "font-medium text-ink" : "text-ink-muted"}`}>
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${unsaved ? "bg-gold-deep" : record.dirty ? "bg-navy" : "bg-positive"}`}
+              aria-hidden="true"
+            />
             {status}
             {invalid ? " Fix the notes in red before you publish." : ""}
           </p>
@@ -168,11 +173,12 @@ export function DocumentEditor({
             disabled={busy || (!unsaved && !record.dirty)}
             onClick={() => void send(`/api/studio/site/${siteKey}/discard`, { expected_updated_at: record.updated_at }, "Could not discard the draft.")}
           >
-            Discard unsaved draft
+            Discard draft
           </Button>
         </div>
-      </div>
-      {error && <p role="alert" className="rounded-surface border border-negative/30 bg-surface px-4 py-3 text-body text-negative">{error}</p>}
+        }
+      />
+      {error && <StudioAlert>{error}</StudioAlert>}
       <div className="min-w-0">{children(draft, setDraft, errors, setPreviewExtra, () => setPreviewOpen(true))}</div>
       <PreviewFrame payload={previewOf(draft, previewExtra)} open={previewOpen} onClose={() => setPreviewOpen(false)} />
       {revisions.length > 0 && (
