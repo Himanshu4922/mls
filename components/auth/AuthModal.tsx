@@ -5,9 +5,8 @@ import { useMutation } from "@tanstack/react-query";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, PasswordInput, TelInput } from "@/components/ui/Field";
-import { OrDivider } from "@/components/ui/SectionCard";
 import { Tabs } from "@/components/ui/Tabs";
-import { HAS_SOCIAL_PROVIDERS, SocialButtons } from "@/components/auth/SocialButtons";
+import { SocialButtons } from "@/components/auth/SocialButtons";
 import { useAuth, type AuthMode } from "@/components/providers/AuthProvider";
 import { AUTH_ERROR_PARAM, authRedirectErrorMessage } from "@/lib/auth/redirect-errors";
 import { resendVerificationRequest } from "@/lib/queries/auth";
@@ -273,22 +272,17 @@ export function AuthModal() {
             </div>
           )}
 
-          {HAS_SOCIAL_PROVIDERS && (
-            <>
-              <SocialButtons
-                disabled={pending}
-                onStart={() => {
-                  setError(null);
-                  setUnverifiedEmail(null);
-                }}
-                onError={(message) => {
-                  setUnverifiedEmail(null);
-                  setError(message);
-                }}
-              />
-              <OrDivider />
-            </>
-          )}
+          <SocialButtons
+            disabled={pending}
+            onStart={() => {
+              setError(null);
+              setUnverifiedEmail(null);
+            }}
+            onError={(message) => {
+              setUnverifiedEmail(null);
+              setError(message);
+            }}
+          />
 
           <form onSubmit={handleSubmit} className="space-y-4" noValidate>
             {isSignup && (

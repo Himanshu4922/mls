@@ -32,8 +32,9 @@ const STATE_COOKIE_PATH = "/api/auth/facebook";
  * is stable behind proxies (where `request.url` may be an internal host); the
  * request origin is the fallback for local setups without it.
  */
-export function siteOrigin(request: Request): string {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL;
+export function siteOrigin(request: Request, configured?: string | null): string {
+  const fromCaller = configured?.trim();
+  configured = fromCaller || process.env.NEXT_PUBLIC_SITE_URL;
   if (configured) {
     try {
       return new URL(configured).origin;
@@ -48,8 +49,8 @@ export function siteOrigin(request: Request): string {
  * Must be byte-identical in the dialog request, the token exchange and the
  * backend's FACEBOOK_ALLOWED_REDIRECT_URIS, so it is built in exactly one place.
  */
-export function facebookRedirectUri(request: Request): string {
-  return `${siteOrigin(request)}/api/auth/facebook/callback`;
+export function facebookRedirectUri(request: Request, siteUrl?: string | null): string {
+  return `${siteOrigin(request, siteUrl)}/api/auth/facebook/callback`;
 }
 
 /**
@@ -69,8 +70,8 @@ export function sanitizeNext(value: string | null | undefined): string {
 }
 
 /** Absolute URL for `next`, verified to stay on our origin after resolution. */
-export function resolveNext(request: Request, next: string, error?: AuthRedirectError): URL {
-  const origin = siteOrigin(request);
+export function resolveNext(request: Request, next: string, error?: AuthRedirectError, siteUrl?: string | null): URL {
+  const origin = siteOrigin(request, siteUrl);
   let url = new URL(sanitizeNext(next), origin);
   if (url.origin !== origin) url = new URL("/", origin);
   if (error) url.searchParams.set(AUTH_ERROR_PARAM, error);

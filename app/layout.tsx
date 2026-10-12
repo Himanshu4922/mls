@@ -3,11 +3,13 @@ import { Inter, Geist } from "next/font/google";
 import "./globals.css";
 import { CookieConsent } from "@/components/consent/CookieConsent";
 import { AuthProvider } from "@/components/providers/AuthProvider";
+import { PublicConnectionsProvider } from "@/components/providers/PublicConnections";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import { WatchedProvider } from "@/components/providers/WatchedProvider";
 import { JsonLd, SITE_URL, absoluteUrl } from "@/components/seo/JsonLd";
 import { getCurrentUser } from "@/lib/auth/session";
 import { WhatsappProvider } from "@/components/providers/WhatsappProvider";
+import { getPublicConnections } from "@/lib/api/integrations";
 import { getSeoDocument, getWhatsappNumber } from "@/lib/site/load";
 import { cn } from "@/lib/utils";
 
@@ -21,14 +23,21 @@ const inter = Inter({
 
 export async function generateMetadata(): Promise<Metadata> {
   const seo = await getSeoDocument();
+  const connections = await getPublicConnections();
   const title = seo?.title || "HomeAtlas — GTA Real Estate Intelligence";
   const description =
     seo?.description ||
     "Search active MLS® listings across the Greater Toronto Area, track market trends, and get an instant home valuation.";
+  let metadataBase: URL;
+  try {
+    metadataBase = new URL(connections.siteUrl || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000");
+  } catch {
+    metadataBase = new URL("http://localhost:3000");
+  }
   return {
     title: { default: title, template: "%s · HomeAtlas" },
     description,
-    metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+    metadataBase,
     openGraph: {
       siteName: "HomeAtlas",
       type: "website",
@@ -81,6 +90,7 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   // Resolved server-side so the first paint already reflects the session.
   const user = await getCurrentUser();
+  const connections = await getPublicConnections();
   const whatsappNumber = await getWhatsappNumber();
 
   return (
@@ -94,14 +104,20 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           Skip to main content
         </a>
         <QueryProvider>
-          <AuthProvider initialUser={user}>
-            <WhatsappProvider number={whatsappNumber}>
-              <WatchedProvider>
-                {children}
-                <CookieConsent />
-              </WatchedProvider>
-            </WhatsappProvider>
-          </AuthProvider>
+          <PublicConnectionsProvider value={connections}>
+            <AuthProvider initialUser={user}>
+              <WhatsappProvider number={whatsappNumber}>
+                <WatchedProvider>
+                  {children}
+                  <CookieConsent
+                    gaMeasurementId={connections.gaMeasurementId}
+                    metaPixelId={connections.metaPixelId}
+                    googleAdsId={connections.googleAdsId}
+                  />
+                </WatchedProvider>
+              </WhatsappProvider>
+            </AuthProvider>
+          </PublicConnectionsProvider>
         </QueryProvider>
       </body>
     </html>

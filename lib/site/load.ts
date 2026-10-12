@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { apiFetch } from "@/lib/api/client";
+import { getPublicConnections } from "@/lib/api/integrations";
 import { WHATSAPP_NUMBER } from "@/lib/constants/contact";
 import {
   SECTION_IDS,
@@ -60,6 +61,9 @@ export async function getSeoDocument(): Promise<SeoDocument | null> {
 }
 
 export async function getWhatsappNumber(): Promise<string> {
+  const connections = await getPublicConnections();
+  const fromConnections = (connections.whatsappNumber || "").replace(/\D/g, "");
+  if (fromConnections.length >= 10) return fromConnections;
   const chrome = await getChromeDocument();
   const digits = (chrome?.contact?.whatsapp || "").replace(/\D/g, "");
   return digits.length >= 10 ? digits : WHATSAPP_NUMBER;

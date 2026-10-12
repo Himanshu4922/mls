@@ -16,6 +16,7 @@ const GROUPS = [
       { href: "/studio/site/header", label: "Header and menu" },
       { href: "/studio/site/footer", label: "Footer" },
       { href: "/studio/site/contact", label: "Socials and contact" },
+      { href: "/studio/connections", label: "Connections" },
       { href: "/studio/site/seo", label: "Search and sharing" },
     ],
   },
@@ -47,7 +48,7 @@ const GROUPS = [
   },
 ];
 
-const RESERVED = new Set(["site", "precon", "featured", "incentives", "partners", "communities", "news", "assignments", "activity", "team"]);
+const RESERVED = new Set(["site", "connections", "precon", "featured", "incentives", "partners", "communities", "news", "assignments", "activity", "team"]);
 
 function isPostPath(path: string) {
   if (path === "/studio") return true;

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ApiError } from "@/lib/api/client";
+import { getPublicConnections } from "@/lib/api/integrations";
 import {
   STATE_COOKIE,
   clearStateCookie,
@@ -23,9 +24,10 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const saved = readStateCookie(request.cookies.get(STATE_COOKIE)?.value);
   const next = saved?.next ?? "/";
+  const siteUrl = (await getPublicConnections()).siteUrl || null;
 
   const finish = (error?: AuthRedirectError) => {
-    const response = NextResponse.redirect(resolveNext(request, next, error));
+    const response = NextResponse.redirect(resolveNext(request, next, error, siteUrl));
     // One-shot: a replayed callback URL must fail the state check.
     clearStateCookie(response);
     return response;
@@ -50,7 +52,7 @@ export async function GET(request: NextRequest) {
     // merges them into the redirect response returned below.
     await completeSocialSignIn("facebook", {
       code,
-      redirect_uri: facebookRedirectUri(request),
+      redirect_uri: facebookRedirectUri(request, siteUrl),
     });
     return finish();
   } catch (error) {

@@ -4,8 +4,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Spinner } from "@/components/ui/Button";
 import { useAuth } from "@/components/providers/AuthProvider";
+import { usePublicConnections } from "@/components/providers/PublicConnections";
 import { socialSignInRequest } from "@/lib/queries/auth";
 import { HttpError, NETWORK_ERROR_STATUS } from "@/lib/queries/fetcher";
+import { OrDivider } from "@/components/ui/SectionCard";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -89,6 +91,9 @@ export function SocialButtons({
   onStart?: () => void;
   disabled?: boolean;
 }) {
+  const connections = usePublicConnections();
+  const googleClientId = connections?.googleClientId || GOOGLE_CLIENT_ID;
+  const facebookAppId = connections?.facebookAppId || FACEBOOK_APP_ID;
   const { setSignedInUser } = useAuth();
   const [busy, setBusy] = useState<Provider | null>(null);
   // `busy` still drives the spinner: it spans the popup as well as this request.
@@ -98,8 +103,8 @@ export function SocialButtons({
   // the click for the popup to count as user-initiated, so loading on click risks
   // the browser blocking it on a slow connection.
   useEffect(() => {
-    if (GOOGLE_CLIENT_ID) loadGsi().catch(() => {});
-  }, []);
+    if (googleClientId) loadGsi().catch(() => {});
+  }, [googleClientId]);
 
   // Backing out of the Facebook dialog can restore this page from the bfcache
   // with the button still spinning; un-stick it.
@@ -111,7 +116,7 @@ export function SocialButtons({
     return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
 
-  if (!HAS_SOCIAL_PROVIDERS) return null;
+  if (!googleClientId && !facebookAppId) return null;
 
   async function exchangeGoogleCode(code: string) {
     const failed = "Google sign-in failed. Please try again.";
@@ -151,7 +156,7 @@ export function SocialButtons({
     try {
       oauth2
         .initCodeClient({
-          client_id: GOOGLE_CLIENT_ID,
+          client_id: googleClientId,
           scope: "openid email profile",
           ux_mode: "popup",
           callback: (response) => {
@@ -201,8 +206,9 @@ export function SocialButtons({
   const locked = disabled || busy !== null;
 
   return (
+    <>
     <div className="space-y-3">
-      {GOOGLE_CLIENT_ID && (
+      {googleClientId && (
         <SocialButton
           onClick={signInWithGoogle}
           loading={busy === "google"}
@@ -212,7 +218,7 @@ export function SocialButtons({
           Continue with Google
         </SocialButton>
       )}
-      {FACEBOOK_APP_ID && (
+      {facebookAppId && (
         <SocialButton
           onClick={signInWithFacebook}
           loading={busy === "facebook"}
@@ -223,6 +229,8 @@ export function SocialButtons({
         </SocialButton>
       )}
     </div>
+    <OrDivider />
+    </>
   );
 }
 

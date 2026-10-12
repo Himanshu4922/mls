@@ -22,10 +22,6 @@ function readChoice(): Choice | null {
   }
 }
 
-const GA_ID = safeTagId(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "");
-const META_PIXEL_ID = safeTagId(process.env.NEXT_PUBLIC_META_PIXEL_ID || "");
-const GOOGLE_ADS_ID = safeTagId(process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || "");
-
 function injectScript(src: string, id: string) {
   if (document.getElementById(id)) return;
   const script = document.createElement("script");
@@ -35,22 +31,22 @@ function injectScript(src: string, id: string) {
   document.head.appendChild(script);
 }
 
-function loadTags() {
-  if (GA_ID || GOOGLE_ADS_ID) {
+function loadTags(gaId: string, metaPixelId: string, googleAdsId: string) {
+  if (gaId || googleAdsId) {
     injectScript(
-      `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GA_ID || GOOGLE_ADS_ID)}`,
+      `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(gaId || googleAdsId)}`,
       "ha-gtag",
     );
     const inlineId = "ha-gtag-inline";
     if (!document.getElementById(inlineId)) {
       const inline = document.createElement("script");
       inline.id = inlineId;
-      const configs = [GA_ID, GOOGLE_ADS_ID].filter(Boolean).map((id) => `gtag('config','${id}');`).join("");
+      const configs = [gaId, googleAdsId].filter(Boolean).map((id) => `gtag('config','${id}');`).join("");
       inline.text = `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());${configs}`;
       document.head.appendChild(inline);
     }
   }
-  if (META_PIXEL_ID && !document.getElementById("ha-meta-pixel")) {
+  if (metaPixelId && !document.getElementById("ha-meta-pixel")) {
     const inline = document.createElement("script");
     inline.id = "ha-meta-pixel";
     inline.text =
@@ -59,12 +55,23 @@ function loadTags() {
       `n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;` +
       `t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,` +
       `document,'script','https://connect.facebook.net/en_US/fbevents.js');` +
-      `fbq('init','${META_PIXEL_ID}');fbq('track','PageView');`;
+      `fbq('init','${metaPixelId}');fbq('track','PageView');`;
     document.head.appendChild(inline);
   }
 }
 
-export function CookieConsent() {
+export function CookieConsent({
+  gaMeasurementId = "",
+  metaPixelId = "",
+  googleAdsId = "",
+}: {
+  gaMeasurementId?: string;
+  metaPixelId?: string;
+  googleAdsId?: string;
+}) {
+  const gaId = safeTagId(gaMeasurementId || process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID || "");
+  const pixelId = safeTagId(metaPixelId || process.env.NEXT_PUBLIC_META_PIXEL_ID || "");
+  const adsId = safeTagId(googleAdsId || process.env.NEXT_PUBLIC_GOOGLE_ADS_ID || "");
   const [choice, setChoice] = useState<Choice | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -72,8 +79,8 @@ export function CookieConsent() {
     const stored = readChoice();
     setChoice(stored);
     setReady(true);
-    if (stored === "accepted") loadTags();
-  }, []);
+    if (stored === "accepted") loadTags(gaId, pixelId, adsId);
+  }, [gaId, pixelId, adsId]);
 
   function choose(next: Choice) {
     try {
@@ -82,7 +89,7 @@ export function CookieConsent() {
       // Storage blocked: honour the choice for this page view only.
     }
     setChoice(next);
-    if (next === "accepted") loadTags();
+    if (next === "accepted") loadTags(gaId, pixelId, adsId);
   }
 
   if (!ready || choice) return null;
