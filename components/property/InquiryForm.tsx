@@ -53,6 +53,14 @@ const COPY = {
     message: (address: string) =>
       `I'm interested in the assignment for ${address}. Please send me the details and next steps.`,
   },
+  contact: {
+    title: "Send a message",
+    hint: "Questions about buying, selling, or a listing. No obligation.",
+    submit: "Send message",
+    intent: "explore",
+    message: (address: string) =>
+      `I'd like to get in touch with ${address} about buying or selling a home.`,
+  },
 } as const;
 
 /** listing_key used for assignment leads, so they stay distinguishable from MLS® keys. */

@@ -15,6 +15,7 @@ const GROUPS = [
       { href: "/studio/site", label: "Homepage" },
       { href: "/studio/site/header", label: "Header and menu" },
       { href: "/studio/site/footer", label: "Footer" },
+      { href: "/studio/site/contact", label: "Socials and contact" },
       { href: "/studio/site/seo", label: "Search and sharing" },
     ],
   },

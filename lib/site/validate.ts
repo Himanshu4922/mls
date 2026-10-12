@@ -321,7 +321,7 @@ export function validateChrome(document: unknown): FieldErrors {
   link(errors, "footer.bannerHref", footer.bannerHref);
   text(errors, "footer.blurb", footer.blurb, 280);
   const socials = Array.isArray(footer.socials) ? footer.socials : [];
-  if (socials.length > 3) errors["footer.socials"] = "Use at most 3 social links.";
+  if (socials.length > 5) errors["footer.socials"] = "Use at most 5 social links.";
   socials.forEach((item, index) => {
     const row = isRecord(item) ? item : {};
     const href = typeof row.href === "string" ? row.href.trim() : "";
@@ -339,6 +339,24 @@ export function validateChrome(document: unknown): FieldErrors {
   if (digits.length < 10 || digits.length > 15) {
     errors["contact.whatsapp"] = "Enter a WhatsApp number with country code, digits only.";
   }
+  optionalText(errors, "contact.name", contact.name, 80);
+  optionalText(errors, "contact.title", contact.title, 80);
+  optionalText(errors, "contact.address", contact.address, 160);
+  if (typeof contact.email === "string" && contact.email.trim()) {
+    const email = contact.email.trim();
+    if (email.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errors["contact.email"] = "Enter a valid email address.";
+    }
+  }
+  if (typeof contact.mapUrl === "string" && contact.mapUrl.trim()) link(errors, "contact.mapUrl", contact.mapUrl);
+  detailRows(errors, "contact.phones", contact.phones, 2, [
+    ["label", 24],
+    ["display", 40],
+  ]);
+  detailRows(errors, "contact.hours", contact.hours, 4, [
+    ["days", 40],
+    ["hours", 40],
+  ]);
   return errors;
 }
 
@@ -346,6 +364,38 @@ function pair(errors: FieldErrors, path: string, item: unknown, labelMax: number
   const row = isRecord(item) ? item : {};
   text(errors, `${path}.label`, row.label, labelMax);
   link(errors, `${path}.href`, row.href);
+}
+
+function optionalText(errors: FieldErrors, path: string, value: unknown, max: number): void {
+  if (value == null || value === "") return;
+  text(errors, path, value, max, false);
+}
+
+function detailRows(
+  errors: FieldErrors,
+  path: string,
+  value: unknown,
+  maxRows: number,
+  fields: Array<[string, number]>,
+): void {
+  if (value == null) return;
+  if (!Array.isArray(value)) {
+    errors[path] = "Add the rows for this section.";
+    return;
+  }
+  if (value.length > maxRows) errors[path] = `Use at most ${maxRows} rows.`;
+  value.slice(0, maxRows).forEach((item, index) => {
+    const row = isRecord(item) ? item : {};
+    const filled = fields.map(([key]) => (typeof row[key] === "string" ? row[key].trim() : ""));
+    if (filled.every((part) => !part)) return;
+    if (filled.some((part) => !part)) {
+      errors[`${path}.${index}`] = "Fill in every part of the row, or leave the whole row blank.";
+    }
+    fields.forEach(([key, max], fieldIndex) => {
+      if (!filled[fieldIndex]) return;
+      text(errors, `${path}.${index}.${key}`, row[key], max);
+    });
+  });
 }
 
 export function validateSeo(document: unknown): FieldErrors {

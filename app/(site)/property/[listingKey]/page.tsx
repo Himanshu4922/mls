@@ -21,11 +21,8 @@ import { Badge } from "@/components/ui/Badge";
 import { PropertyGridSkeleton, Skeleton, UnavailableNote } from "@/components/ui/States";
 import { ApiError, safeFetch } from "@/lib/api/client";
 import { getProperty, getSimilarProperties, searchProperties } from "@/lib/api/properties";
-import {
-  getListingEngagement,
-  getNearbySchools,
-  getPropertySnapshots,
-} from "@/lib/api/neighbourhood";
+import { getListingEngagement, getPropertySnapshots } from "@/lib/api/neighbourhood";
+import { getSchoolsNear } from "@/lib/api/schools";
 import { statusLabel } from "@/lib/api/mappers";
 import {
   EMPTY,
@@ -395,7 +392,6 @@ export default async function PropertyPage({
                       <SchoolsPanel
                         latitude={property.latitude ?? 0}
                         longitude={property.longitude ?? 0}
-                        city={property.community}
                       />
                     </Suspense>
                   ) : (
@@ -538,18 +534,16 @@ async function PriceHistorySection({
 async function SchoolsPanel({
   latitude,
   longitude,
-  city,
 }: {
   latitude: number;
   longitude: number;
-  city: string | null;
 }) {
   const schools = await safeFetch(
-    getNearbySchools(latitude, longitude, { radius: 15_000 }),
+    getSchoolsNear(latitude, longitude, { radiusKm: 8 }),
     [],
     "property:schools",
   );
-  return <SchoolsSection schools={schools} city={city} />;
+  return <SchoolsSection schools={schools} />;
 }
 
 async function DemandPanel({ listingKey }: { listingKey: string }) {

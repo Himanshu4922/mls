@@ -18,7 +18,7 @@ import { ResourcesGuides } from "@/components/home/sections/ResourcesGuides";
 import { SoldBelowLastPurchase } from "@/components/home/sections/SoldBelowLastPurchase";
 import { ThinkingOfSelling } from "@/components/home/sections/ThinkingOfSelling";
 import { TodaysNewListings } from "@/components/home/sections/TodaysNewListings";
-import { TopRatedSchools } from "@/components/home/sections/TopRatedSchools";
+import { TopRatedSchoolsLive } from "@/components/home/sections/TopRatedSchoolsLive";
 import {
   TrendingCommunities,
   TrendingCommunitiesSkeleton,
@@ -124,7 +124,11 @@ function HomeBlock({ section }: { section: SiteSection }) {
         </Live>
       );
     case "schools":
-      return <TopRatedSchools content={content} />;
+      return (
+        <Live fallback={<RailFallback title="GTA Secondary Schools" tone="alt" />}>
+          <TopRatedSchoolsLive content={content} />
+        </Live>
+      );
     case "incentives":
       return (
         <Live fallback={null}>

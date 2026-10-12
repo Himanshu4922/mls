@@ -245,6 +245,8 @@ function FieldEditor({
             onChange={(event) => onChange(event.target.value)}
           >
             <option value="facebook">Facebook</option>
+            <option value="instagram">Instagram</option>
+            <option value="youtube">YouTube</option>
             <option value="x">X</option>
             <option value="linkedin">LinkedIn</option>
           </select>

@@ -1,79 +1,81 @@
-import { SafeImage } from "@/components/ui/SafeImage";
 import Link from "next/link";
 import { Section } from "@/components/ui/Section";
-import { topSchools } from "@/lib/home/staticSections";
-import { listOf, textOf } from "@/lib/site/read";
-import { buildListingHref } from "@/lib/utils/searchParams";
-import { StarGlyph } from "./sectionIcons";
+import { homesNearSchoolHref, type OfficialSchool } from "@/lib/api/schools";
+import { textOf } from "@/lib/site/read";
+
+const SOURCE_URL = "https://data.ontario.ca/dataset/school-information-and-student-demographics";
+const LIVE_DESCRIPTION =
+  "Published EQAO results for GTA secondary schools. The percentage is the average of Grade 9 math and the literacy test. These are school locations, not attendance boundaries.";
 
 /**
- * "Listings by Top-Rated Schools" — HomeAtlasUI HomePage L668-707.
- *
- * Ratings and in-zone counts are the reference's sample figures. There is no
- * catchment search yet, so a card opens the school's city search.
+ * Homepage school cards. Live pages pass Ministry results. The studio preview
+ * has no school list, so it does not show the sample ratings stored on the section.
  */
-export function TopRatedSchools({ content }: { content?: Record<string, unknown> }) {
-  const schools = listOf<{
-    name?: string;
-    school?: string;
-    community?: string;
-    rating?: number;
-    listings?: number;
-    imageUrl?: string;
-    img?: string;
-    imageAlt?: string;
-    href?: string;
-  }>(content, "items", topSchools.map((school) => ({
-    name: school.school,
-    community: school.community,
-    rating: school.rating,
-    listings: school.listings,
-    imageUrl: school.img,
-    href: buildListingHref({ city: school.community }),
-  })));
+export function TopRatedSchools({
+  content,
+  schools,
+}: {
+  content?: Record<string, unknown>;
+  schools?: OfficialSchool[];
+}) {
+  const eyebrow = textOf(content, "eyebrow", "Schools & families");
+  const title = "GTA Secondary Schools";
+
+  if (!schools) {
+    return (
+      <Section tone="alt" eyebrow={eyebrow} title={title} description={LIVE_DESCRIPTION}>
+        <p className="text-small text-ink-muted">
+          The public homepage loads these results from the Ministry of Education. Sample ratings are not shown.
+        </p>
+      </Section>
+    );
+  }
 
   return (
-    <Section
-      tone="alt"
-      eyebrow={textOf(content, "eyebrow", "Schools & families")}
-      title={textOf(content, "title", "Listings by Top-Rated Schools")}
-      description={textOf(content, "description", "Homes within highly rated school catchment zones")}
-    >
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {schools.map((school) => (
-          <Link
-            key={school.name || school.school}
-            href={school.href || buildListingHref({ city: school.community || "" })}
-            className="group overflow-hidden rounded-surface border border-line bg-surface transition-all hover:shadow-card-hover"
-          >
-            <div className="relative h-[160px] overflow-hidden">
-              <SafeImage
-                src={school.imageUrl || school.img}
-                alt={school.imageAlt || ""}
-                fill
-                sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
-                className="object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              <div className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-surface px-3 py-1.5">
-                <StarGlyph className="text-gold" />
-                <span className="text-small font-bold text-ink">
-                  {school.rating}/10
-                  <span className="sr-only"> rating</span>
-                </span>
-              </div>
-            </div>
-            <div className="p-4">
-              <h3 className="mb-0.5 text-small font-semibold text-ink">{school.name || school.school}</h3>
-              <p className="mb-3 text-caption text-ink-muted">
-                {school.community} · {school.listings} listings in zone
-              </p>
-              <span className="text-small font-medium text-navy group-hover:underline">
-                Browse homes in zone →
-              </span>
-            </div>
-          </Link>
-        ))}
-      </div>
+    <Section tone="alt" eyebrow={eyebrow} title={title} description={LIVE_DESCRIPTION}>
+      {schools.length === 0 ? (
+        <p className="text-small text-ink-muted">EQAO results are unavailable right now.</p>
+      ) : (
+        <>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {schools.map((school) => {
+              const homesHref =
+                school.latitude !== null && school.longitude !== null
+                  ? homesNearSchoolHref(school.latitude, school.longitude)
+                  : null;
+              return (
+                <article
+                  key={school.id}
+                  className="flex flex-col rounded-surface border border-line bg-surface p-5"
+                >
+                  <h3 className="text-small font-semibold text-ink">{school.name}</h3>
+                  <p className="mt-1 text-caption text-ink-muted">
+                    {[school.city, school.board].filter(Boolean).join(" · ")}
+                  </p>
+                  <p className="mt-4 text-[28px] font-bold leading-none text-ink">
+                    {school.eqaoPercent === null ? "—" : `${school.eqaoPercent}%`}
+                  </p>
+                  <p className="mt-2 flex-1 text-caption text-ink-muted">
+                    {school.eqaoPercent === null ? "No EQAO result published" : school.eqaoLabel}
+                  </p>
+                  {homesHref ? (
+                    <Link href={homesHref} className="mt-4 text-small font-medium text-navy hover:underline">
+                      Homes within 2 km →
+                    </Link>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+          <p className="mt-5 text-caption text-ink-muted">
+            Ontario Ministry of Education, School information and student demographics, 2024–25.{" "}
+            <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer" className="underline">
+              Open Government Licence – Ontario
+            </a>
+            .
+          </p>
+        </>
+      )}
     </Section>
   );
 }

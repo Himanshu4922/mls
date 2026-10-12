@@ -55,6 +55,16 @@ export default async function HtmlSitemapPage() {
         <LinkGroup title="Search" links={search} />
         <LinkGroup title="Sell" links={sell} />
         <LinkGroup
+          title="Company"
+          links={[
+            { label: "About HomeAtlas", href: "/about" },
+            { label: "Contact", href: "/contact" },
+            { label: "Privacy policy", href: "/privacy" },
+            { label: "Terms and conditions", href: "/terms" },
+            { label: "Cookie policy", href: "/cookies" },
+          ]}
+        />
+        <LinkGroup
           title="Market trends by city"
           links={MARKET_CITIES.map((city) => ({ label: `${city} market trends`, href: `/market-trends?city=${encodeURIComponent(city)}` }))}
         />

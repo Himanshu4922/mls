@@ -25,6 +25,11 @@ const STATIC_PATHS: Array<{ path: string; priority: number; changeFrequency: "da
   { path: "/recently-sold", priority: 0.6, changeFrequency: "daily" },
   { path: "/assignments", priority: 0.7, changeFrequency: "daily" },
   { path: "/site-map", priority: 0.3, changeFrequency: "weekly" },
+  { path: "/about", priority: 0.4, changeFrequency: "weekly" },
+  { path: "/contact", priority: 0.4, changeFrequency: "weekly" },
+  { path: "/privacy", priority: 0.2, changeFrequency: "weekly" },
+  { path: "/terms", priority: 0.2, changeFrequency: "weekly" },
+  { path: "/cookies", priority: 0.2, changeFrequency: "weekly" },
 ];
 
 export interface SitemapEntry {

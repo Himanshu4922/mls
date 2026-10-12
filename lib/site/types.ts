@@ -55,10 +55,19 @@ export interface ChromeDocument {
     bannerLabel: string;
     bannerHref: string;
     blurb: string;
-    socials: Array<{ network: "facebook" | "x" | "linkedin"; href: string }>;
+    socials: Array<{ network: "facebook" | "instagram" | "youtube" | "x" | "linkedin"; href: string }>;
     columns: Array<{ heading: string; links: LinkItem[] }>;
   };
-  contact: { whatsapp: string };
+  contact: {
+    whatsapp: string;
+    name?: string;
+    title?: string;
+    email?: string;
+    phones?: Array<{ label: string; display: string }>;
+    address?: string;
+    mapUrl?: string;
+    hours?: Array<{ days: string; hours: string }>;
+  };
 }
 
 export interface SeoDocument {

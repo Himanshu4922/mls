@@ -82,23 +82,6 @@ export const soldBelowPicks: SoldBelowPick[] = [
   { id: "s8", prevPrice: 1100000, desc: "Sold $75K below previous purchase" },
 ];
 
-/* LISTINGS BY TOP-RATED SCHOOLS (reference L679-684) */
-
-export interface TopSchool {
-  school: string;
-  rating: number;
-  community: string;
-  listings: number;
-  img: string;
-}
-
-export const topSchools: TopSchool[] = [
-  { school: "Westmount Collegiate", rating: 9.2, community: "Toronto", listings: 48, img: "https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=400&h=250&fit=crop" },
-  { school: "Thornlea Secondary", rating: 8.9, community: "Markham", listings: 32, img: "https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=400&h=250&fit=crop" },
-  { school: "White Oaks Secondary", rating: 8.7, community: "Oakville", listings: 27, img: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=400&h=250&fit=crop" },
-  { school: "St. Brother André", rating: 8.5, community: "Vaughan", listings: 41, img: "https://images.unsplash.com/photo-1605276373954-0c4a0dac5b12?w=400&h=250&fit=crop" },
-];
-
 /* BUYER'S INCENTIVES (reference L717-723) */
 
 export type IncentiveIcon = "home" | "savings" | "green" | "construction" | "equity" | "retirement";

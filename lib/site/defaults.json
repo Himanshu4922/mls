@@ -170,8 +170,8 @@
         "visible": true,
         "content": {
           "eyebrow": "Schools & families",
-          "title": "Listings by Top-Rated Schools",
-          "description": "Homes within highly rated school catchment zones",
+          "title": "GTA Secondary Schools",
+          "description": "Published EQAO results for GTA secondary schools. These are school locations, not attendance boundaries.",
           "items": [
             {
               "name": "Westmount Collegiate",
@@ -515,15 +515,15 @@
       "socials": [
         {
           "network": "facebook",
-          "href": "https://facebook.com"
+          "href": "https://www.facebook.com/estate4uprec/"
         },
         {
-          "network": "x",
-          "href": "https://x.com"
+          "network": "instagram",
+          "href": "https://www.instagram.com/estate4uprec/"
         },
         {
-          "network": "linkedin",
-          "href": "https://linkedin.com"
+          "network": "youtube",
+          "href": "https://www.youtube.com/channel/UC7g87rmbTk4N8v5n4QAGfWw"
         }
       ],
       "columns": [
@@ -610,6 +610,22 @@
           "heading": "Company",
           "links": [
             {
+              "label": "About",
+              "href": "/about"
+            },
+            {
+              "label": "Contact",
+              "href": "/contact"
+            },
+            {
+              "label": "Privacy",
+              "href": "/privacy"
+            },
+            {
+              "label": "Terms",
+              "href": "/terms"
+            },
+            {
               "label": "Saved homes",
               "href": "/watched"
             },
@@ -630,7 +646,21 @@
       ]
     },
     "contact": {
-      "whatsapp": "14168214200"
+      "whatsapp": "14168214200",
+      "name": "Gunneet Singh",
+      "title": "REALTOR® | HomeAtlas",
+      "email": "info@estate-4u.com",
+      "phones": [
+        { "label": "Direct", "display": "+1 (416) 821-4200" },
+        { "label": "Sales", "display": "+1 (647) 515-2000" }
+      ],
+      "address": "115 Matheson Blvd W, Unit 102, Mississauga L5R 1C6",
+      "mapUrl": "https://maps.app.goo.gl/UCdgZUYWUuVkrRAe9",
+      "hours": [
+        { "days": "Monday – Friday", "hours": "9:00 AM – 7:00 PM" },
+        { "days": "Saturday", "hours": "10:00 AM – 5:00 PM" },
+        { "days": "Sunday", "hours": "By appointment" }
+      ]
     }
   },
   "seo": {
