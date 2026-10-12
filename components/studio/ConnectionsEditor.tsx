@@ -4,11 +4,23 @@ import { useState } from "react";
 import { Field, Input, Textarea } from "@/components/ui/Field";
 import type { ConnectionDocument, ConnectionField } from "@/lib/api/integrations";
 
-const LONG = new Set(["ampreBearerToken", "webPushPrivateKey", "cacheUrl", "facebookAllowedRedirectUris"]);
+const LONG = new Set([
+  "ampreBearerToken",
+  "webPushPrivateKey",
+  "cacheUrl",
+  "facebookAllowedRedirectUris",
+  "secretKey",
+  "databaseUrl",
+  "cloudinaryUrl",
+  "sendgridApiKey",
+  "celeryBrokerUrl",
+  "celeryResultBackend",
+]);
 
 const STATUS = {
   console: "Saved in this console",
   server: "Already set on the server",
+  default: "Built-in default",
   empty: "Not set yet",
 } as const;
 
@@ -109,29 +121,25 @@ function ConnectionControl({
   const id = `connection-${field.key}`;
   const status = STATUS[field.status];
   return (
-    <Field
-      label={field.label}
-      htmlFor={id}
-      hint={[field.hint, status].filter(Boolean).join(" ")}
-    >
-      {LONG.has(field.key) ? (
+    <Field label={field.label} htmlFor={id} hint={[field.env, field.hint, status].filter(Boolean).join(" · ")}>
+      {LONG.has(field.key) || value.length > 80 ? (
         <Textarea
           id={id}
           value={value}
           rows={3}
           disabled={disabled}
           autoComplete="off"
-          placeholder={field.secret ? "Leave blank to keep the current value" : ""}
+          placeholder="Not set"
           onChange={(event) => onChange(event.target.value)}
         />
       ) : (
         <Input
           id={id}
-          type={field.secret ? "password" : "text"}
+          type="text"
           value={value}
           disabled={disabled}
           autoComplete="off"
-          placeholder={field.secret ? "Leave blank to keep the current value" : ""}
+          placeholder="Not set"
           onChange={(event) => onChange(event.target.value)}
         />
       )}

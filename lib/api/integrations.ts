@@ -3,12 +3,13 @@ import { apiFetch } from "@/lib/api/client";
 
 export interface ConnectionField {
   key: string;
+  env: string;
   label: string;
   hint: string;
   group: string;
   secret: boolean;
   value: string;
-  status: "console" | "server" | "empty";
+  status: "console" | "server" | "empty" | "default";
 }
 
 export interface ConnectionDocument {
@@ -17,6 +18,7 @@ export interface ConnectionDocument {
 }
 
 export interface PublicConnections {
+  apiBaseUrl: string;
   whatsappNumber: string;
   siteUrl: string;
   googleClientId: string;
@@ -28,6 +30,7 @@ export interface PublicConnections {
 }
 
 const EMPTY_PUBLIC: PublicConnections = {
+  apiBaseUrl: "",
   whatsappNumber: "",
   siteUrl: "",
   googleClientId: "",

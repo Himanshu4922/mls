@@ -24,7 +24,7 @@ export default async function StudioConnectionsPage() {
       <div>
         <h1 className="text-h1 text-ink">Connections</h1>
         <p className="mt-2 max-w-2xl text-small text-ink-muted">
-          Keys for the website and the server. Saving here updates the live site. Leave a secret blank to keep what is already saved. The database password stays in hosting and is not on this page.
+          Keys for the website and the server. Each box shows the value in use now. Change it and choose Save connections. Clearing a box removes the value saved here.
         </p>
       </div>
       {error || !initial ? (
