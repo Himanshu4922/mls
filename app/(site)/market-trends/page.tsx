@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { cache, Suspense } from "react";
+import { cache, Suspense, type ReactNode } from "react";
 import { ArrowLeft } from "lucide-react";
 import { DaysOnMarketChart, SalesListingsChart, TypeMix } from "@/components/market/InsightCharts";
 import { CommunitySelect } from "@/components/market/CommunitySelect";
@@ -8,7 +8,6 @@ import { TrendChart } from "@/components/market/TrendChart";
 import { WatchAreaButton } from "@/components/market/WatchAreaButton";
 import { NavChip } from "@/components/navigation/NavChip";
 import { PendingContent, PendingLink, PendingNavigationProvider } from "@/components/navigation/PendingNavigation";
-import { InquiryForm } from "@/components/property/InquiryForm";
 import { ErrorState, Skeleton } from "@/components/ui/States";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -85,11 +84,11 @@ const loadTrends = cache((city: string, months: number) =>
 );
 
 /**
- * Market Insights, laid out like HomeAtlasUI's Market Trends page: dark
- * header, city heatmap, sold-price chart, sales vs listings, days on market,
- * property-type mix and community cards. The figures are live. Search fields
- * the reference drew with sample numbers (price per sq ft, a made-up heat
- * score) use the closest real series instead.
+ * Market Insights: dark summary, one filter bar for the whole page, then the
+ * city heatmap, sold-price chart, activity charts, property-type mix and
+ * community reports. The figures are live. Search fields the reference drew
+ * with sample numbers (price per sq ft, a made-up heat score) use the closest
+ * real series instead.
  */
 export default async function MarketTrendsPage({ searchParams }: PageProps<"/market-trends">) {
   const params = await searchParams;
@@ -99,6 +98,7 @@ export default async function MarketTrendsPage({ searchParams }: PageProps<"/mar
     type: SOLD_PROPERTY_TYPES.find((t) => t.key === first(params.type))?.key ?? null,
     community: first(params.community)?.trim().slice(0, 120) || null,
   };
+  const scope = selectionLabel(filters);
 
   return (
     <PendingNavigationProvider>
@@ -113,6 +113,7 @@ export default async function MarketTrendsPage({ searchParams }: PageProps<"/mar
               <p className="mb-2 text-[11px] font-semibold tracking-[2.5px] text-gold">GTA MARKET INTELLIGENCE</p>
               <h1 className="mb-3 text-[40px] font-semibold leading-none text-white sm:text-[56px]">Market Trends</h1>
               <p className="text-[15px] text-white/60">Real-time data and community insights for smarter decisions.</p>
+              <p className="mt-3 text-[13px] font-medium text-white/80">{scope}</p>
             </div>
             <PendingContent fallback={<KpiSkeleton />}>
               <Suspense fallback={<KpiSkeleton />}>
@@ -222,59 +223,27 @@ async function MarketBoard({ filters }: { filters: Filters }) {
 
   return (
     <div className="space-y-8">
+      <MarketFilters filters={filters} communities={communities} communityHrefs={communityHrefs} />
+
       <Heatmap cities={cities} selected={city} filters={filters} />
 
-      <section className="rounded-2xl border border-line bg-surface p-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2">
           <div>
-            <h2 className="text-[20px] font-semibold text-ink">Median sold price · {soldTitle}</h2>
-            <p className="mt-1 text-[13px] text-ink-muted">
-              Closed transactions, last {sold.windowMonths || range.months} months
-              {sold.generatedAt ? ` · as of ${formatDate(sold.generatedAt)}` : ""}
-              {sold.stale ? " · these may be a few hours old" : ""}
-            </p>
+            <p className="text-[11px] font-semibold uppercase tracking-[1.6px] text-ink-muted">Selected market</p>
+            <h2 className="mt-1 text-[22px] font-semibold text-ink">{soldTitle}</h2>
           </div>
-          <nav aria-label="Select a city" className="flex flex-wrap gap-2">
-            {MARKET_CITIES.map((option) => (
-              <NavChip key={option} href={trendsHref(filters, { city: option })} current={option === city} scroll={false} appearance="solid">
-                {option}
-              </NavChip>
-            ))}
-          </nav>
+          <p className="text-[13px] text-ink-muted">Last {range.label}</p>
         </div>
-        <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-3">
-          <nav aria-label="Select a period" className="flex flex-wrap gap-2">
-            {MARKET_RANGES.map((option) => (
-              <NavChip
-                key={option.key}
-                href={trendsHref(filters, { range: option.key })}
-                current={option.key === range.key}
-                scroll={false}
-                appearance="solid"
-              >
-                {option.label}
-              </NavChip>
-            ))}
-          </nav>
-          <nav aria-label="Select a property type" className="flex flex-wrap gap-2">
-            <NavChip href={trendsHref(filters, { type: null })} current={!type} scroll={false} appearance="solid">
-              All types
-            </NavChip>
-            {SOLD_PROPERTY_TYPES.map((option) => (
-              <NavChip
-                key={option.key}
-                href={trendsHref(filters, { type: option.key })}
-                current={option.key === type}
-                scroll={false}
-                appearance="solid"
-              >
-                {option.label}
-              </NavChip>
-            ))}
-          </nav>
-          {communities.length > 0 && (
-            <CommunitySelect communities={communities} value={community} hrefFor={communityHrefs} />
-          )}
+
+      <section className="rounded-2xl border border-line bg-surface p-6">
+        <div className="mb-6">
+          <h3 className="text-[20px] font-semibold text-ink">Median sold price</h3>
+          <p className="mt-1 text-[13px] text-ink-muted">
+            Closed transactions, last {sold.windowMonths || range.months} months
+            {sold.generatedAt ? ` · as of ${formatDate(sold.generatedAt)}` : ""}
+            {sold.stale ? " · these may be a few hours old" : ""}
+          </p>
         </div>
 
         {sold.unavailable ? (
@@ -311,18 +280,21 @@ async function MarketBoard({ filters }: { filters: Filters }) {
 
       <div className="grid gap-6 sm:grid-cols-2">
         <section className="rounded-2xl border border-line bg-surface p-6">
-          <h3 className="mb-4 text-[16px] font-semibold text-ink">Sales vs. new listings</h3>
+          <h3 className="text-[16px] font-semibold text-ink">Sales vs. new listings</h3>
+          <p className="mb-4 mt-1 text-[13px] text-ink-muted">Closed sales beside new listings in {city}.</p>
           <SalesListingsChart rows={compareRows} />
         </section>
         <section className="rounded-2xl border border-line bg-surface p-6">
-          <h3 className="mb-4 text-[16px] font-semibold text-ink">Avg. days on market</h3>
+          <h3 className="text-[16px] font-semibold text-ink">Avg. days on market</h3>
+          <p className="mb-4 mt-1 text-[13px] text-ink-muted">How long homes in this selection took to sell.</p>
           <DaysOnMarketChart rows={domRows} />
         </section>
+      </div>
       </div>
 
       {(trends?.bySubtype.length ?? 0) > 0 && (
         <section className="rounded-2xl border border-line bg-surface p-6">
-          <h3 className="mb-1 text-[18px] font-semibold text-ink">Property type mix</h3>
+          <h2 className="mb-1 text-[18px] font-semibold text-ink">Property type mix</h2>
           <p className="mb-5 text-[13px] text-ink-muted">Active listings in {city}. This is the catalogue, not closed sales.</p>
           <TypeMix rows={trends?.bySubtype ?? []} />
         </section>
@@ -330,7 +302,8 @@ async function MarketBoard({ filters }: { filters: Filters }) {
 
       {reports.length > 0 && (
         <section className="rounded-2xl border border-line bg-surface p-6">
-          <h3 className="mb-5 text-[18px] font-semibold text-ink">Community reports · {city}</h3>
+          <h2 className="text-[18px] font-semibold text-ink">Community reports · {city}</h2>
+          <p className="mb-5 mt-1 text-[13px] text-ink-muted">Neighbourhoods with the most closed sales in this window.</p>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {reports.map((row) => (
               <PendingLink
@@ -352,10 +325,7 @@ async function MarketBoard({ filters }: { filters: Filters }) {
         </section>
       )}
 
-      <div className="grid items-start gap-6 lg:grid-cols-[1fr_340px]">
-        <WatchAreaButton label={areaLabel} />
-        <InquiryForm listingKey="" address={areaLabel} variant="market" />
-      </div>
+      <WatchAreaButton label={areaLabel} />
 
       {trends?.disclaimer && (
         <section className="rounded-2xl border border-gold/30 bg-gold-soft p-5">
@@ -363,6 +333,93 @@ async function MarketBoard({ filters }: { filters: Filters }) {
           <p className="mt-2 text-small text-ink-soft">{trends.disclaimer}</p>
         </section>
       )}
+    </div>
+  );
+}
+
+function selectionLabel(filters: Filters) {
+  return [
+    filters.community ? `${filters.community}, ${filters.city}` : filters.city,
+    SOLD_PROPERTY_TYPES.find((option) => option.key === filters.type)?.label,
+    filters.range.label,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function MarketFilters({
+  filters,
+  communities,
+  communityHrefs,
+}: {
+  filters: Filters;
+  communities: Array<{ name: string; unitsSold: number }>;
+  communityHrefs: Record<string, string>;
+}) {
+  const { city, range, type, community } = filters;
+
+  return (
+    <section aria-label="Filter the market view" className="rounded-2xl border border-line bg-surface p-6">
+      <FilterGroup label="City">
+        <nav aria-label="Select a city" className="flex flex-wrap gap-2">
+          {MARKET_CITIES.map((option) => (
+            <NavChip key={option} href={trendsHref(filters, { city: option })} current={option === city} scroll={false} appearance="solid">
+              {option}
+            </NavChip>
+          ))}
+        </nav>
+      </FilterGroup>
+
+      <div className="mt-5 grid gap-5 border-t border-line pt-5 md:grid-cols-2">
+        <FilterGroup label="Period">
+          <nav aria-label="Select a period" className="flex flex-wrap gap-2">
+            {MARKET_RANGES.map((option) => (
+              <NavChip
+                key={option.key}
+                href={trendsHref(filters, { range: option.key })}
+                current={option.key === range.key}
+                scroll={false}
+                appearance="solid"
+              >
+                {option.label}
+              </NavChip>
+            ))}
+          </nav>
+        </FilterGroup>
+        <FilterGroup label="Property type">
+          <nav aria-label="Select a property type" className="flex flex-wrap gap-2">
+            <NavChip href={trendsHref(filters, { type: null })} current={!type} scroll={false} appearance="solid">
+              All types
+            </NavChip>
+            {SOLD_PROPERTY_TYPES.map((option) => (
+              <NavChip
+                key={option.key}
+                href={trendsHref(filters, { type: option.key })}
+                current={option.key === type}
+                scroll={false}
+                appearance="solid"
+              >
+                {option.label}
+              </NavChip>
+            ))}
+          </nav>
+        </FilterGroup>
+      </div>
+
+      {communities.length > 0 && (
+        <div className="mt-5 max-w-sm border-t border-line pt-5">
+          <CommunitySelect communities={communities} value={community} hrefFor={communityHrefs} />
+        </div>
+      )}
+    </section>
+  );
+}
+
+function FilterGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[1.6px] text-ink-muted">{label}</p>
+      {children}
     </div>
   );
 }
@@ -526,6 +583,7 @@ function KpiSkeleton() {
 function BoardSkeleton() {
   return (
     <div className="space-y-8" role="status" aria-label="Loading market data">
+      <Skeleton className="h-44" />
       <Skeleton className="h-64" />
       <Skeleton className="h-80" />
       <div className="grid gap-6 sm:grid-cols-2">

@@ -38,13 +38,6 @@ const COPY = {
     message: (address: string) =>
       `I'd like more information about ${address}, including current pricing, available units and incentives.`,
   },
-  market: {
-    title: "Contact an agent",
-    hint: "No obligation. Get a local read on prices and what's selling.",
-    submit: "Contact agent",
-    intent: "explore",
-    message: (address: string) => `I'm interested in properties in ${address}. Please contact me.`,
-  },
   assignment: {
     title: "Ask about this assignment",
     hint: "No obligation. An agent will reply with details and next steps.",
@@ -109,8 +102,8 @@ export function InquiryForm({
         message: String(data.get("message") ?? "").trim(),
         // Buyer-search criteria. A showing already names the listing in the
         // message, so copying that address in as a "preferred location" only
-        // repeats it in the CRM note. Market enquiries are about an area.
-        preferred_locations: variant === "market" ? address : "",
+        // repeats it in the CRM note.
+        preferred_locations: "",
         page_url: typeof window !== "undefined" ? window.location.href : undefined,
         listing_key: listingKey,
       });

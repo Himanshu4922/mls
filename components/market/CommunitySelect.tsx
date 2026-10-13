@@ -21,8 +21,8 @@ export function CommunitySelect({
 }) {
   const { navigate } = usePendingNavigation();
   return (
-    <label className="flex flex-col gap-1 text-caption font-medium text-ink-muted">
-      Community
+    <label className="flex min-w-0 flex-col gap-2">
+      <span className="text-[11px] font-semibold uppercase tracking-[1.6px] text-ink-muted">Community</span>
       <Select
         value={value ?? ""}
         onChange={(event) => {
