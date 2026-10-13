@@ -13,12 +13,15 @@ export function NavChip({
   current,
   children,
   scroll,
+  appearance = "pill",
 }: {
   href: string;
   /** Selected according to the server-rendered page. */
   current: boolean;
   children: ReactNode;
   scroll?: boolean;
+  /** `solid` matches the Market Insights city chips: ink fill, square corners. */
+  appearance?: "pill" | "solid";
 }) {
   const active = useIsActiveHref(href, current);
   return (
@@ -27,10 +30,15 @@ export function NavChip({
       scroll={scroll}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "rounded-full border px-4 py-1.5 text-caption font-medium transition-colors",
+        "border font-medium transition-colors",
+        appearance === "solid"
+          ? "rounded-xl px-3 py-1.5 text-[12px]"
+          : "rounded-full px-4 py-1.5 text-caption",
         active
-          ? "border-navy bg-navy text-white"
-          : "border-line bg-surface text-ink-muted hover:border-navy hover:text-ink",
+          ? appearance === "solid"
+            ? "border-transparent bg-ink text-white"
+            : "border-navy bg-navy text-white"
+          : "border-line bg-surface text-ink-muted hover:border-ink hover:text-ink",
       )}
     >
       {children}

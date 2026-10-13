@@ -107,7 +107,10 @@ export function InquiryForm({
         phone: String(data.get("phone") ?? "").trim(),
         intent: copy.intent,
         message: String(data.get("message") ?? "").trim(),
-        preferred_locations: address,
+        // Buyer-search criteria. A showing already names the listing in the
+        // message, so copying that address in as a "preferred location" only
+        // repeats it in the CRM note. Market enquiries are about an area.
+        preferred_locations: variant === "market" ? address : "",
         page_url: typeof window !== "undefined" ? window.location.href : undefined,
         listing_key: listingKey,
       });

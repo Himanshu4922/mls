@@ -19,7 +19,8 @@ export function TrendChart({
   series,
   label,
   detailLabel,
-  height = 220,
+  height = 280,
+  dots = "end",
 }: {
   series: ChartPoint[];
   /** What the line measures, e.g. "Median sold price". */
@@ -27,6 +28,8 @@ export function TrendChart({
   /** Heading for `detail` in the accessible table, when points carry one. */
   detailLabel?: string;
   height?: number;
+  /** `end` marks only the latest month. `all` marks every month. */
+  dots?: "end" | "all" | "none";
 }) {
   const points = series.filter((point): point is ChartPoint & { value: number } => point.value !== null);
 
@@ -107,15 +110,18 @@ export function TrendChart({
           strokeLinejoin="round"
         />
 
-        {points.map((point, i) => (
-          <circle
-            key={point.month}
-            cx={x(i)}
-            cy={y(point.value)}
-            r={i === points.length - 1 ? 4.5 : 2.5}
-            fill={i === points.length - 1 ? "var(--color-gold)" : "var(--color-navy)"}
-          />
-        ))}
+        {dots !== "none" &&
+          points.map((point, i) =>
+            dots === "all" || i === points.length - 1 ? (
+              <circle
+                key={point.month}
+                cx={x(i)}
+                cy={y(point.value)}
+                r={i === points.length - 1 ? 4.5 : 2.5}
+                fill={i === points.length - 1 ? "var(--color-gold)" : "var(--color-navy)"}
+              />
+            ) : null,
+          )}
 
         {points.map((point, i) =>
           // Label roughly six ticks to avoid crowding on narrow screens.

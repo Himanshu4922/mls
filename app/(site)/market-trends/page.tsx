@@ -1,16 +1,18 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
+import Link from "next/link";
+import { cache, Suspense } from "react";
+import { ArrowLeft } from "lucide-react";
+import { DaysOnMarketChart, SalesListingsChart, TypeMix } from "@/components/market/InsightCharts";
 import { CommunitySelect } from "@/components/market/CommunitySelect";
-import { SegmentBars, TrendChart } from "@/components/market/TrendChart";
+import { TrendChart } from "@/components/market/TrendChart";
 import { WatchAreaButton } from "@/components/market/WatchAreaButton";
 import { NavChip } from "@/components/navigation/NavChip";
-import { PendingContent, PendingNavigationProvider } from "@/components/navigation/PendingNavigation";
+import { PendingContent, PendingLink, PendingNavigationProvider } from "@/components/navigation/PendingNavigation";
 import { InquiryForm } from "@/components/property/InquiryForm";
-import { Eyebrow } from "@/components/ui/Badge";
 import { ErrorState, Skeleton } from "@/components/ui/States";
 import { cn } from "@/lib/utils/cn";
 import {
-  getCatalogStats,
+  getBulkCatalogStats,
   getMarketTrends,
   getSoldTrends,
   MARKET_CITIES,
@@ -19,12 +21,13 @@ import {
   type SoldPropertyType,
   type SoldTrends,
 } from "@/lib/api/market";
-import { EMPTY, formatDate, formatPercent, formatPrice, formatNumber } from "@/lib/utils/format";
+import type { CityCatalogStat } from "@/lib/types/domain";
+import { EMPTY, formatDate, formatMonthLabel, formatNumber, formatPercent, formatPrice, formatPriceCompact } from "@/lib/utils/format";
 
 export const metadata: Metadata = {
-  title: "Market trends",
+  title: "Market insights",
   description:
-    "Median sold prices, days on market and sale-to-list ratios by GTA city, community and property type, plus active listing prices.",
+    "GTA market intelligence: median sold prices, days on market, sale-to-list ratios and community reports.",
   alternates: { canonical: "/market-trends" },
 };
 
@@ -35,6 +38,22 @@ type Filters = {
   range: (typeof MARKET_RANGES)[number];
   type: SoldPropertyType | null;
   community: string | null;
+};
+
+type Heat = "cool" | "warm" | "hot" | "very";
+
+const HEAT_LABEL: Record<Heat, string> = {
+  cool: "Cool",
+  warm: "Warm",
+  hot: "Hot",
+  very: "Very hot",
+};
+
+const HEAT_CLASS: Record<Heat, string> = {
+  cool: "bg-gold-soft text-ink",
+  warm: "bg-navy-soft text-white",
+  hot: "bg-navy text-white",
+  very: "bg-gold text-ink",
 };
 
 const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value);
@@ -54,11 +73,23 @@ function trendsHref(current: Filters, next: Partial<{ city: string; range: strin
   return `/market-trends?${query}`;
 }
 
+const loadSold = cache((city: string, months: number, community: string, type: string) =>
+  getSoldTrends(city, months, {}, {
+    community: community || undefined,
+    propertyType: (type || undefined) as SoldPropertyType | undefined,
+  }),
+);
+
+const loadTrends = cache((city: string, months: number) =>
+  getMarketTrends({ city }, months).catch(() => null),
+);
+
 /**
- * Market Trends (scope #9, HouseSigma's market trends page): city,
- * community, property type and a 1/2/3-year range, a Watch box and a Contact
- * Agent form. Community and type filter the SOLD market (TRREB), the only feed
- * that carries both; the active-listing figures below stay city-wide.
+ * Market Insights, laid out like HomeAtlasUI's Market Trends page: dark
+ * header, city heatmap, sold-price chart, sales vs listings, days on market,
+ * property-type mix and community cards. The figures are live. Search fields
+ * the reference drew with sample numbers (price per sq ft, a made-up heat
+ * score) use the closest real series instead.
  */
 export default async function MarketTrendsPage({ searchParams }: PageProps<"/market-trends">) {
   const params = await searchParams;
@@ -68,367 +99,439 @@ export default async function MarketTrendsPage({ searchParams }: PageProps<"/mar
     type: SOLD_PROPERTY_TYPES.find((t) => t.key === first(params.type))?.key ?? null,
     community: first(params.community)?.trim().slice(0, 120) || null,
   };
-  const areaLabel = filters.community ? `${filters.community}, ${filters.city}` : filters.city;
 
   return (
     <PendingNavigationProvider>
-      <header className="border-b border-line bg-surface-alt py-8 sm:py-12">
+      <header className="bg-ink py-12">
         <div className="container-page">
-          <Eyebrow>Market insights</Eyebrow>
-          <h1 className="mt-3 text-h1 text-ink">GTA market trends</h1>
-          <p className="mt-2 max-w-2xl text-small text-ink-muted">
-            What homes are selling for, how fast, and against asking, by city, community and property type.
-          </p>
-
-          <nav aria-label="Select a city" className="mt-6 flex flex-wrap gap-2">
-            {MARKET_CITIES.map((option) => (
-              <NavChip key={option} href={trendsHref(filters, { city: option })} current={option === filters.city} scroll={false}>
-                {option}
-              </NavChip>
-            ))}
-          </nav>
-          <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3">
-            <nav aria-label="Select a period" className="flex flex-wrap gap-2">
-              {MARKET_RANGES.map((option) => (
-                <NavChip
-                  key={option.key}
-                  href={trendsHref(filters, { range: option.key })}
-                  current={option.key === filters.range.key}
-                  scroll={false}
-                >
-                  {option.label}
-                </NavChip>
-              ))}
-            </nav>
-            <nav aria-label="Select a property type" className="flex flex-wrap gap-2">
-              <NavChip href={trendsHref(filters, { type: null })} current={!filters.type} scroll={false}>
-                All types
-              </NavChip>
-              {SOLD_PROPERTY_TYPES.map((option) => (
-                <NavChip
-                  key={option.key}
-                  href={trendsHref(filters, { type: option.key })}
-                  current={option.key === filters.type}
-                  scroll={false}
-                >
-                  {option.label}
-                </NavChip>
-              ))}
-            </nav>
+          <Link href="/" className="mb-6 inline-flex items-center gap-1.5 text-[13px] text-white/60 transition-colors hover:text-white">
+            <ArrowLeft className="size-4" aria-hidden="true" />
+            Back to Home
+          </Link>
+          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+            <div>
+              <p className="mb-2 text-[11px] font-semibold tracking-[2.5px] text-gold">GTA MARKET INTELLIGENCE</p>
+              <h1 className="mb-3 text-[40px] font-semibold leading-none text-white sm:text-[56px]">Market Trends</h1>
+              <p className="text-[15px] text-white/60">Real-time data and community insights for smarter decisions.</p>
+            </div>
+            <PendingContent fallback={<KpiSkeleton />}>
+              <Suspense fallback={<KpiSkeleton />}>
+                <HeaderKpis filters={filters} />
+              </Suspense>
+            </PendingContent>
           </div>
         </div>
       </header>
 
-      <div className="container-page grid gap-10 py-10 lg:grid-cols-[1fr_340px]">
-        <div className="min-w-0">
-          <PendingContent fallback={<TrendsSkeleton />}>
-            <Suspense
-              key={`${filters.city}-${filters.range.key}-${filters.type}-${filters.community}`}
-              fallback={<TrendsSkeleton />}
-            >
-              <CityTrends filters={filters} />
-            </Suspense>
-          </PendingContent>
-        </div>
-
-        <aside className="space-y-4 lg:sticky lg:top-28 lg:h-fit">
-          <WatchAreaButton label={areaLabel} />
-          <InquiryForm listingKey="" address={areaLabel} variant="market" />
-        </aside>
+      <div className="container-page space-y-8 py-12">
+        <PendingContent fallback={<BoardSkeleton />}>
+          <Suspense fallback={<BoardSkeleton />}>
+            <MarketBoard filters={filters} />
+          </Suspense>
+        </PendingContent>
       </div>
     </PendingNavigationProvider>
   );
 }
 
-async function CityTrends({ filters }: { filters: Filters }) {
+async function HeaderKpis({ filters }: { filters: Filters }) {
+  const sold = await loadSold(filters.city, filters.range.months, filters.community ?? "", filters.type ?? "");
+  const months = sold.unavailable ? [] : sold.months.filter((month) => month.unitsSold > 0);
+  const latest = months.at(-1);
+  const earliest = months[0];
+  const priceChange =
+    earliest?.medianSoldPrice && latest?.medianSoldPrice && months.length > 1
+      ? ((latest.medianSoldPrice - earliest.medianSoldPrice) / earliest.medianSoldPrice) * 100
+      : null;
+  const domDelta =
+    latest?.avgDaysOnMarket != null && earliest?.avgDaysOnMarket != null && months.length > 1
+      ? Math.round(latest.avgDaysOnMarket - earliest.avgDaysOnMarket)
+      : null;
+  const ratio = latest?.saleToListRatio ?? null;
+
+  const cards = [
+    {
+      label: "Median sale price",
+      value: latest?.medianSoldPrice ? formatPriceCompact(latest.medianSoldPrice) : EMPTY,
+      change: priceChange === null ? null : formatPercent(priceChange),
+      up: (priceChange ?? 0) >= 0,
+    },
+    {
+      label: "Avg. days on market",
+      value: latest?.avgDaysOnMarket == null ? EMPTY : `${Math.round(latest.avgDaysOnMarket)} days`,
+      change: domDelta === null ? null : `${domDelta > 0 ? "↑" : "↓"}${Math.abs(domDelta)} days`,
+      up: false,
+    },
+    {
+      label: "Sale-to-list",
+      value: ratio === null ? EMPTY : `${Math.round(ratio * 100)}%`,
+      change: ratio === null ? null : ratio >= 1 ? "Sellers market" : "Buyers market",
+      up: (ratio ?? 0) >= 1,
+    },
+  ];
+
+  return (
+    <dl className="flex flex-wrap gap-4">
+      {cards.map((card) => (
+        <div key={card.label} className="min-w-36 rounded-2xl bg-white/10 px-5 py-4">
+          <dt className="mb-1 text-[11px] text-white/50">{card.label}</dt>
+          <dd className="text-[22px] font-semibold text-white">{card.value}</dd>
+          {card.change && (
+            <dd className={cn("mt-0.5 text-[11px] font-medium", card.up ? "text-gold" : "text-white/50")}>{card.change}</dd>
+          )}
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+async function MarketBoard({ filters }: { filters: Filters }) {
   const { city, range, type, community } = filters;
   const filtered = Boolean(type || community);
-  const [trends, stats, citySold, filteredSold] = await Promise.all([
-    getMarketTrends({ city }, range.months).catch(() => null),
-    getCatalogStats({ city }).catch(() => null),
-    // Never throws: returns `unavailable` when the sold feed is down. The
-    // city-wide call also supplies the community list (and is pre-warmed).
-    getSoldTrends(city, range.months),
-    filtered ? getSoldTrends(city, range.months, {}, { community: community ?? undefined, propertyType: type ?? undefined }) : null,
+  const [trends, citySold, viewSold, cities] = await Promise.all([
+    loadTrends(city, range.months),
+    loadSold(city, range.months, "", ""),
+    filtered ? loadSold(city, range.months, community ?? "", type ?? "") : Promise.resolve(null),
+    getBulkCatalogStats({ cities: [...MARKET_CITIES] }).catch(() => [] as CityCatalogStat[]),
   ]);
-  const sold = filteredSold ?? citySold;
+  const sold = viewSold ?? citySold;
 
-  if (!trends && !stats && sold.unavailable) {
+  if (!trends && sold.unavailable && cities.length === 0) {
     return <ErrorState description={`We couldn't load market data for ${city}.`} />;
   }
 
+  const areaLabel = community ? `${community}, ${city}` : city;
+  const typeLabel = SOLD_PROPERTY_TYPES.find((option) => option.key === type)?.label ?? null;
+  const soldTitle = [community ?? city, typeLabel].filter(Boolean).join(" · ");
+
   const communityHrefs: Record<string, string> = { "": trendsHref(filters, { community: null }) };
   for (const option of citySold.communities) communityHrefs[option.name] = trendsHref(filters, { community: option.name });
-  // Keep a community from the URL selectable even if it has no sales in range.
   const communities =
-    community && !citySold.communities.some((c) => c.name === community)
+    community && !citySold.communities.some((row) => row.name === community)
       ? [{ name: community, unitsSold: 0 }, ...citySold.communities]
       : citySold.communities;
   if (community) communityHrefs[community] ??= trendsHref(filters, { community });
 
-  const typeLabel = SOLD_PROPERTY_TYPES.find((t) => t.key === type)?.label ?? null;
-  const soldTitle = [community ?? city, typeLabel].filter(Boolean).join(" · ");
-
-  const series = trends?.series ?? [];
-  const withPrices = series.filter((point) => point.medianListPrice !== null);
-  const firstValue = withPrices[0]?.medianListPrice ?? null;
-  const lastValue = withPrices[withPrices.length - 1]?.medianListPrice ?? null;
-  const changePct =
-    firstValue && lastValue && firstValue > 0 ? ((lastValue - firstValue) / firstValue) * 100 : null;
+  const soldMonths = sold.unavailable ? [] : sold.months.filter((month) => month.unitsSold > 0);
+  const compareRows = comparisonRows(trends?.series ?? [], sold.unavailable ? [] : sold.months).slice(-8);
+  const domRows = soldMonths
+    .filter((month): month is typeof month & { avgDaysOnMarket: number } => month.avgDaysOnMarket !== null)
+    .slice(-8)
+    .map((month) => ({ month: month.month, days: month.avgDaysOnMarket }));
+  const reports = [...citySold.communities].sort((a, b) => b.unitsSold - a.unitsSold).slice(0, 6);
 
   return (
-    <div className="space-y-10">
-      {communities.length > 0 && (
-        <CommunitySelect communities={communities} value={community} hrefFor={communityHrefs} />
-      )}
+    <div className="space-y-8">
+      <Heatmap cities={cities} selected={city} filters={filters} />
 
-      <SoldMarket sold={sold} title={soldTitle} rangeLabel={range.label} />
+      <section className="rounded-2xl border border-line bg-surface p-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-[20px] font-semibold text-ink">Median sold price · {soldTitle}</h2>
+            <p className="mt-1 text-[13px] text-ink-muted">
+              Closed transactions, last {sold.windowMonths || range.months} months
+              {sold.generatedAt ? ` · as of ${formatDate(sold.generatedAt)}` : ""}
+              {sold.stale ? " · these may be a few hours old" : ""}
+            </p>
+          </div>
+          <nav aria-label="Select a city" className="flex flex-wrap gap-2">
+            {MARKET_CITIES.map((option) => (
+              <NavChip key={option} href={trendsHref(filters, { city: option })} current={option === city} scroll={false} appearance="solid">
+                {option}
+              </NavChip>
+            ))}
+          </nav>
+        </div>
+        <div className="mb-6 flex flex-wrap items-center gap-x-6 gap-y-3">
+          <nav aria-label="Select a period" className="flex flex-wrap gap-2">
+            {MARKET_RANGES.map((option) => (
+              <NavChip
+                key={option.key}
+                href={trendsHref(filters, { range: option.key })}
+                current={option.key === range.key}
+                scroll={false}
+                appearance="solid"
+              >
+                {option.label}
+              </NavChip>
+            ))}
+          </nav>
+          <nav aria-label="Select a property type" className="flex flex-wrap gap-2">
+            <NavChip href={trendsHref(filters, { type: null })} current={!type} scroll={false} appearance="solid">
+              All types
+            </NavChip>
+            {SOLD_PROPERTY_TYPES.map((option) => (
+              <NavChip
+                key={option.key}
+                href={trendsHref(filters, { type: option.key })}
+                current={option.key === type}
+                scroll={false}
+                appearance="solid"
+              >
+                {option.label}
+              </NavChip>
+            ))}
+          </nav>
+          {communities.length > 0 && (
+            <CommunitySelect communities={communities} value={community} hrefFor={communityHrefs} />
+          )}
+        </div>
 
-      <section className="space-y-6">
-        <div>
-          <h2 className="text-h2 text-ink">Active listings · {city}</h2>
-          <p className="mt-1 text-caption text-ink-muted">
-            All property types in the city{community || type ? " (community and type filters apply to sold data above)" : ""}.
+        {sold.unavailable ? (
+          <p className="text-small text-ink-muted">
+            Sold-transaction data is temporarily unavailable. Median sold price, days on market and
+            sale-to-list will appear here once the sold feed is back.
           </p>
-        </div>
-        <dl className="grid gap-px overflow-hidden rounded-surface border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
-          <Stat label="Median list price" value={stats?.medianListPrice ? formatPrice(stats.medianListPrice) : EMPTY} />
-          <Stat
-            label="Median $/sq ft"
-            value={stats?.medianPricePerSqft ? formatPrice(Math.round(stats.medianPricePerSqft)) : EMPTY}
-          />
-          <Stat
-            label="Active listings"
-            value={
-              trends?.activeCurrent !== null && trends?.activeCurrent !== undefined
-                ? formatNumber(trends.activeCurrent)
-                : stats
-                  ? formatNumber(stats.sampleSize)
-                  : EMPTY
-            }
-          />
-          <Stat
-            label={`${trends?.windowMonths ?? range.months}-month list price change`}
-            value={changePct === null ? EMPTY : formatPercent(changePct)}
-            tone={changePct === null ? undefined : changePct >= 0 ? "positive" : "negative"}
-          />
-        </dl>
-
-        <div className="rounded-surface border border-line bg-surface p-6">
-          <h3 className="text-h3 text-ink">Median list price</h3>
-          <p className="mt-1 text-caption text-ink-muted">Last {trends?.windowMonths ?? range.months} months</p>
-          <div className="mt-6">
+        ) : soldMonths.length === 0 ? (
+          <p className="text-small text-ink-muted">
+            No closed sales were recorded for {soldTitle} in the last {range.label}.
+          </p>
+        ) : (
+          <>
             <TrendChart
-              label="Median list price"
-              detailLabel="New listings"
-              series={series.map((point) => ({ month: point.month, value: point.medianListPrice, detail: point.newListings }))}
+              label="Median sold price"
+              detailLabel="Units sold"
+              dots="none"
+              series={soldMonths.map((month) => ({
+                month: month.month,
+                value: month.medianSoldPrice,
+                detail: month.unitsSold,
+              }))}
             />
-          </div>
-        </div>
-
-        {(trends?.byBedrooms.length || trends?.bySubtype.length) && (
-          <div className="grid gap-8 rounded-surface border border-line bg-surface p-6 sm:grid-cols-2">
-            <SegmentBars data={trends?.byBedrooms ?? []} label="By bedrooms" />
-            <SegmentBars data={trends?.bySubtype ?? []} label="By property type" />
-          </div>
+            <details className="mt-6">
+              <summary className="cursor-pointer text-small font-medium text-navy">Monthly figures</summary>
+              <MonthlyTable title={soldTitle} rows={[...soldMonths].reverse()} />
+            </details>
+            <p className="mt-4 text-[12px] text-ink-muted">
+              Source: TRREB closed transactions. Figures cover sales reported to the board and may be revised.
+            </p>
+          </>
         )}
       </section>
 
-      {/*
-        The backend's own disclaimer, shown verbatim. It scopes the ACTIVE
-        listing figures; the sold section carries its own attribution.
-      */}
-      {(trends?.disclaimer ?? stats?.disclaimer) && (
-        <section className="rounded-surface border border-gold/30 bg-gold-soft p-5">
-          <h2 className="text-h3 text-ink">About this data</h2>
-          <p className="mt-2 text-small text-ink-soft">{trends?.disclaimer ?? stats?.disclaimer}</p>
+      <div className="grid gap-6 sm:grid-cols-2">
+        <section className="rounded-2xl border border-line bg-surface p-6">
+          <h3 className="mb-4 text-[16px] font-semibold text-ink">Sales vs. new listings</h3>
+          <SalesListingsChart rows={compareRows} />
+        </section>
+        <section className="rounded-2xl border border-line bg-surface p-6">
+          <h3 className="mb-4 text-[16px] font-semibold text-ink">Avg. days on market</h3>
+          <DaysOnMarketChart rows={domRows} />
+        </section>
+      </div>
+
+      {(trends?.bySubtype.length ?? 0) > 0 && (
+        <section className="rounded-2xl border border-line bg-surface p-6">
+          <h3 className="mb-1 text-[18px] font-semibold text-ink">Property type mix</h3>
+          <p className="mb-5 text-[13px] text-ink-muted">Active listings in {city}. This is the catalogue, not closed sales.</p>
+          <TypeMix rows={trends?.bySubtype ?? []} />
+        </section>
+      )}
+
+      {reports.length > 0 && (
+        <section className="rounded-2xl border border-line bg-surface p-6">
+          <h3 className="mb-5 text-[18px] font-semibold text-ink">Community reports · {city}</h3>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {reports.map((row) => (
+              <PendingLink
+                key={row.name}
+                href={trendsHref(filters, { community: row.name })}
+                scroll={false}
+                className={cn(
+                  "group rounded-xl border p-4 text-left transition-colors hover:border-navy",
+                  row.name === community ? "border-navy" : "border-line",
+                )}
+              >
+                <span className="text-[15px] font-semibold text-ink">{row.name}</span>
+                <span className="mt-2 block text-[22px] font-semibold text-navy">{formatNumber(row.unitsSold)}</span>
+                <span className="mt-1 block text-[12px] text-ink-muted">closed sales</span>
+                <span className="mt-2 block text-[12px] font-medium text-navy group-hover:underline">View sold data →</span>
+              </PendingLink>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <div className="grid items-start gap-6 lg:grid-cols-[1fr_340px]">
+        <WatchAreaButton label={areaLabel} />
+        <InquiryForm listingKey="" address={areaLabel} variant="market" />
+      </div>
+
+      {trends?.disclaimer && (
+        <section className="rounded-2xl border border-gold/30 bg-gold-soft p-5">
+          <h2 className="text-[16px] font-semibold text-ink">About this data</h2>
+          <p className="mt-2 text-small text-ink-soft">{trends.disclaimer}</p>
         </section>
       )}
     </div>
   );
 }
 
-/**
- * Closed-sale figures (API_GAPS G3). This is a different population from every
- * chart above — asking prices there, achieved prices here — so it is rendered
- * as its own section with its own attribution rather than folded into them.
- *
- * Three states, all honest: upstream unavailable, no sales recorded in the
- * window, or the table. We never show an empty chart, which would read as
- * "nothing sold" when it actually means "we couldn't ask".
- */
-function SoldMarket({ sold, title, rangeLabel }: { sold: SoldTrends; title: string; rangeLabel: string }) {
-  if (sold.unavailable) {
-    return (
-      <section className="rounded-surface border border-line bg-surface p-6">
-        <h2 className="text-h2 text-ink">Sold market · {title}</h2>
-        <p className="mt-2 text-small text-ink-muted">
-          Sold-transaction data is temporarily unavailable. Median sold price,
-          days on market and sale-to-list ratio will appear here once the
-          connection to the sold feed is restored.
-        </p>
-      </section>
-    );
-  }
+function Heatmap({
+  cities,
+  selected,
+  filters,
+}: {
+  cities: CityCatalogStat[];
+  selected: string;
+  filters: Filters;
+}) {
+  const known = cities
+    .map((row) => ({
+      row,
+      city: MARKET_CITIES.find((name) => name.toLowerCase() === row.city.toLowerCase()),
+    }))
+    .filter((entry): entry is { row: CityCatalogStat; city: (typeof MARKET_CITIES)[number] } => Boolean(entry.city));
+  if (known.length === 0) return null;
 
-  const months = sold.months.filter((m) => m.unitsSold > 0);
-  if (months.length === 0) {
-    return (
-      <section className="rounded-surface border border-line bg-surface p-6">
-        <h2 className="text-h2 text-ink">Sold market · {title}</h2>
-        <p className="mt-2 text-small text-ink-muted">
-          No closed sales were recorded for {title} in the last {rangeLabel}.
-        </p>
-      </section>
-    );
-  }
+  const scored = known.map((entry) => ({
+    ...entry,
+    absorption:
+      entry.row.soldCount90d !== null && entry.row.activeCount > 0
+        ? entry.row.soldCount90d / entry.row.activeCount
+        : null,
+  }));
+  const values = scored.map((entry) => entry.absorption).filter((value): value is number => value !== null).sort((a, b) => a - b);
+  const showHeat = values.length >= 2;
 
-  // Newest first reads better in a table than the chronological chart order.
-  const rows = [...months].reverse();
-  const latest = rows[0];
-  // HouseSigma's "value change": median sold price, first month vs latest.
-  const earliest = months[0];
-  const valueChange =
-    earliest.medianSoldPrice && latest.medianSoldPrice && months.length > 1
-      ? ((latest.medianSoldPrice - earliest.medianSoldPrice) / earliest.medianSoldPrice) * 100
-      : null;
+  function band(absorption: number | null): Heat {
+    if (!showHeat || absorption === null) return "cool";
+    const rank = values.filter((value) => value <= absorption).length / values.length;
+    if (rank > 0.75) return "very";
+    if (rank > 0.5) return "hot";
+    if (rank > 0.25) return "warm";
+    return "cool";
+  }
 
   return (
-    <section className="rounded-surface border border-line bg-surface p-6">
-      <h2 className="text-h2 text-ink">Sold market · {title}</h2>
-      <p className="mt-1 text-caption text-ink-muted">
-        Closed transactions, last {sold.windowMonths} months
-        {sold.generatedAt && <> · as of {formatDate(sold.generatedAt)}</>}
-        {sold.stale && " · the sold feed is not responding, so these may be a few hours old"}
-      </p>
-
-      <dl className="mt-6 grid gap-px overflow-hidden rounded-surface border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
-        <Stat
-          label="Median sold price"
-          value={latest.medianSoldPrice ? formatPrice(latest.medianSoldPrice) : EMPTY}
-        />
-        <Stat
-          label={`Change over ${rangeLabel}`}
-          value={valueChange === null ? EMPTY : formatPercent(valueChange)}
-          tone={valueChange === null ? undefined : valueChange >= 0 ? "positive" : "negative"}
-        />
-        <Stat
-          label="Avg. days on market"
-          value={
-            latest.avgDaysOnMarket === null
-              ? EMPTY
-              : `${Math.round(latest.avgDaysOnMarket)} days`
-          }
-        />
-        <Stat
-          label="Sale-to-list ratio"
-          value={
-            latest.saleToListRatio === null
-              ? EMPTY
-              : `${(latest.saleToListRatio * 100).toFixed(1)}%`
-          }
-          tone={
-            latest.saleToListRatio === null
-              ? undefined
-              : latest.saleToListRatio >= 1
-                ? "positive"
-                : "negative"
-          }
-        />
-      </dl>
-
-      <div className="mt-6">
-        <h3 className="sr-only">Median sold price by month</h3>
-        <TrendChart
-          label="Median sold price"
-          detailLabel="Units sold"
-          series={months.map((m) => ({ month: m.month, value: m.medianSoldPrice, detail: m.unitsSold }))}
-        />
+    <section className="rounded-2xl border border-line bg-surface p-6">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-[22px] font-semibold text-ink">GTA market heatmap</h2>
+        {showHeat && (
+          <div className="flex flex-wrap items-center gap-2 text-[12px] text-ink-muted">
+            <span className="inline-block h-3 w-3 rounded-full bg-gold-soft ring-1 ring-line" /> Cool
+            <span className="ml-1 inline-block h-3 w-3 rounded-full bg-navy-soft" /> Warm
+            <span className="ml-1 inline-block h-3 w-3 rounded-full bg-navy" /> Hot
+            <span className="ml-1 inline-block h-3 w-3 rounded-full bg-gold" /> Very hot
+          </div>
+        )}
       </div>
-
-      <div className="mt-6 overflow-x-auto">
-        <table className="w-full min-w-[34rem] border-collapse text-small">
-          <caption className="sr-only">
-            Monthly closed-sale statistics for {title}
-          </caption>
-          <thead>
-            <tr className="border-b border-line text-left text-caption text-ink-muted">
-              <th scope="col" className="py-2 pr-4 font-medium">Month</th>
-              <th scope="col" className="py-2 pr-4 font-medium">Median sold</th>
-              <th scope="col" className="py-2 pr-4 font-medium">Days on market</th>
-              <th scope="col" className="py-2 pr-4 font-medium">Sale-to-list</th>
-              <th scope="col" className="py-2 font-medium">Units sold</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.month} className="border-b border-line/60 last:border-0">
-                <th scope="row" className="py-2 pr-4 font-normal text-ink">
-                  {row.month}
-                </th>
-                <td className="py-2 pr-4 text-ink">
-                  {row.medianSoldPrice ? formatPrice(row.medianSoldPrice) : EMPTY}
-                </td>
-                <td className="py-2 pr-4 text-ink-soft">
-                  {row.avgDaysOnMarket === null
-                    ? EMPTY
-                    : Math.round(row.avgDaysOnMarket)}
-                </td>
-                <td className="py-2 pr-4 text-ink-soft">
-                  {row.saleToListRatio === null
-                    ? EMPTY
-                    : `${(row.saleToListRatio * 100).toFixed(1)}%`}
-                </td>
-                <td className="py-2 text-ink-soft">{formatNumber(row.unitsSold)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <p className="mt-4 text-caption text-ink-muted">
-        Source: TRREB closed transactions. Figures cover sales reported to the
-        board and may be revised as late filings arrive.
+      <p className="mb-5 text-[13px] text-ink-muted">
+        {showHeat
+          ? "Median sold price over the last 90 days. Colour is how many homes sold compared with what is listed."
+          : "Median price by city. Sold totals are unavailable, so there is no heat reading."}
       </p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        {scored.map(({ row, city, absorption }) => {
+          const heat = band(absorption);
+          const price = row.medianSoldPrice90d ?? row.medianListPrice;
+          const priceIsSold = row.medianSoldPrice90d !== null;
+          return (
+            <PendingLink
+              key={city}
+              href={trendsHref(filters, { city })}
+              scroll={false}
+              className={cn(
+                "flex flex-col gap-1 rounded-xl p-4 transition-transform hover:scale-105",
+                HEAT_CLASS[heat],
+                city === selected && "ring-2 ring-ink ring-offset-2",
+              )}
+            >
+              <span className="text-[13px] font-bold">{city}</span>
+              <span className="text-[12px] font-medium opacity-90">
+                {price ? formatPriceCompact(price) : EMPTY}
+                <span className="font-normal"> {priceIsSold ? "sold" : "list"}</span>
+              </span>
+              <span className="text-[11px] opacity-80">
+                {row.soldCount90d === null ? `${formatNumber(row.activeCount)} listed` : `${formatNumber(row.soldCount90d)} sales · 90d`}
+              </span>
+              {showHeat && (
+                <span className={cn("mt-1 rounded-full px-2 py-0.5 text-center text-[10px] font-semibold", heat === "cool" || heat === "very" ? "bg-ink/10" : "bg-white/30")}>
+                  {HEAT_LABEL[heat]}
+                </span>
+              )}
+            </PendingLink>
+          );
+        })}
+      </div>
     </section>
   );
 }
 
-function Stat({
-  label,
-  value,
-  tone,
+function comparisonRows(
+  series: Array<{ month: string; newListings: number }>,
+  sold: SoldTrends["months"],
+) {
+  const rows = new Map<string, { month: string; sales: number; listings: number }>();
+  for (const point of series) {
+    rows.set(point.month.slice(0, 7), { month: point.month, sales: 0, listings: point.newListings });
+  }
+  for (const month of sold) {
+    const key = month.month.slice(0, 7);
+    const current = rows.get(key) ?? { month: month.month, sales: 0, listings: 0 };
+    current.sales = month.unitsSold;
+    rows.set(key, current);
+  }
+  return [...rows.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, row]) => row);
+}
+
+function MonthlyTable({
+  title,
+  rows,
 }: {
-  label: string;
-  value: string;
-  tone?: "positive" | "negative";
+  title: string;
+  rows: SoldTrends["months"];
 }) {
   return (
-    <div className="bg-surface px-5 py-5">
-      <dt className="text-caption text-ink-muted">{label}</dt>
-      <dd
-        className={cn(
-          "mt-1 text-h2",
-          tone === "positive" && "text-positive",
-          tone === "negative" && "text-negative",
-          !tone && "text-ink",
-        )}
-      >
-        {value}
-      </dd>
+    <div className="mt-4 overflow-x-auto">
+      <table className="w-full min-w-[34rem] border-collapse text-small">
+        <caption className="sr-only">Monthly closed-sale statistics for {title}</caption>
+        <thead>
+          <tr className="border-b border-line text-left text-[12px] text-ink-muted">
+            <th scope="col" className="py-2 pr-4 font-medium">Month</th>
+            <th scope="col" className="py-2 pr-4 font-medium">Median sold</th>
+            <th scope="col" className="py-2 pr-4 font-medium">Days on market</th>
+            <th scope="col" className="py-2 pr-4 font-medium">Sale-to-list</th>
+            <th scope="col" className="py-2 font-medium">Units sold</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.month} className="border-b border-line/60 last:border-0">
+              <th scope="row" className="py-2 pr-4 font-normal text-ink">{formatMonthLabel(row.month)}</th>
+              <td className="py-2 pr-4 text-ink">{row.medianSoldPrice ? formatPrice(row.medianSoldPrice) : EMPTY}</td>
+              <td className="py-2 pr-4 text-ink-soft">{row.avgDaysOnMarket === null ? EMPTY : Math.round(row.avgDaysOnMarket)}</td>
+              <td className="py-2 pr-4 text-ink-soft">
+                {row.saleToListRatio === null ? EMPTY : `${(row.saleToListRatio * 100).toFixed(1)}%`}
+              </td>
+              <td className="py-2 text-ink-soft">{formatNumber(row.unitsSold)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-function TrendsSkeleton() {
+function KpiSkeleton() {
   return (
-    <div className="space-y-10" role="status" aria-label="Loading market data">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-24" />
-        ))}
+    <div className="flex gap-4" role="status" aria-label="Loading market summary">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <Skeleton key={index} className="h-[92px] w-36 bg-white/10" />
+      ))}
+    </div>
+  );
+}
+
+function BoardSkeleton() {
+  return (
+    <div className="space-y-8" role="status" aria-label="Loading market data">
+      <Skeleton className="h-64" />
+      <Skeleton className="h-80" />
+      <div className="grid gap-6 sm:grid-cols-2">
+        <Skeleton className="h-64" />
+        <Skeleton className="h-64" />
       </div>
-      <Skeleton className="h-72" />
     </div>
   );
 }
