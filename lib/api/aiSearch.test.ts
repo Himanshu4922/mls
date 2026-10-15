@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { toBackendParams } from "@/lib/api/properties";
 import { fromBackendParams, toSavedFilters } from "@/lib/api/savedSearches";
-import { aiFiltersToQuery, queryToAiFilters } from "@/lib/api/aiSearch";
+import { aiFiltersToQuery, applyLocalSearch, queryToAiFilters } from "@/lib/api/aiSearch";
 import { buildListingQueryString, parseListingParams } from "@/lib/utils/searchParams";
 
 describe("aiFiltersToQuery", () => {
@@ -85,5 +85,23 @@ describe("ai URL param", () => {
     const restored = fromBackendParams(toSavedFilters(query));
     expect(restored.semantic).toBe("renovated kitchen");
     expect(restored.sort).toBe("relevance");
+  });
+});
+
+describe("applyLocalSearch", () => {
+  it("turns a plain sentence into filters when the model falls back", () => {
+    const result = applyLocalSearch("i want a big 3 bedroom condo", {
+      filters: { keywords: "i want a big 3 bedroom condo" },
+      unsupported: [],
+      fallback: true,
+      cached: false,
+    });
+    expect(result.fallback).toBe(false);
+    expect(result.filters).toMatchObject({
+      property_type: "Condo",
+      beds_min: 3,
+      semantic_text: "large",
+      keywords: null,
+    });
   });
 });

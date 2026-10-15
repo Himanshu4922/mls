@@ -106,6 +106,96 @@ export function queryToAiFilters(query: ListingQuery): Partial<AiSearchFilters> 
   return out;
 }
 
+const LOCAL_TYPES: Array<[string, string]> = [
+  ["semi-detached", "Semi-Detached"],
+  ["semi detached", "Semi-Detached"],
+  ["townhouse", "Townhome"],
+  ["townhome", "Townhome"],
+  ["row house", "Townhome"],
+  ["detached", "Detached"],
+  ["condo", "Condo"],
+  ["apartment", "Condo"],
+  ["loft", "Condo"],
+];
+const LOCAL_CITIES = [
+  "Richmond Hill",
+  "Mississauga",
+  "Newmarket",
+  "Toronto",
+  "Brampton",
+  "Vaughan",
+  "Markham",
+  "Oakville",
+  "Pickering",
+  "Burlington",
+  "Ajax",
+  "Whitby",
+  "Oshawa",
+  "Milton",
+  "Aurora",
+];
+const LOCAL_TRAITS: Array<[string, string]> = [
+  ["backyard", "backyard"],
+  ["subway", "near subway"],
+  ["parking", "parking"],
+  ["garage", "garage"],
+  ["pool", "pool"],
+  ["renovated", "renovated"],
+  ["basement", "basement"],
+  ["waterfront", "waterfront"],
+  ["spacious", "large"],
+  ["large", "large"],
+  ["big", "large"],
+];
+
+function localMoney(chunk: string): number | null {
+  const match = chunk.replace(/,/g, "").match(/(\d+(?:\.\d+)?)\s*(k|m|million)?/i);
+  if (!match) return null;
+  let amount = Number(match[1]);
+  const unit = (match[2] || "").toLowerCase();
+  if (unit === "k") amount *= 1000;
+  else if (unit === "m" || unit === "million") amount *= 1_000_000;
+  else if (amount < 10_000) return null;
+  return Math.round(amount);
+}
+
+/** Reads beds, type, price and city when the model returned no filters. */
+export function applyLocalSearch(query: string, result: AiSearchResult): AiSearchResult {
+  if (!result.fallback) return result;
+  const low = query.toLowerCase();
+  const filters: Partial<AiSearchFilters> = { ...(result.filters ?? {}) };
+  const property = LOCAL_TYPES.find(([needle]) => low.includes(needle));
+  if (property) filters.property_type = property[1];
+  const beds = low.match(/(\d+)\s*\+?\s*(?:bed(?:room)?s?|br)\b/);
+  if (beds) filters.beds_min = Number(beds[1]);
+  const baths = low.match(/(\d+)\s*\+?\s*(?:bath(?:room)?s?|ba)\b/);
+  if (baths) filters.baths_min = Number(baths[1]);
+  if (/\b(rent|lease|for rent)\b/.test(low)) filters.transaction = "rent";
+  if (/\b(sold|recently sold)\b/.test(low)) filters.listing_status = "sold";
+  const ceiling = low.match(/\b(?:under|below|less than|max(?:imum)?|up to)\s+\$?([0-9][0-9,.\s]*\s*(?:k|m|million)?)/);
+  const floor = low.match(/\b(?:over|above|more than|at least|min(?:imum)?)\s+\$?([0-9][0-9,.\s]*\s*(?:k|m|million)?)/);
+  if (ceiling) filters.price_max = localMoney(ceiling[1]);
+  if (floor) filters.price_min = localMoney(floor[1]);
+  const city = LOCAL_CITIES.find((name) => new RegExp(`\\b${name.toLowerCase()}\\b`).test(low));
+  if (city) filters.city = city;
+  const traits: string[] = [];
+  for (const [needle, label] of LOCAL_TRAITS) {
+    if (new RegExp(`\\b${needle}\\b`).test(low) && !traits.includes(label)) traits.push(label);
+  }
+  if (traits.length) filters.semantic_text = traits.join(", ");
+  const useful = Object.entries(filters).some(([key, value]) => {
+    if (key === "keywords" || key === "unsupported") return false;
+    if (Array.isArray(value)) return value.length > 0;
+    return value !== null && value !== undefined && value !== "";
+  });
+  if (!useful) return result;
+  return {
+    ...result,
+    fallback: false,
+    filters: { ...filters, keywords: null },
+  };
+}
+
 /** Server-side call behind app/api/ai-search. */
 export function parseAiSearch(
   input: { query: string; currentFilters?: Partial<AiSearchFilters> | null },

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { AI_QUERY_MAX_CHARS, parseAiSearch, type AiSearchFilters } from "@/lib/api/aiSearch";
+import { AI_QUERY_MAX_CHARS, applyLocalSearch, parseAiSearch, type AiSearchFilters } from "@/lib/api/aiSearch";
 
 export const maxDuration = 30;
 import { requireAccessToken } from "@/lib/auth/session";
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
       { query, currentFilters: current },
       { token, clientIp: clientIp(request) },
     );
-    return NextResponse.json(result);
+    return NextResponse.json(result.fallback ? applyLocalSearch(query, result) : result);
   } catch (error) {
     return homeErrorJson(error, "AI search is unavailable right now.");
   }
