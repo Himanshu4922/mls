@@ -1,11 +1,11 @@
 /**
  * AI search: a sentence → the same ListingQuery manual search builds.
  *
- * The backend (`POST /api/mls/ai-search/parse/`, OpenAI behind it) returns
+ * The backend (`POST /api/mls/ai-search/parse/`, Gemini behind it) returns
  * neutral filters; this module is the ONE translation between those and the
  * URL-backed ListingQuery, so AI results land on the ordinary /listings (or
  * /map-search) page with every AI decision shown as a removable filter pill.
- * The OpenAI key lives only on the backend.
+ * The Gemini key lives only on the backend.
  */
 
 import { apiFetch } from "@/lib/api/client";
@@ -38,7 +38,7 @@ export interface AiSearchResult {
   filters: Partial<AiSearchFilters>;
   /** Requirements no filter could capture, e.g. "good schools". */
   unsupported: string[];
-  /** True when OpenAI was unavailable and the text became a keyword search. */
+  /** True when the model was unavailable and the text became a keyword search. */
   fallback: boolean;
   cached: boolean;
 }

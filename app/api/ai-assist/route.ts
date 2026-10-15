@@ -20,7 +20,7 @@ export interface AssistReply {
 
 /**
  * POST /api/ai-assist — proxies `POST /api/mls/ai/assist/`.
- * The OpenAI key stays on the backend. Guests are allowed; the backend
+ * The Gemini key stays on the backend. Guests are allowed; the backend
  * rate-limits per visitor IP.
  */
 export async function POST(request: Request) {

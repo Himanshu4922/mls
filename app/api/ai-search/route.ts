@@ -8,7 +8,7 @@ import { clientIp, fail, homeErrorJson, readJsonObject } from "../home/_forms";
  *
  * Open to guests (the backend rate-limits per visitor IP, which is forwarded
  * here); a signed-in visitor's token is attached for the higher per-account
- * allowance. The OpenAI key never leaves the backend.
+ * allowance. The Gemini key never leaves the backend.
  */
 export async function POST(request: Request) {
   const body = await readJsonObject(request);

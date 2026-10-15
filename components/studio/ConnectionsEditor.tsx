@@ -38,7 +38,7 @@ const LAYOUT: Record<string, { note: string; blocks: Block[] }> = {
     ],
   },
   "Sign-in": {
-    note: "Google and Facebook credentials for the sign-in buttons. Leave Facebook blank to hide that button.",
+    note: "Google and Facebook buttons appear on sign-in only after their ids are saved. Leave a provider blank to hide it.",
     blocks: [
       { title: "Google", keys: ["googleClientId", "googleClientSecret"] },
       { title: "Facebook", keys: ["facebookAppId", "facebookAppSecret", "facebookGraphVersion", "facebookRedirectUri", "facebookAllowedRedirectUris"] },
@@ -61,7 +61,7 @@ const LAYOUT: Record<string, { note: string; blocks: Block[] }> = {
     blocks: [{ title: "Twilio", keys: ["twilioAccountSid", "twilioAuthToken", "twilioVerifyServiceSid", "twilioPhoneNumber"] }],
   },
   AI: {
-    note: "OpenAI key and the models used by search, listing summaries, and the assistant.",
+    note: "Gemini key for search, listing summaries, and the assistant.",
     blocks: [
       { title: "Access", keys: ["openaiApiKey", "openaiBaseUrl"] },
       { title: "Models", keys: ["openaiSearchModel", "openaiSummaryModel", "openaiEmbeddingModel", "openaiEmbeddingDimensions"] },
@@ -240,22 +240,48 @@ export function ConnectionsEditor({ initial }: { initial: ConnectionDocument }) 
   );
 }
 
+const FIELD_COPY: Record<string, { label: string; hint: string; env?: string }> = {
+  openaiApiKey: {
+    label: "Gemini API key",
+    hint: "Paste the Gemini key. Search, listing summaries, and the assistant use it.",
+    env: "GEMINI_API_KEY",
+  },
+  openaiBaseUrl: {
+    label: "Gemini address",
+    hint: "https://generativelanguage.googleapis.com/v1beta/openai",
+  },
+  openaiSearchModel: { label: "Search model", hint: "gemini-3.8-flash" },
+  openaiSummaryModel: { label: "Summary model", hint: "gemini-3.8-flash" },
+  openaiEmbeddingModel: {
+    label: "Embedding model",
+    hint: "gemini-embedding-001. Re-embed listings after changing this.",
+  },
+  openaiEmbeddingDimensions: { label: "Embedding size", hint: "512" },
+};
+
+function presentField(field: ConnectionField): ConnectionField {
+  const copy = FIELD_COPY[field.key];
+  if (!copy) return field;
+  return { ...field, label: copy.label, hint: copy.hint, env: copy.env ?? field.env };
+}
+
 function blocksFor(group: string, fields: ConnectionField[]) {
+  const shown = fields.map(presentField);
   const layout = LAYOUT[group];
-  if (!layout) return [{ title: "", fields }];
+  if (!layout) return [{ title: "", fields: shown }];
   const used = new Set<string>();
   const blocks = layout.blocks
     .map((block) => {
       const matched = block.keys
-        .map((key) => fields.find((field) => field.key === key))
+        .map((key) => shown.find((field) => field.key === key))
         .filter((field): field is ConnectionField => Boolean(field));
       matched.forEach((field) => used.add(field.key));
       return { title: block.title, fields: matched };
     })
     .filter((block) => block.fields.length > 0);
-  const rest = fields.filter((field) => !used.has(field.key));
+  const rest = shown.filter((field) => !used.has(field.key));
   if (rest.length) blocks.push({ title: blocks.length ? "Other" : "", fields: rest });
-  if (blocks.length === 0) return [{ title: "", fields }];
+  if (blocks.length === 0) return [{ title: "", fields: shown }];
   return blocks;
 }
 

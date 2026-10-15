@@ -32,7 +32,7 @@ import {
  *    and the account stays inactive until the emailed link is opened)
  *  - a 403 on sign-in means "email not verified", so we offer to resend.
  *
- * Google / Facebook sit above the email form in both modes (SocialButtons).
+ * Google / Facebook sit above the email form when their app ids are set (SocialButtons).
  * Facebook is a full-page redirect, so its failures arrive as `?auth_error=` on
  * the page it returns to; this modal picks that up on mount and reopens itself
  * with the message.
