@@ -121,6 +121,6 @@ export function parseAiSearch(
     // The backend rate-limits guests per client IP.
     headers: clientIp ? { "X-Forwarded-For": clientIp } : undefined,
     cache: "no-store",
-    timeoutMs: 15_000,
+    timeoutMs: 25_000,
   });
 }

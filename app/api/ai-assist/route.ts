@@ -4,6 +4,8 @@ import { requireAccessToken } from "@/lib/auth/session";
 import { clientMetaHeaders } from "@/lib/utils/clientMeta";
 import { clientIp, fail, readJsonObject } from "../home/_forms";
 
+export const maxDuration = 30;
+
 const MAX_CHARS = 500;
 
 export interface AssistLink {

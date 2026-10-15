@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { AI_QUERY_MAX_CHARS, parseAiSearch, type AiSearchFilters } from "@/lib/api/aiSearch";
+
+export const maxDuration = 30;
 import { requireAccessToken } from "@/lib/auth/session";
 import { clientIp, fail, homeErrorJson, readJsonObject } from "../home/_forms";
 
