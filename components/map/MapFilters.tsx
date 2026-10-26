@@ -1,9 +1,25 @@
 "use client";
 
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  type Dispatch,
+  type FormEvent,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import { Button } from "@/components/ui/Button";
-import { ChipToggle, Field, Input, NumericInput, Select } from "@/components/ui/Field";
+import {
+  ChipToggle,
+  Field,
+  Input,
+  NumericInput,
+  SearchInput,
+  Select,
+} from "@/components/ui/Field";
 import { AiSearchBox } from "@/components/search/AiSearchBox";
+import { SaveSearchButton } from "@/components/search/SaveSearchButton";
+import { SideSheet } from "@/components/ui/SideSheet";
 import {
   LISTING_SORTS,
   RELEVANCE_SORT,
@@ -12,25 +28,19 @@ import {
   type ListingSort,
 } from "@/lib/types/domain";
 import { formatNumber, formatPrice } from "@/lib/utils/format";
-import { formatPostal } from "@/lib/utils/postal";
+import { formatPostal, looksLikePostal, parsePostalList } from "@/lib/utils/postal";
 import { STATUS_TABS } from "@/lib/utils/status";
 
 /**
- * Map search filters, sized for the map's sidebar.
+ * Map search filters — same interaction model as <ListingFilters>.
  *
- * They read and write the same ListingQuery (and so the same URL params) as
- * /listings, so a search moves between the two views intact. The interaction
- * model matches <ListingFilters>:
+ * On the bar: keyword search, Buy/Rent, and a Filters button.
+ * In a right-side sheet (full-width on phones): AI search, home type, sort,
+ * save search, and the detailed filters. Applied pills stay on the bar so the
+ * sheet is not the only place to see or clear them.
  *
- *  - Instant: Buy/Rent, sort, type chips and removing a pill. One tap is the
- *    whole decision, so it applies at once.
- *  - Deferred: the panel. Typed values edit a draft and apply together on
- *    "Show homes" (or Enter), so the map never refetches for a half-typed
- *    price. Escape or Cancel discards the draft.
- *
- * The bar and the panel are separate components: the panel takes the list's
- * place while open, so on a phone it gets the whole half-screen sidebar
- * instead of being squeezed above the results.
+ * Reads/writes the same ListingQuery URL params as /listings, so a search
+ * moves between the two views intact.
  */
 
 const BED_OPTIONS = [1, 2, 3, 4, 5];
@@ -48,10 +58,12 @@ const BASEMENT_OPTIONS: Array<{ value: "" | NonNullable<ListingQuery["basement"]
 
 type OnQueryChange = (next: ListingQuery) => void;
 
+/** Filters drafted in the sheet and applied as one batch. */
 interface Draft {
-  search: string;
   priceMin: string;
   priceMax: string;
+  city: string;
+  postal: string;
   beds: string;
   baths: string;
   sqftMin: string;
@@ -65,9 +77,10 @@ interface Draft {
 }
 
 const EMPTY_DRAFT: Draft = {
-  search: "",
   priceMin: "",
   priceMax: "",
+  city: "",
+  postal: "",
   beds: "",
   baths: "",
   sqftMin: "",
@@ -83,11 +96,16 @@ const EMPTY_DRAFT: Draft = {
 const str = (value: number | undefined) => (value ? String(value) : "");
 const num = (value: string) => (value ? Number(value) : undefined);
 
+function postalDraft(codes: string[] | undefined): string {
+  return (codes ?? []).map(formatPostal).join(", ");
+}
+
 function draftFromQuery(query: ListingQuery): Draft {
   return {
-    search: query.search ?? "",
     priceMin: str(query.priceMin),
     priceMax: str(query.priceMax),
+    city: query.city ?? "",
+    postal: postalDraft(query.postalCodes),
     beds: str(query.bedsMin),
     baths: str(query.bathsMin),
     sqftMin: str(query.sqftMin),
@@ -112,12 +130,15 @@ function orderedRange(lo: string, hi: string): [number | undefined, number | und
   return min !== undefined && max !== undefined && min > max ? [max, min] : [min, max];
 }
 
-/** How many panel filters are in effect, for the Filters button's badge. */
-export function countPanelFilters(query: ListingQuery): number {
+/** How many sheet-owned filters are in effect, for the Filters button badge. */
+function countSheetFilters(query: ListingQuery): number {
   return [
-    query.search,
+    query.semantic,
+    query.type,
     query.priceMin,
     query.priceMax,
+    query.city,
+    ...(query.postalCodes ?? []),
     query.bedsMin,
     query.bathsMin,
     query.sqftMin,
@@ -139,26 +160,63 @@ function clearedQuery(query: ListingQuery): ListingQuery {
   return { transaction: query.transaction, polygon: query.polygon, sort: query.sort };
 }
 
-// ---------------------------------------------------------------------------
-
-export function MapFilterBar({
+export function MapFilters({
   query,
   onChange,
-  panelOpen,
-  onTogglePanel,
 }: {
   query: ListingQuery;
   onChange: OnQueryChange;
-  panelOpen: boolean;
-  onTogglePanel: () => void;
 }) {
+  const [search, setSearch] = useState(query.search ?? "");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [draft, setDraft] = useState<Draft>(() => draftFromQuery(query));
+  const [postalError, setPostalError] = useState<string | null>(null);
+
+  // Keep the bar search + draft in sync when the URL changes (back/forward,
+  // AI search, pill remove).
+  const queryKey = [
+    query.search,
+    query.priceMin,
+    query.priceMax,
+    query.city,
+    query.postalCodes?.join(","),
+    query.bedsMin,
+    query.bathsMin,
+    query.sqftMin,
+    query.sqftMax,
+    query.garagesMin,
+    query.storiesMin,
+    query.basement,
+    query.yearBuiltMin,
+    query.status,
+    query.openHouse,
+  ].join("|");
+  const [lastQueryKey, setLastQueryKey] = useState(queryKey);
+  if (queryKey !== lastQueryKey) {
+    setLastQueryKey(queryKey);
+    setSearch(query.search ?? "");
+    setDraft(draftFromQuery(query));
+    setPostalError(null);
+  }
+
   const rent = query.transaction === "rent";
-  const panelCount = countPanelFilters(query);
+  const dirty = !sameDraft(draft, draftFromQuery(query));
+  const sheetFilterCount = countSheetFilters(query);
+  const pills = appliedPills(query, onChange);
+
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setDraft(draftFromQuery(query));
+      setPostalError(null);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [sheetOpen, query]);
 
   const setRent = (next: boolean) => {
     if (next === rent) return;
-    // Sale prices and monthly rents share the price params; a band set for one
-    // is meaningless for the other.
     onChange({
       ...query,
       transaction: next ? "rent" : "sale",
@@ -167,13 +225,80 @@ export function MapFilterBar({
     });
   };
 
-  const pills = appliedPills(query, onChange);
+  const submitSearch = (event: FormEvent) => {
+    event.preventDefault();
+    const term = search.trim();
+    if (term && looksLikePostal(term)) {
+      const codes = parsePostalList([...(query.postalCodes ?? []), term].join(",")).codes;
+      onChange({ ...query, postalCodes: codes.length ? codes : undefined, search: undefined });
+      return;
+    }
+    onChange({ ...query, search: term || undefined });
+  };
+
+  const openSheet = () => {
+    setDraft(draftFromQuery(query));
+    setPostalError(null);
+    setSheetOpen(true);
+  };
+
+  const closeSheet = () => {
+    setDraft(draftFromQuery(query));
+    setPostalError(null);
+    setSheetOpen(false);
+  };
+
+  const applySheet = () => {
+    const [priceMin, priceMax] = orderedRange(draft.priceMin, draft.priceMax);
+    const [sqftMin, sqftMax] = orderedRange(draft.sqftMin, draft.sqftMax);
+    const postal = parsePostalList(draft.postal);
+    if (postal.invalid.length > 0) {
+      setPostalError(
+        `Not a valid postal code: ${postal.invalid.join(", ")}. Use L7A or L7A 3K9.`,
+      );
+      return;
+    }
+    setPostalError(null);
+    onChange({
+      ...query,
+      priceMin,
+      priceMax,
+      city: draft.city.trim() || undefined,
+      postalCodes: postal.codes.length ? postal.codes : undefined,
+      bedsMin: num(draft.beds),
+      bathsMin: num(draft.baths),
+      sqftMin,
+      sqftMax,
+      garagesMin: num(draft.garages),
+      storiesMin: num(draft.floors),
+      basement: (draft.basement || undefined) as ListingQuery["basement"] | undefined,
+      yearBuiltMin: num(draft.yearBuiltMin),
+      status: draft.status || undefined,
+      openHouse: draft.openHouse || undefined,
+    });
+    setSheetOpen(false);
+  };
 
   return (
     <div className="space-y-3">
-      <AiSearchBox variant="inline" basePath="/map-search" current={query} />
       <div className="flex flex-wrap items-center gap-2">
-        <div role="group" aria-label="Buy or rent" className="flex gap-1.5">
+        <form
+          onSubmit={submitSearch}
+          className="flex min-w-0 flex-[1_1_100%] items-center gap-2 sm:flex-[1_1_auto]"
+        >
+          <SearchInput
+            label="Search by address, city, postal code or MLS number"
+            value={search}
+            onValueChange={setSearch}
+            placeholder="Address, city, postal or MLS…"
+            className="min-w-0 flex-1"
+          />
+          <Button type="submit" variant="primary" size="md" className="shrink-0">
+            Search
+          </Button>
+        </form>
+
+        <div role="group" aria-label="Buy or rent" className="flex shrink-0 gap-2">
           <ChipToggle active={!rent} onClick={() => setRent(false)}>
             Buy
           </ChipToggle>
@@ -182,91 +307,383 @@ export function MapFilterBar({
           </ChipToggle>
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          <Select
-            aria-label="Sort listings"
-            className="h-9 w-auto min-w-[150px] text-caption"
-            value={query.sort ?? "newest"}
-            onChange={(event) => onChange({ ...query, sort: event.target.value as ListingSort })}
-          >
-            {(query.semantic ? [RELEVANCE_SORT, ...LISTING_SORTS] : LISTING_SORTS).map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </Select>
-
-          <Button
-            variant={panelOpen ? "primary" : "secondary"}
-            size="sm"
-            aria-expanded={panelOpen}
-            aria-controls="map-filter-panel"
-            onClick={onTogglePanel}
-          >
-            <FilterIcon />
-            Filters
-            {panelCount > 0 && (
-              <span
-                className={
-                  panelOpen
-                    ? "inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-semibold text-navy"
-                    : "inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-navy px-1.5 text-[11px] font-semibold text-white"
-                }
-              >
-                {panelCount}
-              </span>
-            )}
-          </Button>
-        </div>
-      </div>
-
-      {/* Type chips scroll sideways rather than wrapping into three rows in a
-          narrow sidebar. */}
-      <div
-        role="group"
-        aria-label="Property type"
-        className="-mx-5 flex gap-1.5 overflow-x-auto px-5 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
-        <ChipToggle
-          active={!query.type}
-          onClick={() => onChange({ ...query, type: undefined })}
+        <Button
+          variant="secondary"
+          size="md"
+          aria-expanded={sheetOpen}
+          aria-controls="map-filter-sheet"
+          onClick={openSheet}
           className="shrink-0"
         >
-          All types
-        </ChipToggle>
-        {SEARCH_PROPERTY_TYPES.map((type) => (
-          <ChipToggle
-            key={type}
-            active={query.type === type}
-            onClick={() => onChange({ ...query, type: query.type === type ? undefined : type })}
-            className="shrink-0"
-          >
-            {type}
-          </ChipToggle>
-        ))}
+          <FilterIcon />
+          <span className="ml-1.5">Filters</span>
+          {sheetFilterCount > 0 && (
+            <span className="ml-1.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-navy px-1.5 text-[11px] font-semibold text-white">
+              {sheetFilterCount}
+            </span>
+          )}
+        </Button>
       </div>
 
       {pills.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-caption text-ink-muted">Applied:</span>
           {pills}
           <button
             type="button"
             onClick={() => onChange(clearedQuery(query))}
-            className="ml-1 text-caption font-medium text-ink-muted underline underline-offset-2 transition-colors hover:text-ink"
+            className="text-caption font-medium text-ink-muted underline underline-offset-2 transition-colors hover:text-ink"
           >
             Clear all
           </button>
         </div>
       )}
+
+      <SideSheet
+        open={sheetOpen}
+        onClose={closeSheet}
+        title="Filters & tools"
+        description="AI search, home type, sort and detailed filters."
+        footer={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="md"
+              className="shrink-0"
+              onClick={() => setDraft(EMPTY_DRAFT)}
+              disabled={sameDraft(draft, EMPTY_DRAFT)}
+            >
+              Reset
+            </Button>
+            <Button variant="secondary" size="md" className="flex-1" onClick={closeSheet}>
+              Cancel
+            </Button>
+            <Button variant="primary" size="md" className="flex-1" onClick={applySheet}>
+              {dirty ? "Show homes" : "Done"}
+            </Button>
+          </div>
+        }
+      >
+        <div id="map-filter-sheet" className="space-y-8">
+          <section className="space-y-3">
+            <AiSearchBox
+              variant="panel"
+              basePath="/map-search"
+              current={query}
+              onSearched={closeSheet}
+            />
+          </section>
+
+          <section className="space-y-3 border-t border-line pt-6">
+            <h3 className="text-small font-semibold text-ink">Home type</h3>
+            <div className="flex flex-wrap gap-2">
+              <ChipToggle
+                active={!query.type}
+                onClick={() => onChange({ ...query, type: undefined })}
+              >
+                All
+              </ChipToggle>
+              {SEARCH_PROPERTY_TYPES.map((type) => (
+                <ChipToggle
+                  key={type}
+                  active={query.type === type}
+                  onClick={() =>
+                    onChange({ ...query, type: query.type === type ? undefined : type })
+                  }
+                >
+                  {type}
+                </ChipToggle>
+              ))}
+            </div>
+          </section>
+
+          <section className="space-y-3 border-t border-line pt-6">
+            <Field label="Sort by" htmlFor="map-sheet-sort">
+              <Select
+                id="map-sheet-sort"
+                aria-label="Sort listings"
+                value={query.sort ?? (query.semantic ? RELEVANCE_SORT.value : "newest")}
+                onChange={(event) =>
+                  onChange({ ...query, sort: event.target.value as ListingSort })
+                }
+              >
+                {(query.semantic ? [RELEVANCE_SORT, ...LISTING_SORTS] : LISTING_SORTS).map(
+                  (option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ),
+                )}
+              </Select>
+            </Field>
+            <SaveSearchButton query={query} className="w-full justify-center" />
+          </section>
+
+          <section className="space-y-4 border-t border-line pt-6">
+            <div>
+              <h3 className="text-small font-semibold text-ink">Details</h3>
+              <p className="mt-1 text-caption text-ink-muted">
+                {dirty
+                  ? "Change as many as you like, then tap Show homes."
+                  : "Price, size, parking, basement and more."}
+              </p>
+            </div>
+            <FilterFields
+              draft={draft}
+              setDraft={setDraft}
+              isRent={rent}
+              postalError={postalError}
+              clearPostalError={() => setPostalError(null)}
+            />
+          </section>
+        </div>
+      </SideSheet>
     </div>
   );
 }
 
-/** Every applied filter the chips above do not already show, each removable. */
+function FilterFields({
+  draft,
+  setDraft,
+  isRent,
+  postalError,
+  clearPostalError,
+}: {
+  draft: Draft;
+  setDraft: Dispatch<SetStateAction<Draft>>;
+  isRent: boolean;
+  postalError: string | null;
+  clearPostalError: () => void;
+}) {
+  const toggle = (
+    key: "beds" | "baths" | "garages" | "floors" | "yearBuiltMin" | "status",
+    value: string,
+  ) => setDraft((d) => ({ ...d, [key]: d[key] === value ? "" : value }));
+
+  return (
+    <div className="grid grid-cols-1 gap-4">
+      <Field label={isRent ? "Min rent / month" : "Min price"} htmlFor="map-sheet-price-min">
+        <NumericInput
+          id="map-sheet-price-min"
+          min={0}
+          max={100000000}
+          placeholder="No min"
+          value={draft.priceMin}
+          onChange={(event) => setDraft((d) => ({ ...d, priceMin: event.target.value }))}
+        />
+      </Field>
+
+      <Field label={isRent ? "Max rent / month" : "Max price"} htmlFor="map-sheet-price-max">
+        <NumericInput
+          id="map-sheet-price-max"
+          min={0}
+          max={100000000}
+          placeholder="No max"
+          value={draft.priceMax}
+          onChange={(event) => setDraft((d) => ({ ...d, priceMax: event.target.value }))}
+        />
+      </Field>
+
+      <Field label="City" htmlFor="map-sheet-city">
+        <Input
+          id="map-sheet-city"
+          placeholder="e.g. Toronto"
+          value={draft.city}
+          onChange={(event) => setDraft((d) => ({ ...d, city: event.target.value }))}
+        />
+      </Field>
+
+      <Field
+        label="Postal code"
+        htmlFor="map-sheet-postal"
+        hint="L7A or L7A 3K9 — separate several with commas"
+        error={postalError}
+      >
+        <Input
+          id="map-sheet-postal"
+          placeholder="e.g. L7A, L6P 2K1"
+          autoCapitalize="characters"
+          autoComplete="postal-code"
+          value={draft.postal}
+          aria-invalid={postalError ? true : undefined}
+          aria-describedby={postalError ? "map-sheet-postal-error" : "map-sheet-postal-hint"}
+          onChange={(event) => {
+            clearPostalError();
+            setDraft((d) => ({ ...d, postal: event.target.value }));
+          }}
+        />
+      </Field>
+
+      <ChipField
+        label="Bedrooms"
+        value={draft.beds}
+        options={BED_OPTIONS}
+        suffix="+"
+        onChange={(beds) => setDraft((d) => ({ ...d, beds }))}
+      />
+
+      <ChipField
+        label="Bathrooms"
+        value={draft.baths}
+        options={BATH_OPTIONS}
+        suffix="+"
+        onChange={(baths) => setDraft((d) => ({ ...d, baths }))}
+      />
+
+      <fieldset>
+        <legend className="text-small font-medium text-ink">Size (sq ft)</legend>
+        <div className="mt-1.5 grid grid-cols-2 gap-3">
+          <NumericInput
+            aria-label="Minimum square feet"
+            min={0}
+            max={100000}
+            placeholder="No min"
+            value={draft.sqftMin}
+            onChange={(event) => setDraft((d) => ({ ...d, sqftMin: event.target.value }))}
+          />
+          <NumericInput
+            aria-label="Maximum square feet"
+            min={0}
+            max={100000}
+            placeholder="No max"
+            value={draft.sqftMax}
+            onChange={(event) => setDraft((d) => ({ ...d, sqftMax: event.target.value }))}
+          />
+        </div>
+      </fieldset>
+
+      <ChipField
+        label="Garages"
+        value={draft.garages}
+        options={GARAGE_OPTIONS}
+        suffix="+"
+        onChange={(garages) => setDraft((d) => ({ ...d, garages }))}
+      />
+
+      <ChipField
+        label="Floors"
+        value={draft.floors}
+        options={FLOOR_OPTIONS}
+        suffix="+"
+        onChange={(floors) => setDraft((d) => ({ ...d, floors }))}
+      />
+
+      <div className="space-y-1.5">
+        <span className="block text-small font-medium text-ink">Basement</span>
+        <div className="flex flex-wrap gap-2">
+          {BASEMENT_OPTIONS.map((option) => (
+            <ChipToggle
+              key={option.value || "any"}
+              active={draft.basement === option.value}
+              onClick={() => setDraft((d) => ({ ...d, basement: option.value }))}
+            >
+              {option.label}
+            </ChipToggle>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <span className="block text-small font-medium text-ink">Property age</span>
+        <div className="flex flex-wrap gap-2">
+          <ChipToggle
+            active={!draft.yearBuiltMin}
+            onClick={() => setDraft((d) => ({ ...d, yearBuiltMin: "" }))}
+          >
+            Any
+          </ChipToggle>
+          {YEAR_OPTIONS.map((year) => (
+            <ChipToggle
+              key={year}
+              active={draft.yearBuiltMin === String(year)}
+              onClick={() => toggle("yearBuiltMin", String(year))}
+            >
+              {year}+
+            </ChipToggle>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <span className="block text-small font-medium text-ink">Listing status</span>
+        <div className="flex flex-wrap gap-2">
+          <ChipToggle active={!draft.status} onClick={() => setDraft((d) => ({ ...d, status: "" }))}>
+            All
+          </ChipToggle>
+          {STATUS_TABS.map((tab) => (
+            <ChipToggle
+              key={tab.param}
+              active={draft.status.toLowerCase() === tab.param.toLowerCase()}
+              onClick={() => toggle("status", tab.param)}
+            >
+              {statusLabel(tab.param, isRent)}
+            </ChipToggle>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <span className="block text-small font-medium text-ink">Open house</span>
+        <div className="flex flex-wrap gap-2">
+          <ChipToggle
+            active={draft.openHouse}
+            onClick={() => setDraft((d) => ({ ...d, openHouse: !d.openHouse }))}
+          >
+            Has an upcoming open house
+          </ChipToggle>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChipField({
+  label,
+  value,
+  options,
+  suffix = "",
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: number[];
+  suffix?: string;
+  onChange: (next: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <span className="block text-small font-medium text-ink">{label}</span>
+      <div className="flex flex-wrap gap-2">
+        <ChipToggle active={!value} onClick={() => onChange("")}>
+          Any
+        </ChipToggle>
+        {options.map((option) => (
+          <ChipToggle
+            key={option}
+            active={value === String(option)}
+            onClick={() => onChange(value === String(option) ? "" : String(option))}
+          >
+            {option}
+            {suffix}
+          </ChipToggle>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Every applied filter the Buy/Rent chips do not already show, each removable. */
 function appliedPills(query: ListingQuery, onChange: OnQueryChange): ReactNode[] {
   const pills: ReactNode[] = [];
-  const add = (key: string, label: string, next: Partial<ListingQuery>) =>
-    pills.push(<FilterPill key={key} label={label} onRemove={() => onChange({ ...query, ...next })} />);
+  const add = (key: string, label: string, next: Partial<ListingQuery>, icon?: ReactNode) =>
+    pills.push(
+      <FilterPill
+        key={key}
+        label={label}
+        icon={icon}
+        onRemove={() => onChange({ ...query, ...next })}
+      />,
+    );
   const rent = query.transaction === "rent";
   const money = (value: number) => (rent ? `${formatPrice(value)}/mo` : formatPrice(value));
 
@@ -277,12 +694,11 @@ function appliedPills(query: ListingQuery, onChange: OnQueryChange): ReactNode[]
     });
   }
   if (query.search) add("q", `"${query.search}"`, { search: undefined });
-  // City and postal are set from /listings; the map has no field for them, so
-  // the pill is the only place they can be seen and removed here.
+  if (query.type) add("type", query.type, { type: undefined });
   if (query.city) add("city", query.city, { city: undefined });
   for (const code of query.postalCodes ?? []) {
     const rest = query.postalCodes!.filter((c) => c !== code);
-    add(`postal-${code}`, formatPostal(code), { postalCodes: rest.length ? rest : undefined });
+    add(`postal-${code}`, formatPostal(code), { postalCodes: rest.length ? rest : undefined }, <PinIcon />);
   }
   if (query.priceMin && query.priceMax) {
     add("price", `${money(query.priceMin)} – ${money(query.priceMax)}`, {
@@ -330,267 +746,18 @@ function statusLabel(status: string, rent: boolean): string {
   return tab.label;
 }
 
-// ---------------------------------------------------------------------------
-
-export function MapFilterPanel({
-  query,
-  onChange,
-  onClose,
+function FilterPill({
+  label,
+  icon,
+  onRemove,
 }: {
-  query: ListingQuery;
-  onChange: OnQueryChange;
-  onClose: () => void;
+  label: string;
+  icon?: ReactNode;
+  onRemove: () => void;
 }) {
-  const [draft, setDraft] = useState<Draft>(() => draftFromQuery(query));
-  const applied = draftFromQuery(query);
-  const dirty = !sameDraft(draft, applied);
-  const rent = query.transaction === "rent";
-
-  const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
-    setDraft((d) => ({ ...d, [key]: value }));
-  /** Tapping the selected chip again clears it. */
-  const toggle = (
-    key: "beds" | "baths" | "garages" | "floors" | "yearBuiltMin" | "status",
-    value: string,
-  ) => setDraft((d) => ({ ...d, [key]: d[key] === value ? "" : value }));
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
-
-  const apply = (event?: FormEvent) => {
-    event?.preventDefault();
-    const [priceMin, priceMax] = orderedRange(draft.priceMin, draft.priceMax);
-    const [sqftMin, sqftMax] = orderedRange(draft.sqftMin, draft.sqftMax);
-    onChange({
-      ...query,
-      search: draft.search.trim() || undefined,
-      priceMin,
-      priceMax,
-      bedsMin: num(draft.beds),
-      bathsMin: num(draft.baths),
-      sqftMin,
-      sqftMax,
-      garagesMin: num(draft.garages),
-      storiesMin: num(draft.floors),
-      basement: (draft.basement || undefined) as ListingQuery["basement"] | undefined,
-      yearBuiltMin: num(draft.yearBuiltMin),
-      status: draft.status || undefined,
-      openHouse: draft.openHouse || undefined,
-    });
-    onClose();
-  };
-
   return (
-    <form
-      id="map-filter-panel"
-      aria-label="Filters"
-      onSubmit={apply}
-      className="flex min-h-0 flex-1 flex-col"
-    >
-      <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
-        <Field label="Keyword" htmlFor="map-filter-q" hint="Address, street, MLS® number or feature">
-          <Input
-            id="map-filter-q"
-            placeholder="e.g. King St, pool, W1234567"
-            value={draft.search}
-            onChange={(event) => set("search", event.target.value)}
-          />
-        </Field>
-
-        <fieldset>
-          <legend className="text-small font-medium text-ink">
-            {rent ? "Monthly rent" : "Price"}
-          </legend>
-          <div className="mt-1.5 grid grid-cols-2 gap-3">
-            <NumericInput
-              aria-label={rent ? "Minimum rent per month" : "Minimum price"}
-              min={0}
-              max={100000000}
-              placeholder="No min"
-              value={draft.priceMin}
-              onChange={(event) => set("priceMin", event.target.value)}
-            />
-            <NumericInput
-              aria-label={rent ? "Maximum rent per month" : "Maximum price"}
-              min={0}
-              max={100000000}
-              placeholder="No max"
-              value={draft.priceMax}
-              onChange={(event) => set("priceMax", event.target.value)}
-            />
-          </div>
-        </fieldset>
-
-        <ChipGroup label="Bedrooms">
-          <ChipToggle active={!draft.beds} onClick={() => set("beds", "")}>
-            Any
-          </ChipToggle>
-          {BED_OPTIONS.map((beds) => (
-            <ChipToggle
-              key={beds}
-              active={draft.beds === String(beds)}
-              onClick={() => toggle("beds", String(beds))}
-            >
-              {beds}+
-            </ChipToggle>
-          ))}
-        </ChipGroup>
-
-        <ChipGroup label="Bathrooms">
-          <ChipToggle active={!draft.baths} onClick={() => set("baths", "")}>
-            Any
-          </ChipToggle>
-          {BATH_OPTIONS.map((baths) => (
-            <ChipToggle
-              key={baths}
-              active={draft.baths === String(baths)}
-              onClick={() => toggle("baths", String(baths))}
-            >
-              {baths}+
-            </ChipToggle>
-          ))}
-        </ChipGroup>
-
-        <fieldset>
-          <legend className="text-small font-medium text-ink">Size (sq ft)</legend>
-          <div className="mt-1.5 grid grid-cols-2 gap-3">
-            <NumericInput
-              aria-label="Minimum square feet"
-              min={0}
-              max={100000}
-              placeholder="No min"
-              value={draft.sqftMin}
-              onChange={(event) => set("sqftMin", event.target.value)}
-            />
-            <NumericInput
-              aria-label="Maximum square feet"
-              min={0}
-              max={100000}
-              placeholder="No max"
-              value={draft.sqftMax}
-              onChange={(event) => set("sqftMax", event.target.value)}
-            />
-          </div>
-        </fieldset>
-
-        <ChipGroup label="Garages">
-          <ChipToggle active={!draft.garages} onClick={() => set("garages", "")}>
-            Any
-          </ChipToggle>
-          {GARAGE_OPTIONS.map((n) => (
-            <ChipToggle
-              key={n}
-              active={draft.garages === String(n)}
-              onClick={() => toggle("garages", String(n))}
-            >
-              {n}+
-            </ChipToggle>
-          ))}
-        </ChipGroup>
-
-        <ChipGroup label="Floors">
-          <ChipToggle active={!draft.floors} onClick={() => set("floors", "")}>
-            Any
-          </ChipToggle>
-          {FLOOR_OPTIONS.map((n) => (
-            <ChipToggle
-              key={n}
-              active={draft.floors === String(n)}
-              onClick={() => toggle("floors", String(n))}
-            >
-              {n}+
-            </ChipToggle>
-          ))}
-        </ChipGroup>
-
-        <ChipGroup label="Basement">
-          {BASEMENT_OPTIONS.map((option) => (
-            <ChipToggle
-              key={option.value || "any"}
-              active={draft.basement === option.value}
-              onClick={() => set("basement", option.value)}
-            >
-              {option.label}
-            </ChipToggle>
-          ))}
-        </ChipGroup>
-
-        <ChipGroup label="Property age">
-          <ChipToggle active={!draft.yearBuiltMin} onClick={() => set("yearBuiltMin", "")}>
-            Any
-          </ChipToggle>
-          {YEAR_OPTIONS.map((year) => (
-            <ChipToggle
-              key={year}
-              active={draft.yearBuiltMin === String(year)}
-              onClick={() => toggle("yearBuiltMin", String(year))}
-            >
-              {year}+
-            </ChipToggle>
-          ))}
-        </ChipGroup>
-
-        <ChipGroup label="Listing status">
-          <ChipToggle active={!draft.status} onClick={() => set("status", "")}>
-            All
-          </ChipToggle>
-          {STATUS_TABS.map((tab) => (
-            <ChipToggle
-              key={tab.param}
-              active={draft.status.toLowerCase() === tab.param.toLowerCase()}
-              onClick={() => toggle("status", tab.param)}
-            >
-              {statusLabel(tab.param, rent)}
-            </ChipToggle>
-          ))}
-        </ChipGroup>
-
-        <ChipGroup label="Open house">
-          <ChipToggle active={draft.openHouse} onClick={() => set("openHouse", !draft.openHouse)}>
-            Has an upcoming open house
-          </ChipToggle>
-        </ChipGroup>
-      </div>
-
-      <footer className="flex items-center gap-2 border-t border-line bg-surface-alt px-5 py-3">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setDraft(EMPTY_DRAFT)}
-          disabled={sameDraft(draft, EMPTY_DRAFT)}
-        >
-          Reset
-        </Button>
-        <div className="ml-auto flex gap-2">
-          <Button variant="secondary" size="sm" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" variant="primary" size="sm">
-            {dirty ? "Show homes" : "Done"}
-          </Button>
-        </div>
-      </footer>
-    </form>
-  );
-}
-
-function ChipGroup({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div role="group" aria-label={label}>
-      <p className="text-small font-medium text-ink">{label}</p>
-      <div className="mt-1.5 flex flex-wrap gap-1.5">{children}</div>
-    </div>
-  );
-}
-
-function FilterPill({ label, onRemove }: { label: string; onRemove: () => void }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-line bg-surface py-0.5 pl-2.5 pr-0.5 text-caption text-ink">
+    <span className="inline-flex items-center gap-1 rounded-full border border-line bg-surface py-1 pl-3 pr-1 text-caption text-ink">
+      {icon}
       {label}
       <button
         type="button"
@@ -598,8 +765,13 @@ function FilterPill({ label, onRemove }: { label: string; onRemove: () => void }
         aria-label={`Remove filter ${label}`}
         className="flex h-5 w-5 items-center justify-center rounded-full text-ink-subtle transition-colors hover:bg-surface-alt hover:text-ink"
       >
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M18 6 6 18M6 6l12 12" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M18 6 6 18M6 6l12 12"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          />
         </svg>
       </button>
     </span>
@@ -608,13 +780,27 @@ function FilterPill({ label, onRemove }: { label: string; onRemove: () => void }
 
 function FilterIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
-        d="M2.25 4.5h13.5M4.5 9h9M7.5 13.5h3"
+        d="M4 6h16M7 12h10M10 18h4"
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="1.8"
         strokeLinecap="round"
       />
+    </svg>
+  );
+}
+
+function PinIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 18 18" fill="none" aria-hidden="true" className="text-ink-muted">
+      <path
+        d="M9 16.5s5.25-4.5 5.25-9a5.25 5.25 0 1 0-10.5 0c0 4.5 5.25 9 5.25 9Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+      <circle cx="9" cy="7.5" r="1.9" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   );
 }

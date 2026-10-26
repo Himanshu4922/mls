@@ -9,14 +9,13 @@ import { CircleMarker, MapContainer, Marker, Polygon, TileLayer, useMap, useMapE
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { DrawHint, MapControls } from "@/components/map/MapControls";
-import { MapFilterBar, MapFilterPanel } from "@/components/map/MapFilters";
+import { MapFilters } from "@/components/map/MapFilters";
 import {
   MapListingCard,
   MapListingSkeletons,
   MapPreviewCard,
 } from "@/components/map/MapListingCard";
 import { cn } from "@/lib/utils/cn";
-import { SaveSearchButton } from "@/components/search/SaveSearchButton";
 import {
   getBoundingBoxFromPoints,
   serializePolygonParam,
@@ -181,7 +180,6 @@ export function MapSearch() {
   // Hovered row or pin (highlight only) vs clicked pin (highlight + preview).
   const [activeId, setActiveId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [filtersOpen, setFiltersOpen] = useState(false);
   const rowRefs = useRef(new Map<string, HTMLElement>());
   const listRef = useRef<HTMLUListElement>(null);
   const [flyTarget, setFlyTarget] = useState<[number, number] | null>(null);
@@ -457,107 +455,89 @@ export function MapSearch() {
                 {countLabel}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              {/* Return path for the listings view toggle, carrying the search. */}
-              <Link
-                href={listingsHref}
-                className="flex h-11 items-center gap-1.5 rounded-control border border-line bg-surface px-3 text-small font-medium text-ink transition-colors hover:border-navy hover:text-navy"
-              >
-                <svg width="14" height="14" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-                  <path
-                    d="M14.25 9H3.75M9 14.25 3.75 9 9 3.75"
-                    stroke="currentColor"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="1.5"
-                  />
-                </svg>
-                Listings
-              </Link>
-              <SaveSearchButton query={query} />
-            </div>
+            {/* Return path for the listings view toggle, carrying the search. */}
+            <Link
+              href={listingsHref}
+              className="flex h-11 shrink-0 items-center gap-1.5 rounded-control border border-line bg-surface px-3 text-small font-medium text-ink transition-colors hover:border-navy hover:text-navy"
+            >
+              <svg width="14" height="14" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <path
+                  d="M14.25 9H3.75M9 14.25 3.75 9 9 3.75"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="1.5"
+                />
+              </svg>
+              Listings
+            </Link>
           </div>
 
-          <MapFilterBar
-            query={query}
-            onChange={pushQuery}
-            panelOpen={filtersOpen}
-            onTogglePanel={() => setFiltersOpen((open) => !open)}
-          />
+          <MapFilters query={query} onChange={pushQuery} />
         </header>
 
-        {filtersOpen ? (
-          // Keyed on the URL so a back/forward while open re-seeds the draft.
-          <MapFilterPanel
-            key={params.toString()}
-            query={query}
-            onChange={pushQuery}
-            onClose={() => setFiltersOpen(false)}
-          />
-        ) : (
-          <ul
-            ref={listRef}
-            aria-busy={loading || undefined}
-            className={cn(
-              "flex-1 overflow-y-auto transition-opacity duration-200",
-              // The previous area's rows stay while the new area loads (so the
-              // list doesn't flash empty), dimmed so they don't read as results.
-              refreshing && "pointer-events-none opacity-50",
-            )}
-            onMouseLeave={() => setActiveId(null)}
-          >
-            {properties.length === 0 && loading && <MapListingSkeletons count={8} />}
+        <ul
+          ref={listRef}
+          aria-busy={loading || undefined}
+          className={cn(
+            "flex-1 overflow-y-auto transition-opacity duration-200",
+            // The previous area's rows stay while the new area loads (so the
+            // list doesn't flash empty), dimmed so they don't read as results.
+            refreshing && "pointer-events-none opacity-50",
+          )}
+          onMouseLeave={() => setActiveId(null)}
+        >
+          {properties.length === 0 && loading && <MapListingSkeletons count={8} />}
 
-            {properties.length === 0 && !loading && (
-              <li className="px-5 py-10 text-center text-small text-ink-muted">
-                {clustered
-                  ? "Zoom in to list individual homes."
-                  : polygon
-                    ? "No listings in your drawn area. Try a bigger area or fewer filters."
-                    : filtered
-                      ? "No listings here match these filters. Try zooming out or clearing a filter."
-                      : "No listings in view. Try zooming out or panning to another area."}
-              </li>
-            )}
+          {properties.length === 0 && !loading && (
+            <li className="px-5 py-10 text-center text-small text-ink-muted">
+              {clustered
+                ? "Zoom in to list individual homes."
+                : polygon
+                  ? "No listings in your drawn area. Try a bigger area or fewer filters."
+                  : filtered
+                    ? "No listings here match these filters. Try zooming out or clearing a filter."
+                    : "No listings in view. Try zooming out or panning to another area."}
+            </li>
+          )}
 
-            {properties.map((property) => (
-              <li key={property.id}>
-                <MapListingCard
-                  ref={(node) => {
-                    if (node) rowRefs.current.set(property.id, node);
-                    else rowRefs.current.delete(property.id);
-                  }}
-                  property={property}
-                  active={property.id === activeId || property.id === selectedId}
-                  onActivate={() => setActiveId(property.id)}
-                  onShowOnMap={
-                    property.latitude !== null && property.longitude !== null
-                      ? () => {
-                          setSelectedId(property.id);
-                          setFlyTarget([property.latitude as number, property.longitude as number]);
-                        }
-                      : null
-                  }
-                />
-              </li>
-            ))}
-
-            {!clustered && properties.length > 0 && (
-              <ListFoot
-                listRef={listRef}
-                loaded={properties.length}
-                total={total ?? properties.length}
-                hasMore={listings.hasNextPage}
-                loadingMore={listings.isFetchingNextPage}
-                failed={listings.isFetchNextPageError}
-                // Placeholder rows belong to the previous view; paging them
-                // would append the old area's homes to the new one.
-                paused={listings.isPlaceholderData}
-                onLoadMore={loadMore}
+          {properties.map((property) => (
+            <li key={property.id}>
+              <MapListingCard
+                ref={(node) => {
+                  if (node) rowRefs.current.set(property.id, node);
+                  else rowRefs.current.delete(property.id);
+                }}
+                property={property}
+                active={property.id === activeId || property.id === selectedId}
+                onActivate={() => setActiveId(property.id)}
+                onShowOnMap={
+                  property.latitude !== null && property.longitude !== null
+                    ? () => {
+                        setSelectedId(property.id);
+                        setFlyTarget([property.latitude as number, property.longitude as number]);
+                      }
+                    : null
+                }
               />
-            )}
-          </ul>
-        )}
+            </li>
+          ))}
+
+          {!clustered && properties.length > 0 && (
+            <ListFoot
+              listRef={listRef}
+              loaded={properties.length}
+              total={total ?? properties.length}
+              hasMore={listings.hasNextPage}
+              loadingMore={listings.isFetchingNextPage}
+              failed={listings.isFetchNextPageError}
+              // Placeholder rows belong to the previous view; paging them
+              // would append the old area's homes to the new one.
+              paused={listings.isPlaceholderData}
+              onLoadMore={loadMore}
+            />
+          )}
+        </ul>
       </aside>
     </div>
   );
