@@ -179,12 +179,27 @@ export async function getListingEngagement(
   }
 }
 
+export interface CensusDistributionRow {
+  range: string;
+  value: number;
+}
+
 export interface CensusProfile {
   population: number;
   medianAge: number;
   averageHouseholdSize: number;
   averageHouseholdIncome: string | null;
-  incomeDistribution: Array<{ range: string; value: number }>;
+  rentersPct: string | null;
+  immigrantsPct: string | null;
+  avgHomeValue: string | null;
+  condosPct: string | null;
+  householdsWithChildrenPct: string | null;
+  notInLabourForcePct: string | null;
+  incomeDistribution: CensusDistributionRow[];
+  ageDistribution: CensusDistributionRow[];
+  educationDistribution: CensusDistributionRow[];
+  ethnicityDistribution: CensusDistributionRow[];
+  languageDistribution: CensusDistributionRow[];
   disclaimer: string | null;
 }
 
@@ -207,6 +222,31 @@ export async function getCensusProfile(
   }
 }
 
+function distributionRows(value: unknown): CensusDistributionRow[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((row) => {
+      if (!row || typeof row !== "object") return null;
+      const range = "range" in row && typeof row.range === "string" ? row.range : "";
+      const amount = "value" in row && typeof row.value === "number" ? row.value : null;
+      return range && amount !== null ? { range, value: amount } : null;
+    })
+    .filter((row): row is CensusDistributionRow => row !== null);
+}
+
+function textField(profile: Record<string, unknown>, ...keys: string[]): string | null {
+  for (const key of keys) {
+    const value = profile[key];
+    if (typeof value === "string" && value.trim() && value !== "—" && value !== "Placeholder") {
+      return value.trim();
+    }
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return String(value);
+    }
+  }
+  return null;
+}
+
 function parseCensus(profile: Record<string, unknown> | null | undefined): CensusProfile | null {
   if (!profile) return null;
   const disclaimer = typeof profile.disclaimer === "string" ? profile.disclaimer : null;
@@ -214,22 +254,27 @@ function parseCensus(profile: Record<string, unknown> | null | undefined): Censu
   // The seed file is a placeholder (population 0, "Import census profile").
   if (population <= 0 || (disclaimer ?? "").toLowerCase().includes("placeholder")) return null;
 
-  const rows = Array.isArray(profile.incomeDistribution) ? profile.incomeDistribution : [];
   return {
     population,
     medianAge: typeof profile.medianAge === "number" ? profile.medianAge : 0,
     averageHouseholdSize:
       typeof profile.averageHouseholdSize === "number" ? profile.averageHouseholdSize : 0,
-    averageHouseholdIncome:
-      typeof profile.averageHouseholdIncome === "string" ? profile.averageHouseholdIncome : null,
-    incomeDistribution: rows
-      .map((row) => {
-        if (!row || typeof row !== "object") return null;
-        const range = "range" in row && typeof row.range === "string" ? row.range : "";
-        const value = "value" in row && typeof row.value === "number" ? row.value : null;
-        return range && value !== null ? { range, value } : null;
-      })
-      .filter((row): row is { range: string; value: number } => row !== null),
+    averageHouseholdIncome: textField(profile, "averageHouseholdIncome", "avgHouseholdIncome"),
+    rentersPct: textField(profile, "rentersPct", "renters"),
+    immigrantsPct: textField(profile, "immigrantsPct", "immigrants"),
+    avgHomeValue: textField(profile, "avgHomeValue", "averageHomeValue"),
+    condosPct: textField(profile, "condosPct", "condos"),
+    householdsWithChildrenPct: textField(
+      profile,
+      "householdsWithChildrenPct",
+      "householdsWithChildren",
+    ),
+    notInLabourForcePct: textField(profile, "notInLabourForcePct", "notInLabourForce"),
+    incomeDistribution: distributionRows(profile.incomeDistribution),
+    ageDistribution: distributionRows(profile.ageDistribution),
+    educationDistribution: distributionRows(profile.educationDistribution),
+    ethnicityDistribution: distributionRows(profile.ethnicityDistribution),
+    languageDistribution: distributionRows(profile.languageDistribution),
     disclaimer,
   };
 }
