@@ -67,7 +67,7 @@ export function HeroFrame({
             {children}
           </div>
           <div className="lg:col-span-3 lg:flex lg:justify-end">
-            <HeroSearch />
+            <HeroSearch content={content} />
           </div>
         </div>
       </div>

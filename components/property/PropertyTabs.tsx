@@ -44,7 +44,7 @@ export function PropertyTabs({
   const current = visible.find((tab) => tab.id === active) ?? visible[0];
 
   return (
-    <div className="mt-8">
+    <div className="mt-2 sm:mt-3">
       <div className="sticky top-[72px] z-40 border-b border-line bg-surface lg:top-20">
         <div className="container-page flex flex-col lg:flex-row lg:items-center lg:justify-between">
           <div

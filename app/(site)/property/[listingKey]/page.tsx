@@ -139,8 +139,8 @@ export default async function PropertyPage({
         }}
       />
 
-      <div className="container-page pt-6 sm:pt-8">
-      <nav aria-label="Breadcrumb" className="mb-5">
+      <div className="container-page pt-3 sm:pt-4">
+      <nav aria-label="Breadcrumb" className="mb-1 sm:mb-2">
         <Link
           href="/listings"
           className="inline-flex items-center gap-1.5 text-small text-ink-muted transition-colors hover:text-ink"

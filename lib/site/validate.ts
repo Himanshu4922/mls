@@ -105,6 +105,14 @@ function validateSection(id: SectionId, content: Record<string, unknown>, errors
     if (typeof accent !== "number" || accent < -1 || accent >= Math.max(lines.length, 1)) {
       errors[`${path}.accentLine`] = "Pick one heading line for the gold accent, or none.";
     }
+    // Optional so older saved heroes without prompts still validate; the
+    // homepage falls back to the defaults when the list is missing.
+    if (content.tryPrompts !== undefined) {
+      const prompts = count(errors, `${path}.tryPrompts`, content.tryPrompts, 1, 8);
+      prompts.slice(0, 8).forEach((prompt, index) =>
+        text(errors, `${path}.tryPrompts.${index}`, prompt, 90),
+      );
+    }
     return;
   }
   if (id === "quickActions") {

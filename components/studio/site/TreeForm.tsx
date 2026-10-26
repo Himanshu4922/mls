@@ -15,6 +15,7 @@ const LABELS: Record<string, string> = {
   scrim: "Dark overlay",
   accentLine: "Gold accent line",
   lines: "Heading lines",
+  tryPrompts: "AI “Try” prompts",
   actionLabel: "Button label",
   actionHref: "Button link",
   useAutomaticDescription: "Let the site describe the rail from the listings it actually shows",
@@ -49,10 +50,12 @@ const HINTS: Record<string, string> = {
   scrim: "A higher number darkens the photo so the heading stays easy to read.",
   imageAlt: "Say what is in the photo. Required.",
   lines: "Each line is one row of the heading. Keep it short.",
+  tryPrompts: "Example searches shown under the AI box. Visitors can tap one to run it.",
 };
 
 const LIST_NOUN: Record<string, string> = {
   lines: "Heading line",
+  tryPrompts: "Try prompt",
   links: "Link",
   items: "Card",
   columns: "Column",
@@ -73,6 +76,7 @@ const MAX: Record<string, number> = {
   href: 300,
   blurb: 280,
   lines: 22,
+  tryPrompts: 90,
   name: 60,
   tag: 16,
   imageAlt: 140,
@@ -295,9 +299,21 @@ function ListEditor({
           </div>
           {typeof item === "string" ? (
             <TextControl
-              label={path.endsWith("lines") ? "Line" : "Text"}
+              label={
+                path.endsWith("lines")
+                  ? "Line"
+                  : path.endsWith("tryPrompts")
+                    ? "Prompt"
+                    : "Text"
+              }
               value={item}
-              max={path.endsWith("lines") ? 22 : maxFor("text")}
+              max={
+                path.endsWith("lines")
+                  ? 22
+                  : path.endsWith("tryPrompts")
+                    ? 90
+                    : maxFor("text")
+              }
               error={errors[`${path}.${index}`]}
               onChange={(next) => onChange(value.map((entry, itemIndex) => (itemIndex === index ? next : entry)))}
             />

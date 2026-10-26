@@ -46,8 +46,14 @@ export interface ListingSubmissionInput {
   postal_code: string;
   country: string;
   property_type: string;
+  ownership_title: string;
   bedrooms: string | null;
   bathrooms: string | null;
+  storeys: number | null;
+  floors: string;
+  parking: string;
+  locker: string;
+  maintenance_fees: string | null;
   interior_area_sqft: number | null;
   asking_price: string | null;
   available_from: string | null;
@@ -55,10 +61,12 @@ export interface ListingSubmissionInput {
   project_name: string;
   builder_name: string;
   precon_property: number | null;
+  agreement_date: string | null;
   occupancy_date: string | null;
   original_purchase_price: string | null;
   deposit_paid: string | null;
   assignment_fee: string | null;
+  consent_to_advertise: boolean;
   contact_name: string;
   contact_email: string;
   contact_phone: string;

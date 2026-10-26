@@ -17,7 +17,13 @@
             "Smarter."
           ],
           "accentLine": 3,
-          "description": "Search live MLS\u00ae listings, discover pre-construction projects, compare communities, and make informed decisions with real market data and trusted local expertise."
+          "description": "Search live MLS\u00ae listings, discover pre-construction projects, compare communities, and make informed decisions with real market data and trusted local expertise.",
+          "tryPrompts": [
+            "3 bed condo under $900K near a subway in Toronto",
+            "Family home in Oakville with a big backyard and double garage",
+            "2 bedroom rental downtown under $3,000/month with parking",
+            "Detached house in Vaughan with a basement apartment"
+          ]
         }
       },
       {

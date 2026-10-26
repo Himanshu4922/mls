@@ -19,15 +19,22 @@ export interface ListingForm {
   purpose: SubmissionPurpose | null;
   submitter_type: SubmitterType;
   property_type: string;
+  ownership_title: string;
   address_line_1: string;
   address_line_2: string;
   city: string;
   postal_code: string;
   bedrooms: string;
   bathrooms: string;
+  storeys: string;
+  floors: string;
+  parking: string;
+  locker: string;
+  maintenance_fees: string;
   interior_area_sqft: string;
   project_name: string;
   builder_name: string;
+  agreement_date: string;
   occupancy_date: string;
   original_purchase_price: string;
   deposit_paid: string;
@@ -38,6 +45,7 @@ export interface ListingForm {
   contact_name: string;
   contact_email: string;
   contact_phone: string;
+  consent_to_advertise: boolean;
   ownership_confirmed: boolean;
   publication_consent: boolean;
 }
@@ -78,6 +86,8 @@ export const PROPERTY_TYPES = [
   "Other",
 ];
 
+export const OWNERSHIP_TITLES = ["Freehold", "Condo / Strata", "Leasehold", "Other"];
+
 export const SUBMITTER_TYPES: Array<{ value: SubmitterType; label: string }> = [
   { value: "owner", label: "I own the property" },
   { value: "agent", label: "I'm the listing agent" },
@@ -89,13 +99,14 @@ export const STEP_LABELS = ["Details", "Pricing & contact", "Photos & submit"];
 /** Which step owns each field, so a server error can send the user back to it. */
 const STEP_FIELDS: FieldKey[][] = [
   [
-    "purpose", "submitter_type", "property_type", "address_line_1", "address_line_2",
-    "city", "postal_code", "bedrooms", "bathrooms", "interior_area_sqft",
-    "project_name", "builder_name", "occupancy_date", "original_purchase_price",
+    "purpose", "submitter_type", "property_type", "ownership_title", "address_line_1",
+    "address_line_2", "city", "postal_code", "bedrooms", "bathrooms", "storeys", "floors",
+    "parking", "locker", "maintenance_fees", "interior_area_sqft", "project_name",
+    "builder_name", "agreement_date", "occupancy_date", "original_purchase_price",
     "deposit_paid", "assignment_fee",
   ],
   ["asking_price", "available_from", "description", "contact_name", "contact_email", "contact_phone"],
-  ["ownership_confirmed", "publication_consent"],
+  ["consent_to_advertise", "ownership_confirmed", "publication_consent"],
 ];
 
 export function stepOfField(field: string): number | null {
@@ -108,15 +119,22 @@ export function emptyForm(user: AuthUser | null): ListingForm {
     purpose: null,
     submitter_type: "owner",
     property_type: "",
+    ownership_title: "",
     address_line_1: "",
     address_line_2: "",
     city: "",
     postal_code: "",
     bedrooms: "",
     bathrooms: "",
+    storeys: "",
+    floors: "",
+    parking: "",
+    locker: "",
+    maintenance_fees: "",
     interior_area_sqft: "",
     project_name: "",
     builder_name: "",
+    agreement_date: "",
     occupancy_date: "",
     original_purchase_price: "",
     deposit_paid: "",
@@ -127,6 +145,7 @@ export function emptyForm(user: AuthUser | null): ListingForm {
     contact_name: user?.name ?? "",
     contact_email: user?.email ?? "",
     contact_phone: user?.phone ?? "",
+    consent_to_advertise: false,
     ownership_confirmed: false,
     publication_consent: false,
   };
@@ -146,15 +165,22 @@ export function formFromSubmission(s: ListingSubmission, user: AuthUser | null):
     purpose: s.purpose,
     submitter_type: s.submitter_type,
     property_type: s.property_type ?? "",
+    ownership_title: s.ownership_title ?? "",
     address_line_1: s.address_line_1 ?? "",
     address_line_2: s.address_line_2 ?? "",
     city: s.city ?? "",
     postal_code: s.postal_code ? formatPostal(s.postal_code.replace(/\s+/g, "")) : "",
     bedrooms: decimalText(s.bedrooms),
     bathrooms: decimalText(s.bathrooms),
+    storeys: decimalText(s.storeys),
+    floors: s.floors ?? "",
+    parking: s.parking ?? "",
+    locker: s.locker ?? "",
+    maintenance_fees: decimalText(s.maintenance_fees),
     interior_area_sqft: decimalText(s.interior_area_sqft),
     project_name: s.project_name ?? "",
     builder_name: s.builder_name ?? "",
+    agreement_date: s.agreement_date ?? "",
     occupancy_date: s.occupancy_date ?? "",
     original_purchase_price: decimalText(s.original_purchase_price),
     deposit_paid: decimalText(s.deposit_paid),
@@ -165,6 +191,7 @@ export function formFromSubmission(s: ListingSubmission, user: AuthUser | null):
     contact_name: s.contact_name || base.contact_name,
     contact_email: s.contact_email || base.contact_email,
     contact_phone: s.contact_phone || base.contact_phone,
+    consent_to_advertise: Boolean(s.consent_to_advertise),
     ownership_confirmed: Boolean(s.ownership_confirmed),
     publication_consent: Boolean(s.publication_consent),
   };
@@ -186,21 +213,29 @@ export function payloadFor(step: number, form: ListingForm): Partial<ListingSubm
   if (step === 0) {
     const assignment = form.purpose === "assignment";
     const sqft = orNull(form.interior_area_sqft);
+    const storeys = orNull(form.storeys);
     return {
       purpose: form.purpose ?? undefined,
       submitter_type: form.submitter_type,
       property_type: form.property_type,
+      ownership_title: assignment ? form.ownership_title.trim() : "",
       address_line_1: form.address_line_1.trim(),
       address_line_2: form.address_line_2.trim(),
       city: form.city.trim(),
       postal_code: normalizePostal(form.postal_code) ? formatPostal(normalizePostal(form.postal_code)!) : "",
       bedrooms: orNull(form.bedrooms),
       bathrooms: orNull(form.bathrooms),
+      storeys: assignment && storeys !== null ? Number(storeys) : null,
+      floors: assignment ? form.floors.trim() : "",
+      parking: assignment ? form.parking.trim() : "",
+      locker: assignment ? form.locker.trim() : "",
+      maintenance_fees: assignment ? orNull(form.maintenance_fees) : null,
       interior_area_sqft: sqft === null ? null : Number(sqft),
       // Switching away from "assignment" clears its details so a sale listing
       // never carries a stale purchase price into review.
       project_name: assignment ? form.project_name.trim() : "",
       builder_name: assignment ? form.builder_name.trim() : "",
+      agreement_date: assignment ? orNull(form.agreement_date) : null,
       occupancy_date: assignment ? orNull(form.occupancy_date) : null,
       original_purchase_price: assignment ? orNull(form.original_purchase_price) : null,
       deposit_paid: assignment ? orNull(form.deposit_paid) : null,
@@ -217,6 +252,7 @@ export function payloadFor(step: number, form: ListingForm): Partial<ListingSubm
     };
   }
   return {
+    consent_to_advertise: form.purpose === "assignment" ? form.consent_to_advertise : false,
     ownership_confirmed: form.ownership_confirmed,
     publication_consent: form.publication_consent,
   };
@@ -257,6 +293,9 @@ export function validateStep(step: number, form: ListingForm): FieldErrors {
     if (email) errors.contact_email = email;
     if (phone) errors.contact_phone = phone;
   } else {
+    if (form.purpose === "assignment" && !form.consent_to_advertise) {
+      errors.consent_to_advertise = "Confirm you consent to advertising this assignment.";
+    }
     if (!form.ownership_confirmed) {
       errors.ownership_confirmed = "Confirm you own or are authorized to list this property.";
     }

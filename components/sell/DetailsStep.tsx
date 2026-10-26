@@ -5,6 +5,7 @@ import { OptionCardGroup, type OptionCardItem } from "@/components/ui/OptionCard
 import type { SubmissionPurpose, SubmitterType } from "@/lib/api/listingSubmissions";
 import {
   controlProps,
+  OWNERSHIP_TITLES,
   PROPERTY_TYPES,
   SUBMITTER_TYPES,
   type StepProps,
@@ -97,6 +98,28 @@ export function DetailsStep({ form, errors, set }: StepProps) {
           </Select>
         </Field>
 
+        {assignment && (
+          <Field
+            label="Ownership / title"
+            htmlFor={controlProps("ownership_title", errors).id}
+            error={errors.ownership_title}
+            hint="e.g. Freehold, Condo/Strata, Leasehold."
+          >
+            <Select
+              {...controlProps("ownership_title", errors)}
+              value={form.ownership_title}
+              onChange={(event) => set("ownership_title", event.target.value)}
+            >
+              <option value="">Choose ownership</option>
+              {OWNERSHIP_TITLES.map((title) => (
+                <option key={title} value={title}>
+                  {title}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+
         <Field
           label="Street address"
           htmlFor={controlProps("address_line_1", errors).id}
@@ -177,6 +200,66 @@ export function DetailsStep({ form, errors, set }: StepProps) {
             max={99}
           />
         </Field>
+
+        {assignment && (
+          <>
+            <Field label="Storeys" htmlFor={controlProps("storeys", errors).id} error={errors.storeys}>
+              <NumericInput
+                {...controlProps("storeys", errors)}
+                value={form.storeys}
+                onChange={(event) => set("storeys", event.target.value)}
+                min={0}
+                max={99}
+              />
+            </Field>
+            <Field
+              label="Floors"
+              htmlFor={controlProps("floors", errors).id}
+              error={errors.floors}
+              hint="e.g. 12, or 12–14 for a multi-level unit."
+            >
+              <Input
+                {...controlProps("floors", errors)}
+                value={form.floors}
+                onChange={(event) => set("floors", event.target.value)}
+                placeholder="12"
+                maxLength={80}
+              />
+            </Field>
+            <Field label="Parking" htmlFor={controlProps("parking", errors).id} error={errors.parking}>
+              <Input
+                {...controlProps("parking", errors)}
+                value={form.parking}
+                onChange={(event) => set("parking", event.target.value)}
+                placeholder="e.g. 1 owned, 1 visitor"
+                maxLength={120}
+              />
+            </Field>
+            <Field label="Locker" htmlFor={controlProps("locker", errors).id} error={errors.locker}>
+              <Input
+                {...controlProps("locker", errors)}
+                value={form.locker}
+                onChange={(event) => set("locker", event.target.value)}
+                placeholder="e.g. Yes — Level P2"
+                maxLength={120}
+              />
+            </Field>
+            <Field
+              label="Maintenance fees"
+              htmlFor={controlProps("maintenance_fees", errors).id}
+              error={errors.maintenance_fees}
+              hint="Monthly, if known."
+            >
+              <NumericInput
+                {...controlProps("maintenance_fees", errors)}
+                decimals={2}
+                value={form.maintenance_fees}
+                onChange={(event) => set("maintenance_fees", event.target.value)}
+                placeholder="$"
+              />
+            </Field>
+          </>
+        )}
       </div>
 
       {assignment && <AssignmentFields form={form} errors={errors} set={set} />}
@@ -226,6 +309,19 @@ function AssignmentFields({ form, errors, set }: StepProps) {
             value={form.builder_name}
             onChange={(event) => set("builder_name", event.target.value)}
             maxLength={200}
+          />
+        </Field>
+        <Field
+          label="Date of agreement"
+          htmlFor={controlProps("agreement_date", errors).id}
+          error={errors.agreement_date}
+          hint="When the original purchase agreement was signed."
+        >
+          <Input
+            {...controlProps("agreement_date", errors)}
+            type="date"
+            value={form.agreement_date}
+            onChange={(event) => set("agreement_date", event.target.value)}
           />
         </Field>
         <Field label="Expected occupancy" htmlFor={controlProps("occupancy_date", errors).id} required error={errors.occupancy_date}>

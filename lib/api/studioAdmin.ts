@@ -360,15 +360,23 @@ export interface ReviewSubmission extends ReviewSubmissionSummary {
   province: string;
   postalCode: string;
   propertyType: string;
+  ownershipTitle: string;
   bedrooms: number | null;
   bathrooms: number | null;
+  storeys: number | null;
+  floors: string;
+  parking: string;
+  locker: string;
+  maintenanceFees: number | null;
   interiorAreaSqft: number | null;
   availableFrom: string | null;
   description: string;
+  agreementDate: string | null;
   occupancyDate: string | null;
   originalPurchasePrice: number | null;
   depositPaid: number | null;
   contactPhone: string;
+  consentToAdvertise: boolean;
   ownershipConfirmed: boolean;
   publicationConsent: boolean;
   reviewNote: string;
@@ -420,15 +428,23 @@ export function mapReviewSubmission(raw: RawSubmission): ReviewSubmission {
     province: text(raw.province),
     postalCode: text(raw.postal_code),
     propertyType: text(raw.property_type),
+    ownershipTitle: text(raw.ownership_title),
     bedrooms: toNumber(raw.bedrooms as string | number | null),
     bathrooms: toNumber(raw.bathrooms as string | number | null),
+    storeys: toNumber(raw.storeys as string | number | null),
+    floors: text(raw.floors),
+    parking: text(raw.parking),
+    locker: text(raw.locker),
+    maintenanceFees: toNumber(raw.maintenance_fees as string | number | null),
     interiorAreaSqft: toNumber(raw.interior_area_sqft as string | number | null),
     availableFrom: orNull(raw.available_from),
     description: text(raw.description),
+    agreementDate: orNull(raw.agreement_date),
     occupancyDate: orNull(raw.occupancy_date),
     originalPurchasePrice: toNumber(raw.original_purchase_price as string | number | null),
     depositPaid: toNumber(raw.deposit_paid as string | number | null),
     contactPhone: text(raw.contact_phone),
+    consentToAdvertise: Boolean(raw.consent_to_advertise),
     ownershipConfirmed: Boolean(raw.ownership_confirmed),
     publicationConsent: Boolean(raw.publication_consent),
     reviewNote: text(raw.review_note),

@@ -5,8 +5,16 @@ import { useState, type ReactNode, type FormEvent } from "react";
 import { AiSearchBox, SparkleIcon } from "@/components/search/AiSearchBox";
 import { Button } from "@/components/ui/Button";
 import { SearchInput } from "@/components/ui/Field";
+import { listOf } from "@/lib/site/read";
 import { SEARCH_PROPERTY_TYPES } from "@/lib/types/domain";
 import { looksLikePostal, parsePostalList } from "@/lib/utils/postal";
+
+const DEFAULT_TRY_PROMPTS = [
+  "3 bed condo under $900K near a subway in Toronto",
+  "Family home in Oakville with a big backyard and double garage",
+  "2 bedroom rental downtown under $3,000/month with parking",
+  "Detached house in Vaughan with a basement apartment",
+];
 
 /** Listing intent — maps onto the backend's status and Buy/Rent split. */
 const INTENTS = [
@@ -48,8 +56,11 @@ type HeroMode = "ai" | "filters";
  * Hero search: AI search (a sentence → filters) or the classic filter form.
  * Both land on the same /listings URL-driven results page.
  */
-export function HeroSearch() {
+export function HeroSearch({ content }: { content?: Record<string, unknown> } = {}) {
   const [mode, setMode] = useState<HeroMode>("ai");
+  const tryPrompts = listOf<string>(content, "tryPrompts", DEFAULT_TRY_PROMPTS).filter(
+    (prompt) => typeof prompt === "string" && prompt.trim().length > 0,
+  );
 
   return (
     <div className="w-full max-w-[540px] rounded-surface bg-surface p-6 shadow-pop sm:p-7">
@@ -86,7 +97,10 @@ export function HeroSearch() {
               Plain English works — we turn it into filters you can adjust
             </p>
           </div>
-          <AiSearchBox variant="hero" />
+          <AiSearchBox
+            variant="hero"
+            examples={tryPrompts.length > 0 ? tryPrompts : DEFAULT_TRY_PROMPTS}
+          />
         </div>
       ) : (
         <div role="tabpanel">

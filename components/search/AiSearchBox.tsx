@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils/cn";
 
 /** Inline AI search starts collapsed on phones so listings stay above the fold. */
 
-const EXAMPLES = [
+const DEFAULT_EXAMPLES = [
   "3 bed condo under $900K near a subway in Toronto",
   "Family home in Oakville with a big backyard and double garage",
   "2 bedroom rental downtown under $3,000/month with parking",
@@ -38,6 +38,7 @@ export function AiSearchBox({
   variant = "hero",
   className,
   onSearched,
+  examples = DEFAULT_EXAMPLES,
 }: {
   basePath?: "/listings" | "/map-search";
   current?: ListingQuery;
@@ -46,6 +47,8 @@ export function AiSearchBox({
   className?: string;
   /** Fired after a successful navigate so a parent sheet can close. */
   onSearched?: () => void;
+  /** Hero “Try” chips — editable from the site studio hero section. */
+  examples?: string[];
 }) {
   // On /listings and /map-search this shows the skeleton while results load.
   const { navigate } = usePendingNavigation();
@@ -222,11 +225,11 @@ export function AiSearchBox({
         </p>
       )}
 
-      {hero && (
+      {hero && examples.length > 0 && (
         <div className="mt-4">
           <p className="mb-2 text-eyebrow uppercase text-ink-muted">Try</p>
           <div className="flex flex-wrap gap-2">
-            {EXAMPLES.map((example) => (
+            {examples.map((example) => (
               <button
                 key={example}
                 type="button"

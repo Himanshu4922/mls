@@ -102,7 +102,19 @@ export default async function ReviewSubmissionPage({ params }: PageProps<"/studi
                 ["Address", [submission.address, submission.addressLine2].filter(Boolean).join(", ")],
                 ["City", [submission.city, submission.province, submission.postalCode].filter(Boolean).join(", ")],
                 ["Property type", submission.propertyType],
-                ["Bedrooms / bathrooms", `${submission.bedrooms ?? "—"} / ${submission.bathrooms ?? "—"}`],
+                ...(isAssignment
+                  ? ([
+                      ["Ownership / title", submission.ownershipTitle || "—"],
+                      ["Bedrooms / bathrooms", `${submission.bedrooms ?? "—"} / ${submission.bathrooms ?? "—"}`],
+                      ["Storeys", submission.storeys == null ? "—" : String(submission.storeys)],
+                      ["Floors", submission.floors || "—"],
+                      ["Parking", submission.parking || "—"],
+                      ["Locker", submission.locker || "—"],
+                      ["Maintenance fees", money(submission.maintenanceFees)],
+                    ] satisfies Array<[string, string]>)
+                  : ([
+                      ["Bedrooms / bathrooms", `${submission.bedrooms ?? "—"} / ${submission.bathrooms ?? "—"}`],
+                    ] satisfies Array<[string, string]>)),
                 ["Interior area", submission.interiorAreaSqft ? `${submission.interiorAreaSqft.toLocaleString("en-CA")} sq ft` : "—"],
                 [isAssignment ? "Asking price (to buyer)" : "Asking price", money(submission.askingPrice)],
                 ["Available from", dateOrDash(submission.availableFrom)],
@@ -122,6 +134,7 @@ export default async function ReviewSubmissionPage({ params }: PageProps<"/studi
                 rows={[
                   ["Project (as submitted)", submission.projectName],
                   ["Builder", submission.builderName],
+                  ["Date of agreement", dateOrDash(submission.agreementDate)],
                   ["Occupancy date", dateOrDash(submission.occupancyDate)],
                   ["Original purchase price", money(submission.originalPurchasePrice)],
                   ["Deposit paid", money(submission.depositPaid)],
@@ -139,6 +152,9 @@ export default async function ReviewSubmissionPage({ params }: PageProps<"/studi
                 ["Email", submission.contactEmail],
                 ["Phone", submission.contactPhone],
                 ["Account", submission.submittedByEmail ?? "—"],
+                ...(isAssignment
+                  ? ([["Consent to advertise", submission.consentToAdvertise ? "Yes" : "No"]] satisfies Array<[string, string]>)
+                  : []),
                 ["Confirms ownership / right to sell", submission.ownershipConfirmed ? "Yes" : "No"],
                 ["Consents to publication", submission.publicationConsent ? "Yes" : "No"],
                 ["Submitted from", submission.submittedIp ?? "—"],

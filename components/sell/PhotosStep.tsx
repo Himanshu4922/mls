@@ -81,6 +81,16 @@ export function PhotosStep({
       )}
 
       <div className="space-y-3 rounded-surface border border-line bg-surface-alt p-5">
+        {form.purpose === "assignment" && (
+          <Consent
+            id="listing-consent-to-advertise"
+            checked={form.consent_to_advertise}
+            onChange={(value) => set("consent_to_advertise", value)}
+            error={errors.consent_to_advertise}
+          >
+            I consent to HomeAtlas advertising this assignment publicly once it is approved.
+          </Consent>
+        )}
         <Consent
           id="listing-ownership-confirmed"
           checked={form.ownership_confirmed}

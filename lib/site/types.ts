@@ -93,7 +93,7 @@ export interface SiteRevision {
 }
 
 export const SECTION_META: Record<SectionId, { label: string; summary: string; canHide: boolean }> = {
-  hero: { label: "Hero", summary: "Background photo, heading, and description. The search card stays as designed.", canHide: false },
+  hero: { label: "Hero", summary: "Background photo, heading, description, and the AI “Try” prompts under the search card.", canHide: false },
   quickActions: { label: "Quick actions", summary: "The Buy, Rent, Preconstruction, and Sell cards under the hero.", canHide: true },
   trendingCommunities: { label: "Trending communities", summary: "Heading only. City tiles come from live inventory.", canHide: true },
   featuredListings: { label: "Featured listings", summary: "Heading around the rail. Which homes appear is set under Featured homes.", canHide: true },
