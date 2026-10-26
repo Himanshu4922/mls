@@ -408,6 +408,7 @@ export default async function PropertyPage({
                     <Suspense fallback={<SectionSkeleton label="Loading community" />}>
                       <CommunityPanel
                         city={property.community}
+                        neighbourhood={property.neighbourhood}
                         postalCode={property.postalCode}
                         latitude={property.latitude}
                         longitude={property.longitude}

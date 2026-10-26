@@ -1,10 +1,9 @@
 /**
  * Curated community profiles from the Estate4U WordPress site.
  *
- * The client pointed at `/wp-json/wp/v2/property`, but demographic / school /
- * lifestyle fields live on the sibling `/wp/v2/community` CPT (population,
- * average home price, school ratings, parks, transit, livability). Matched to
- * a listing by city name.
+ * Demographic / school / lifestyle fields live on `/wp/v2/community` (population,
+ * average home price, school ratings, parks, transit, livability). Matched to a
+ * listing by city or neighbourhood name.
  */
 
 const WP_SITE = (
@@ -122,18 +121,37 @@ export function resetWpCommunityCache() {
   cache = null;
 }
 
+function findProfile(
+  byCity: Map<string, WpCommunityProfile>,
+  label: string,
+): WpCommunityProfile | null {
+  const needle = normalizeCity(label);
+  if (!needle) return null;
+  const exact = byCity.get(needle);
+  if (exact) return exact;
+
+  for (const [key, profile] of byCity) {
+    if (needle.includes(key) || key.includes(needle)) return profile;
+  }
+  return null;
+}
+
 async function loadProfiles(): Promise<Map<string, WpCommunityProfile>> {
   const now = Date.now();
   if (cache && now - cache.at < CACHE_MS) return cache.byCity;
 
   const byCity = new Map<string, WpCommunityProfile>();
   try {
-    const response = await fetch(`${WP_SITE}/wp-json/wp/v2/community?per_page=100`, {
-      next: { revalidate: 3600 },
-      headers: { Accept: "application/json" },
-    });
+    const response = await fetch(
+      `${WP_SITE}/wp-json/wp/v2/community?per_page=100&_fields=id,slug,title,acf`,
+      {
+        next: { revalidate: 3600 },
+        headers: { Accept: "application/json" },
+      },
+    );
     if (!response.ok) return byCity;
     const rows = (await response.json()) as Array<{
+      slug?: string;
       title?: { rendered?: string };
       acf?: Acf | null;
     }>;
@@ -145,6 +163,8 @@ async function loadProfiles(): Promise<Map<string, WpCommunityProfile>> {
       const profile = mapProfile(row.acf ?? {}, title);
       if (!profile) continue;
       byCity.set(normalizeCity(profile.name), profile);
+      if (row.slug) byCity.set(normalizeCity(row.slug), profile);
+      if (title) byCity.set(normalizeCity(title), profile);
     }
   } catch {
     return byCity;
@@ -154,19 +174,22 @@ async function loadProfiles(): Promise<Map<string, WpCommunityProfile>> {
   return byCity;
 }
 
-/** Community profile for a listing city, or null when WP has no match. */
+/**
+ * Community profile for a listing city / neighbourhood, or null when WP has
+ * no match. Tries each label in order (city first, then neighbourhood).
+ */
 export async function getWpCommunityProfile(
-  city: string | null | undefined,
+  ...labels: Array<string | null | undefined>
 ): Promise<WpCommunityProfile | null> {
-  if (!city?.trim()) return null;
-  const byCity = await loadProfiles();
-  const exact = byCity.get(normalizeCity(city));
-  if (exact) return exact;
+  const candidates = labels
+    .map((label) => label?.trim() ?? "")
+    .filter((label) => label.length > 0);
+  if (candidates.length === 0) return null;
 
-  // "Mississauga ON" / "City of Brampton" style labels.
-  const needle = normalizeCity(city);
-  for (const [key, profile] of byCity) {
-    if (needle.includes(key) || key.includes(needle)) return profile;
+  const byCity = await loadProfiles();
+  for (const label of candidates) {
+    const match = findProfile(byCity, label);
+    if (match) return match;
   }
   return null;
 }

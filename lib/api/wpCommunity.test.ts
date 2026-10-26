@@ -62,4 +62,23 @@ describe("getWpCommunityProfile", () => {
     );
     expect(await getWpCommunityProfile("Nowhereville")).toBeNull();
   });
+
+  it("falls back from neighbourhood label to city match", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => [
+          {
+            slug: "toronto",
+            title: { rendered: "Toronto" },
+            acf: { community_name: "Toronto", population: "3M" },
+          },
+        ],
+      }),
+    );
+    const profile = await getWpCommunityProfile("Leslieville", "Toronto");
+    expect(profile?.name).toBe("Toronto");
+    expect(profile?.population).toBe("3M");
+  });
 });

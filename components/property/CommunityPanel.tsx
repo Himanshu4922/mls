@@ -1,6 +1,13 @@
 import { safeFetch } from "@/lib/api/client";
 import { getCatalogStats, getMarketTrends } from "@/lib/api/market";
-import { getCensusProfile, getNearbyAmenities, type CensusProfile } from "@/lib/api/neighbourhood";
+import {
+  getCensusProfile,
+  getNearbyAmenities,
+  getNearbySchools,
+  type AmenitiesByCategory,
+  type CensusProfile,
+  type NearbySchool,
+} from "@/lib/api/neighbourhood";
 import { searchProperties } from "@/lib/api/properties";
 import {
   getWpCommunityProfile,
@@ -13,17 +20,19 @@ import { formatPrice } from "@/lib/utils/format";
 const TYPE_COLORS = ["#1e3a5f", "#c7a45a", "#6f7682", "#151515", "#d6d3cd", "#8aa0b8"];
 
 /**
- * Community tab. Stat tiles, a list-price trend and property-type split come
- * from active listings in this city. Census tiles render only for a real
- * StatCan profile — the seed file's placeholder rows are dropped.
+ * Community tab. Neighbourhood Insights prefer the WordPress community CPT;
+ * when that city isn't curated yet we fall back to census + nearby places +
+ * live catalogue stats so the section still appears on every listing.
  */
 export async function CommunityPanel({
   city,
+  neighbourhood,
   postalCode,
   latitude,
   longitude,
 }: {
   city: string | null;
+  neighbourhood?: string | null;
   postalCode: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -37,36 +46,63 @@ export async function CommunityPanel({
     approximate: false,
     truncated: false,
   };
-  const [stats, trends, census, wpCommunity, amenities, sold, active] = await Promise.all([
-    city
-      ? safeFetch(getCatalogStats({ city }), null, "property:catalog")
-      : Promise.resolve(null),
-    city
-      ? safeFetch(getMarketTrends({ city }, 12), null, "property:trends")
-      : Promise.resolve(null),
-    fsa ? getCensusProfile(fsa) : Promise.resolve(null),
-    city ? getWpCommunityProfile(city) : Promise.resolve(null),
-    latitude !== null && longitude !== null
-      ? safeFetch(
-          getNearbyAmenities(latitude, longitude),
-          { groceries: [], cafes: [], parks: [], transit: [] },
-          "property:amenities",
-        )
-      : Promise.resolve(null),
-    city
-      ? safeFetch(searchProperties({ city, status: "Sold", limit: 24 }), emptySold, "property:sold-dist")
-      : Promise.resolve(emptySold),
-    city
-      ? safeFetch(searchProperties({ city, status: "Active", limit: 24 }), emptySold, "property:ask-dist")
-      : Promise.resolve(emptySold),
-  ]);
+  const emptyAmenities: AmenitiesByCategory = {
+    groceries: [],
+    cafes: [],
+    parks: [],
+    transit: [],
+  };
+  const [stats, trends, census, wpCommunity, amenities, nearbySchools, sold, active] =
+    await Promise.all([
+      city
+        ? safeFetch(getCatalogStats({ city }), null, "property:catalog")
+        : Promise.resolve(null),
+      city
+        ? safeFetch(getMarketTrends({ city }, 12), null, "property:trends")
+        : Promise.resolve(null),
+      fsa ? getCensusProfile(fsa) : Promise.resolve(null),
+      safeFetch(
+        getWpCommunityProfile(city, neighbourhood),
+        null,
+        "property:wp-community",
+      ),
+      latitude !== null && longitude !== null
+        ? safeFetch(
+            getNearbyAmenities(latitude, longitude),
+            emptyAmenities,
+            "property:amenities",
+          )
+        : Promise.resolve(null),
+      latitude !== null && longitude !== null
+        ? safeFetch(getNearbySchools(latitude, longitude, { radius: 4000 }), [], "property:nearby-schools")
+        : Promise.resolve([] as NearbySchool[]),
+      city
+        ? safeFetch(searchProperties({ city, status: "Sold", limit: 24 }), emptySold, "property:sold-dist")
+        : Promise.resolve(emptySold),
+      city
+        ? safeFetch(searchProperties({ city, status: "Active", limit: 24 }), emptySold, "property:ask-dist")
+        : Promise.resolve(emptySold),
+    ]);
 
   const series = (trends?.series ?? []).filter((point) => point.medianListPrice !== null);
   const subtypes = trends?.bySubtype ?? [];
   const latestNew = trends?.series.at(-1)?.newListings;
+  const insights = buildInsights({
+    city,
+    neighbourhood,
+    wp: wpCommunity,
+    census,
+    statsMedian: stats?.medianListPrice ?? null,
+    activeCount: trends?.activeCurrent ?? null,
+    yearChangeLabel: yearChange(series),
+    amenities,
+    schools: nearbySchools,
+  });
 
   return (
     <div className="space-y-8">
+      {insights && <NeighbourhoodInsights insights={insights} />}
+
       <div>
         <h2 className="mb-1 text-[20px] font-semibold text-ink">Community Statistics</h2>
         <p className="mb-5 text-[13px] text-ink-muted">
@@ -106,13 +142,200 @@ export async function CommunityPanel({
 
       {subtypes.length > 0 && <TypeSplit slices={subtypes.slice(0, 6)} city={city} />}
 
-      {/* Curated city profile from the WordPress community CPT — fills the
-          Neighbourhood Insights gap when StatCan FSA census is empty. */}
-      {wpCommunity && <WpInsightsBlock profile={wpCommunity} />}
-
-      {census && <CensusBlock census={census} />}
+      {census && !wpCommunity && <CensusBlock census={census} />}
 
       {amenities && <AmenitiesSection amenities={amenities} />}
+    </div>
+  );
+}
+
+interface InsightsView {
+  title: string;
+  subtext: string | null;
+  sourceNote: string;
+  tiles: Array<{ label: string; value: string }>;
+  blurb: string | null;
+  schools: Array<{ name: string; rating: string | null; type: string | null }>;
+  parks: string[];
+  dining: string[];
+  transit: Array<{ name: string; subtext: string | null; time: string | null }>;
+}
+
+function buildInsights({
+  city,
+  neighbourhood,
+  wp,
+  census,
+  statsMedian,
+  activeCount,
+  yearChangeLabel,
+  amenities,
+  schools,
+}: {
+  city: string | null;
+  neighbourhood?: string | null;
+  wp: WpCommunityProfile | null;
+  census: CensusProfile | null;
+  statsMedian: number | null;
+  activeCount: number | null;
+  yearChangeLabel: string | null;
+  amenities: AmenitiesByCategory | null;
+  schools: NearbySchool[];
+}): InsightsView | null {
+  if (wp) {
+    const tiles = [
+      wp.population ? { label: "Population", value: wp.population } : null,
+      wp.averageHomePrice ? { label: "Avg. home price", value: wp.averageHomePrice } : null,
+      wp.yoyGrowth ? { label: "YoY growth", value: wp.yoyGrowth } : null,
+      wp.livabilityScore ? { label: "Livability score", value: wp.livabilityScore } : null,
+    ].filter((tile): tile is { label: string; value: string } => tile !== null);
+
+    return {
+      title: wp.name,
+      subtext: wp.subtext,
+      sourceNote: "Curated community profile",
+      tiles,
+      blurb: wp.whyFamiliesLove,
+      schools: wp.schools,
+      parks: wp.parks,
+      dining: wp.dining,
+      transit: wp.transit,
+    };
+  }
+
+  const place =
+    [neighbourhood, city].filter((part): part is string => Boolean(part?.trim())).join(", ") ||
+    city ||
+    neighbourhood ||
+    null;
+  if (!place && !census && !amenities && statsMedian === null) return null;
+
+  const tiles: Array<{ label: string; value: string }> = [];
+  if (census?.population) {
+    tiles.push({ label: "Population", value: census.population.toLocaleString("en-CA") });
+  }
+  if (census?.medianAge) {
+    tiles.push({ label: "Median age", value: String(census.medianAge) });
+  }
+  if (census?.averageHouseholdIncome) {
+    tiles.push({ label: "Avg. household income", value: census.averageHouseholdIncome });
+  }
+  if (statsMedian) {
+    tiles.push({ label: "Median list price", value: formatPrice(statsMedian) });
+  }
+  if (yearChangeLabel) {
+    tiles.push({ label: "12-mo list price", value: yearChangeLabel });
+  }
+  if (activeCount != null) {
+    tiles.push({ label: "Active listings", value: String(activeCount) });
+  }
+
+  const schoolRows = schools.slice(0, 4).map((school) => ({
+    name: school.name,
+    rating: null as string | null,
+    type: school.kind || school.operator,
+  }));
+  const parks = (amenities?.parks ?? []).slice(0, 4).map((item) => item.name);
+  const dining = (amenities?.cafes ?? []).slice(0, 4).map((item) => item.name);
+  const transit = (amenities?.transit ?? []).slice(0, 4).map((item) => ({
+    name: item.name,
+    subtext: item.address,
+    time: null as string | null,
+  }));
+
+  const hasBody =
+    tiles.length > 0 ||
+    schoolRows.length > 0 ||
+    parks.length > 0 ||
+    dining.length > 0 ||
+    transit.length > 0;
+  if (!hasBody) return null;
+
+  return {
+    title: place ?? "This area",
+    subtext: neighbourhood && city && neighbourhood !== city ? city : null,
+    sourceNote: census
+      ? "Local market and census snapshot"
+      : "Local market and nearby places",
+    tiles,
+    blurb: null,
+    schools: schoolRows,
+    parks,
+    dining,
+    transit,
+  };
+}
+
+function NeighbourhoodInsights({ insights }: { insights: InsightsView }) {
+  return (
+    <div className="space-y-6 rounded-2xl border border-line p-4 sm:p-5">
+      <div>
+        <h2 className="text-[20px] font-semibold text-ink">Neighbourhood Insights</h2>
+        <p className="mt-1 text-[13px] text-ink-muted">
+          {insights.sourceNote} for {insights.title}
+          {insights.subtext ? ` — ${insights.subtext}` : ""}.
+        </p>
+      </div>
+
+      {insights.tiles.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {insights.tiles.map((tile) => (
+            <Stat key={tile.label} label={tile.label} value={tile.value} />
+          ))}
+        </div>
+      )}
+
+      {insights.blurb && (
+        <p className="whitespace-pre-line text-[14px] leading-relaxed text-ink-soft">
+          {insights.blurb}
+        </p>
+      )}
+
+      {insights.schools.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-[14px] font-semibold text-ink">Nearby schools</h3>
+          <ul className="space-y-2">
+            {insights.schools.map((school) => (
+              <li
+                key={school.name}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-alt px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-[14px] font-semibold text-ink">{school.name}</p>
+                  {school.type && <p className="text-[12px] text-ink-muted">{school.type}</p>}
+                </div>
+                {school.rating && (
+                  <span className="shrink-0 text-[15px] font-semibold text-navy">{school.rating}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(insights.parks.length > 0 || insights.dining.length > 0 || insights.transit.length > 0) && (
+        <div className="grid gap-5 sm:grid-cols-3">
+          {insights.parks.length > 0 && <InsightList title="Parks" items={insights.parks} />}
+          {insights.dining.length > 0 && <InsightList title="Dining" items={insights.dining} />}
+          {insights.transit.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-[14px] font-semibold text-ink">Transit</h3>
+              <ul className="space-y-2 text-[13px] text-ink-soft">
+                {insights.transit.map((stop) => (
+                  <li key={stop.name}>
+                    <span className="font-medium text-ink">{stop.name}</span>
+                    {(stop.subtext || stop.time) && (
+                      <span className="block text-[12px] text-ink-muted">
+                        {[stop.subtext, stop.time].filter(Boolean).join(" · ")}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -357,89 +580,6 @@ function TypeSplit({
           ))}
         </ul>
       </div>
-    </div>
-  );
-}
-
-function WpInsightsBlock({ profile }: { profile: WpCommunityProfile }) {
-  const tiles = [
-    profile.population ? { label: "Population", value: profile.population } : null,
-    profile.averageHomePrice ? { label: "Avg. home price", value: profile.averageHomePrice } : null,
-    profile.yoyGrowth ? { label: "YoY growth", value: profile.yoyGrowth } : null,
-    profile.livabilityScore ? { label: "Livability score", value: profile.livabilityScore } : null,
-  ].filter((tile): tile is { label: string; value: string } => tile !== null);
-
-  return (
-    <div className="space-y-6 rounded-2xl border border-line p-4 sm:p-5">
-      <div>
-        <h3 className="text-[18px] font-semibold text-ink">Neighbourhood Insights</h3>
-        <p className="mt-1 text-[13px] text-ink-muted">
-          Demographics, schools and lifestyle for {profile.name}
-          {profile.subtext ? ` — ${profile.subtext}` : ""}.
-        </p>
-      </div>
-
-      {tiles.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {tiles.map((tile) => (
-            <Stat key={tile.label} label={tile.label} value={tile.value} />
-          ))}
-        </div>
-      )}
-
-      {profile.whyFamiliesLove && (
-        <p className="text-[14px] leading-relaxed text-ink-soft">{profile.whyFamiliesLove}</p>
-      )}
-
-      {profile.schools.length > 0 && (
-        <div>
-          <h4 className="mb-3 text-[14px] font-semibold text-ink">Top schools</h4>
-          <ul className="space-y-2">
-            {profile.schools.map((school) => (
-              <li
-                key={school.name}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-alt px-4 py-3"
-              >
-                <div className="min-w-0">
-                  <p className="text-[14px] font-semibold text-ink">{school.name}</p>
-                  {school.type && <p className="text-[12px] text-ink-muted">{school.type}</p>}
-                </div>
-                {school.rating && (
-                  <span className="shrink-0 text-[15px] font-semibold text-navy">{school.rating}</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      {(profile.parks.length > 0 || profile.dining.length > 0 || profile.transit.length > 0) && (
-        <div className="grid gap-5 sm:grid-cols-3">
-          {profile.parks.length > 0 && (
-            <InsightList title="Parks" items={profile.parks} />
-          )}
-          {profile.dining.length > 0 && (
-            <InsightList title="Dining" items={profile.dining} />
-          )}
-          {profile.transit.length > 0 && (
-            <div>
-              <h4 className="mb-2 text-[14px] font-semibold text-ink">Transit</h4>
-              <ul className="space-y-2 text-[13px] text-ink-soft">
-                {profile.transit.map((stop) => (
-                  <li key={stop.name}>
-                    <span className="font-medium text-ink">{stop.name}</span>
-                    {(stop.subtext || stop.time) && (
-                      <span className="block text-[12px] text-ink-muted">
-                        {[stop.subtext, stop.time].filter(Boolean).join(" · ")}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
