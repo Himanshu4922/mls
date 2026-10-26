@@ -16,9 +16,12 @@ export interface InquiryInput {
   listing_key: string;
   /**
    * Recorded marketing-email consent (mls-v2 `PropertyInquiry.newsletter_opt_in`).
-   * Only send true when the visitor ticked an explicit consent box (CASL).
+   * Only send true when the visitor ticked an explicit consent box (CASL),
+   * or joined a waitlist whose CTA is itself that consent (VIP list).
    */
   newsletter_opt_in?: boolean;
+  /** Preconstruction VIP waitlist (mls-v2 `PropertyInquiry.is_vip_list`). */
+  is_vip_list?: boolean;
 }
 
 /** Showing request / listing enquiry. Write-only: no cache entry changes. */

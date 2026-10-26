@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PreconCard } from "@/components/precon/PreconCard";
+import { VipAccessForm } from "@/components/precon/VipAccessForm";
 import { Eyebrow } from "@/components/ui/Badge";
 import { EmptyState, Skeleton } from "@/components/ui/States";
 import { safeFetch } from "@/lib/api/client";
@@ -28,10 +29,11 @@ export default function PreconstructionPage() {
         </div>
       </section>
 
-      <div className="container-page py-10">
+      <div className="container-page space-y-16 py-10">
         <Suspense fallback={<ProjectsSkeleton />}>
           <Projects />
         </Suspense>
+        <VipAccessForm />
       </div>
     </>
   );
