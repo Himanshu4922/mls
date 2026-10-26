@@ -34,11 +34,59 @@ describe("mapPropertySummary rent", () => {
 
 describe("mapAvmDetails", () => {
   it("maps snake_case, keeps false booleans, nulls blanks", () => {
-    const details = mapAvmDetails({ frontage_ft: "38.93", air_conditioning: false, pool: null, basement: "  ", year_built: 1995 });
+    const details = mapAvmDetails({
+      roll_number: "316030180",
+      community: "Lakeshore",
+      unit_number: "17",
+      locker: true,
+      potl_monthly_fees: null,
+      maintenance: "170.00",
+      maintenance_includes: "Water, Insurance",
+      list_price: 935000,
+      last_sold_price: 880000,
+      days_on_market: 21,
+      above_grade_sqft: 1850,
+      garage_spaces: 2,
+      family_room: false,
+      kitchens: 1,
+      frontage_ft: "38.93",
+      air_conditioning: false,
+      pool: null,
+      basement: "  ",
+      basement_total_sqft: 747,
+      basement_finished_sqft: 280,
+      structure_condition: "Average",
+      garage_type: "Attached Garage",
+      garage_area: 480,
+      renovation_year: 2015,
+      renovation_type: "Exterior",
+      year_built: 1995,
+    });
+    expect(details.rollNumber).toBe("316030180");
+    expect(details.community).toBe("Lakeshore");
+    expect(details.unitNumber).toBe("17");
+    expect(details.locker).toBe(true);
+    expect(details.potlMonthlyFees).toBeNull();
+    expect(details.maintenance).toBe(170);
+    expect(details.maintenanceIncludes).toBe("Water, Insurance");
+    expect(details.listPrice).toBe(935000);
+    expect(details.lastSoldPrice).toBe(880000);
+    expect(details.daysOnMarket).toBe(21);
+    expect(details.aboveGradeSqft).toBe(1850);
+    expect(details.garageSpaces).toBe(2);
+    expect(details.familyRoom).toBe(false);
+    expect(details.kitchens).toBe(1);
     expect(details.frontageFt).toBe(38.93);
     expect(details.airConditioning).toBe(false);
     expect(details.pool).toBeNull();
     expect(details.basement).toBeNull();
+    expect(details.basementTotalSqft).toBe(747);
+    expect(details.basementFinishedSqft).toBe(280);
+    expect(details.structureCondition).toBe("Average");
+    expect(details.garageType).toBe("Attached Garage");
+    expect(details.garageArea).toBe(480);
+    expect(details.renovationYear).toBe(2015);
+    expect(details.renovationType).toBe("Exterior");
     expect(details.yearBuilt).toBe(1995);
   });
 

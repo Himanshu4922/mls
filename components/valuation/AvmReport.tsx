@@ -14,16 +14,69 @@ const dash = (value: ReactNode | null | undefined) =>
 const yesNo = (value: boolean | null) => (value === null ? EMPTY : value ? "Y" : "N");
 const num = (value: number | null, digits = 0) =>
   value === null ? null : value.toLocaleString("en-CA", { maximumFractionDigits: digits });
-const pair = (a: ReactNode | null, b: ReactNode | null) => (a === null && b === null ? EMPTY : `${a ?? "-"}/${b ?? "-"}`);
+const pair = (a: ReactNode | null, b: ReactNode | null) =>
+  a === null && b === null ? EMPTY : `${a ?? "—"}/${b ?? "—"}`;
+const money = (value: number | null) => (value === null ? EMPTY : formatPrice(value));
 
-/*
- * Rows follow the client's sample AVM report. Rows the sample has but no feed
- * carries (roll number, structure condition, renovation year) are left out
- * rather than shown as a column of dashes.
+/**
+ * Comparison rows: client-requested listing fields first, then the remaining
+ * AVM sample rows. Missing feed values render as a dash.
  */
 const ROWS: Row[] = [
+  { label: "Municipality", value: (c) => dash(c.details.city ?? (c.kind === "comp" ? c.comp.city : null)) },
+  { label: "Community", value: (c) => dash(c.details.community) },
+  { label: "Address", value: (c) => dash(c.details.address ?? (c.kind === "comp" ? c.comp.address : null)) },
+  { label: "Level", value: (c) => dash(c.details.level) },
+  { label: "Unit #", value: (c) => dash(c.details.unitNumber) },
+  { label: "Locker", value: (c) => yesNo(c.details.locker) },
   {
-    label: "Price",
+    label: "POTL monthly fees (if applicable)",
+    value: (c) => (c.details.potlMonthlyFees === null ? EMPTY : money(c.details.potlMonthlyFees)),
+  },
+  {
+    label: "Maintenance",
+    value: (c) => (c.details.maintenance === null ? EMPTY : money(c.details.maintenance)),
+  },
+  { label: "Included in maintenance costs", value: (c) => dash(c.details.maintenanceIncludes) },
+  { label: "Property type", value: (c) => dash(c.details.propertyType) },
+  { label: "Style", value: (c) => dash(c.details.propertyStyle) },
+  { label: "Lot frontage", value: (c) => dash(c.details.frontageFt === null ? null : `${num(c.details.frontageFt, 2)} ft`) },
+  { label: "Lot depth", value: (c) => dash(c.details.depthFt === null ? null : `${num(c.details.depthFt, 2)} ft`) },
+  { label: "List price", value: (c) => money(c.details.listPrice) },
+  { label: "Last sold price", value: (c) => money(c.details.lastSoldPrice) },
+  { label: "Property taxes", value: (c) => money(c.details.taxAnnualAmount) },
+  {
+    label: "Days on market",
+    value: (c) => dash(c.details.daysOnMarket === null ? null : String(c.details.daysOnMarket)),
+  },
+  {
+    label: "Square feet above ground",
+    value: (c) => dash(num(c.details.aboveGradeSqft ?? c.details.floorAreaSqft)),
+  },
+  { label: "Garage parking spaces", value: (c) => dash(num(c.details.garageSpaces)) },
+  { label: "Total parking spaces", value: (c) => dash(num(c.details.parkingTotal)) },
+  { label: "Year built", value: (c) => dash(c.details.yearBuilt === null ? null : String(c.details.yearBuilt)) },
+  {
+    label: "Number of bedrooms",
+    value: (c) => {
+      const { bedrooms, bedroomsBelowGrade } = c.details;
+      if (bedrooms === null) return EMPTY;
+      return bedroomsBelowGrade ? `${bedrooms} + ${bedroomsBelowGrade}` : String(bedrooms);
+    },
+  },
+  {
+    label: "Number of washrooms",
+    value: (c) => pair(num(c.details.bathroomsFull), num(c.details.bathroomsHalf)),
+  },
+  { label: "Family room", value: (c) => yesNo(c.details.familyRoom) },
+  { label: "Basement (finished/unfinished)", value: (c) => dash(c.details.basement) },
+  { label: "Number of kitchens", value: (c) => dash(num(c.details.kitchens)) },
+  { label: "Rental items under contract", value: (c) => dash(c.details.rentalItems) },
+
+  // Remaining AVM sample fields not covered above.
+  { label: "Roll Number", value: (c) => dash(c.details.rollNumber) },
+  {
+    label: "Sale Price",
     value: (c) =>
       c.kind === "subject" ? (
         "Subject"
@@ -37,7 +90,7 @@ const ROWS: Row[] = [
       ),
   },
   {
-    label: "Date",
+    label: "Sale Date (yyyy-mm-dd)",
     value: (c) =>
       c.kind === "subject" ? (
         EMPTY
@@ -52,44 +105,54 @@ const ROWS: Row[] = [
         </>
       ),
   },
-  { label: "Address", value: (c) => dash(c.details.address ?? (c.kind === "comp" ? c.comp.address : null)) },
-  { label: "Municipality", value: (c) => dash(c.details.city ?? (c.kind === "comp" ? c.comp.city : null)) },
   { label: "Province", value: (c) => dash(c.details.province) },
-  { label: "Postal code", value: (c) => dash(c.details.postalCode) },
-  { label: "Distance", value: (c) => (c.kind === "comp" && c.comp.distanceKm !== null ? `${c.comp.distanceKm.toFixed(1)} km` : EMPTY) },
-  { label: "Property style", value: (c) => dash(c.details.propertyStyle) },
-  { label: "Frontage/Depth (ft)", value: (c) => pair(num(c.details.frontageFt, 2), num(c.details.depthFt, 2)) },
+  { label: "Postal Code", value: (c) => dash(c.details.postalCode) },
   {
-    label: "Lot area",
+    label: "Site Area (A)",
+    value: (c) => {
+      if (c.details.lotArea === null) return EMPTY;
+      const units = c.details.lotAreaUnits ? ` ${c.details.lotAreaUnits}` : "";
+      return `${num(c.details.lotArea, 2)}${units}`;
+    },
+  },
+  { label: "Total Floor Area (sqft)", value: (c) => dash(num(c.details.floorAreaSqft)) },
+  {
+    label: "Total/Finished Basement Area (sqft)",
+    value: (c) => {
+      const total = num(c.details.basementTotalSqft);
+      const finished = num(c.details.basementFinishedSqft);
+      if (total === null && finished === null) return EMPTY;
+      return pair(total, finished);
+    },
+  },
+  {
+    label: "Full/Partial Storeys",
+    value: (c) => (c.details.storeys === null ? EMPTY : `${num(c.details.storeys)}/—`),
+  },
+  { label: "Structure Condition", value: (c) => dash(c.details.structureCondition) },
+  { label: "No. Fireplaces", value: (c) => dash(num(c.details.fireplaces)) },
+  {
+    label: "Renovation Year/Type",
     value: (c) =>
-      c.details.lotArea === null ? EMPTY : `${num(c.details.lotArea, 2)}${c.details.lotAreaUnits ? ` ${c.details.lotAreaUnits}` : ""}`,
+      pair(
+        c.details.renovationYear === null ? null : String(c.details.renovationYear),
+        c.details.renovationType,
+      ),
   },
-  { label: "Year built", value: (c) => dash(c.details.yearBuilt === null ? null : String(c.details.yearBuilt)) },
-  { label: "Floor area (sq ft)", value: (c) => dash(num(c.details.floorAreaSqft)) },
-  { label: "Basement", value: (c) => dash(c.details.basement) },
-  { label: "Storeys", value: (c) => dash(num(c.details.storeys)) },
+  { label: "Heating Type", value: (c) => dash(c.details.heating) },
+  { label: "Air Conditioning", value: (c) => yesNo(c.details.airConditioning) },
+  { label: "Inground Pool", value: (c) => yesNo(c.details.pool) },
   {
-    label: "Bedrooms",
+    label: "Garage Type/Area",
     value: (c) => {
-      const { bedrooms, bedroomsBelowGrade } = c.details;
-      if (bedrooms === null) return EMPTY;
-      return bedroomsBelowGrade ? `${bedrooms} + ${bedroomsBelowGrade}` : String(bedrooms);
+      const type = c.details.garageType ?? c.details.parkingFeatures;
+      const area = c.details.garageArea !== null ? num(c.details.garageArea) : null;
+      if (!type && area === null) return EMPTY;
+      if (!type) return String(area);
+      if (area === null) return type;
+      return `${type}/${area}`;
     },
   },
-  { label: "Full/Half bathrooms", value: (c) => pair(num(c.details.bathroomsFull), num(c.details.bathroomsHalf)) },
-  { label: "Fireplaces", value: (c) => dash(num(c.details.fireplaces)) },
-  { label: "Heating", value: (c) => dash(c.details.heating) },
-  { label: "Air conditioning", value: (c) => yesNo(c.details.airConditioning) },
-  { label: "Pool", value: (c) => yesNo(c.details.pool) },
-  {
-    label: "Parking",
-    value: (c) => {
-      const { parkingTotal, parkingFeatures } = c.details;
-      if (parkingTotal === null && !parkingFeatures) return EMPTY;
-      return [parkingFeatures, parkingTotal !== null ? `${parkingTotal} spaces` : null].filter(Boolean).join(" · ");
-    },
-  },
-  { label: "Annual taxes", value: (c) => (c.details.taxAnnualAmount === null ? EMPTY : formatPrice(c.details.taxAnnualAmount)) },
 ];
 
 /**
@@ -110,10 +173,10 @@ export function AvmReport({ result }: { result: ValuationResult }) {
       <section className="rounded-surface border border-line bg-surface p-5 sm:p-6">
         <h3 className="text-h3 text-navy">AVM details</h3>
         <dl className="mt-4 grid gap-px overflow-hidden rounded-control border border-line bg-line text-small sm:grid-cols-2">
-          <Detail label="Real-time market value (AVM)" value={formatPrice(result.market)} />
-          <Detail label="Confidence rating" value={<Stars count={result.confidenceStars} />} />
-          <Detail label="AVM valuation date" value={dash(result.valuationDate)} />
-          <Detail label="AVM range" value={`${formatPrice(result.low)} – ${formatPrice(result.high)}`} />
+          <Detail label="Real Time Market Value (AVM)" value={formatPrice(result.market)} />
+          <Detail label="Confidence Rating" value={<Stars count={result.confidenceStars} />} />
+          <Detail label="AVM Valuation Date (yyyy-mm-dd)" value={dash(result.valuationDate)} />
+          <Detail label="AVM Range" value={`${formatPrice(result.low)} – ${formatPrice(result.high)}`} />
         </dl>
       </section>
 
@@ -125,10 +188,13 @@ export function AvmReport({ result }: { result: ValuationResult }) {
             {result.comps.length > comps.length ? ` (of ${formatNumber(result.comps.length)})` : ""}.
           </p>
           <div className="mt-4 overflow-x-auto rounded-control border border-line">
-            <table className="w-full min-w-[640px] text-left text-small">
+            <table className="w-full min-w-[720px] text-left text-small">
               <thead>
                 <tr className="bg-surface-alt">
-                  <th scope="col" className="sticky left-0 z-10 bg-surface-alt px-3 py-2.5 text-caption font-semibold uppercase tracking-wide text-ink-muted">
+                  <th
+                    scope="col"
+                    className="sticky left-0 z-10 bg-surface-alt px-3 py-2.5 text-caption font-semibold uppercase tracking-wide text-ink-muted"
+                  >
                     <span className="sr-only">Feature</span>
                   </th>
                   {columns.map((column, index) => (
@@ -148,13 +214,19 @@ export function AvmReport({ result }: { result: ValuationResult }) {
               <tbody className="divide-y divide-line">
                 {ROWS.map((row) => (
                   <tr key={row.label}>
-                    <th scope="row" className="sticky left-0 z-10 bg-surface-alt px-3 py-2 align-top text-caption font-semibold text-ink">
+                    <th
+                      scope="row"
+                      className="sticky left-0 z-10 whitespace-nowrap bg-surface-alt px-3 py-2 align-top text-caption font-semibold text-ink"
+                    >
                       {row.label}
                     </th>
                     {columns.map((column, index) => (
                       <td
                         key={index}
-                        className={cn("px-3 py-2 align-top text-ink-soft", column.kind === "subject" && "bg-navy/5 font-medium text-ink")}
+                        className={cn(
+                          "px-3 py-2 align-top text-ink-soft",
+                          column.kind === "subject" && "bg-navy/5 font-medium text-ink",
+                        )}
                       >
                         {row.value(column)}
                       </td>

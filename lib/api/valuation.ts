@@ -47,31 +47,55 @@ export interface ValuationSubject {
  * the feed does not carry it; the table renders a dash.
  */
 export interface AvmDetails {
+  /** Parcel / assessment roll when the feed carries it. */
+  rollNumber: string | null;
   address: string | null;
   city: string | null;
+  community: string | null;
   province: string | null;
   postalCode: string | null;
+  level: string | null;
+  unitNumber: string | null;
+  locker: boolean | null;
+  potlMonthlyFees: number | null;
+  maintenance: number | null;
+  maintenanceIncludes: string | null;
   propertyStyle: string | null;
   propertyType: string | null;
   frontageFt: number | null;
   depthFt: number | null;
   lotArea: number | null;
   lotAreaUnits: string | null;
+  listPrice: number | null;
+  lastSoldPrice: number | null;
+  taxAnnualAmount: number | null;
+  daysOnMarket: number | null;
   yearBuilt: number | null;
   floorAreaSqft: number | null;
+  aboveGradeSqft: number | null;
   basement: string | null;
+  basementTotalSqft: number | null;
+  basementFinishedSqft: number | null;
   storeys: number | null;
+  structureCondition: string | null;
   bedrooms: number | null;
   bedroomsBelowGrade: number | null;
   bathroomsFull: number | null;
   bathroomsHalf: number | null;
+  familyRoom: boolean | null;
+  kitchens: number | null;
+  rentalItems: string | null;
   fireplaces: number | null;
+  renovationYear: number | null;
+  renovationType: string | null;
   heating: string | null;
   airConditioning: boolean | null;
   pool: boolean | null;
+  garageType: string | null;
+  garageArea: number | null;
+  garageSpaces: number | null;
   parkingTotal: number | null;
   parkingFeatures: string | null;
-  taxAnnualAmount: number | null;
 }
 
 /**
@@ -257,30 +281,53 @@ export function mapAvmDetails(raw: unknown): AvmDetails {
   const text = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
   const bool = (value: unknown) => (typeof value === "boolean" ? value : null);
   return {
+    rollNumber: text(row.roll_number),
     address: text(row.address),
     city: text(row.city),
+    community: text(row.community),
     province: text(row.province),
     postalCode: text(row.postal_code),
+    level: text(row.level),
+    unitNumber: text(row.unit_number),
+    locker: bool(row.locker),
+    potlMonthlyFees: num(row.potl_monthly_fees),
+    maintenance: num(row.maintenance),
+    maintenanceIncludes: text(row.maintenance_includes),
     propertyStyle: text(row.property_style),
     propertyType: text(row.property_type),
     frontageFt: num(row.frontage_ft),
     depthFt: num(row.depth_ft),
     lotArea: num(row.lot_area),
     lotAreaUnits: text(row.lot_area_units),
+    listPrice: num(row.list_price),
+    lastSoldPrice: num(row.last_sold_price),
+    taxAnnualAmount: num(row.tax_annual_amount),
+    daysOnMarket: num(row.days_on_market),
     yearBuilt: num(row.year_built),
     floorAreaSqft: num(row.floor_area_sqft),
+    aboveGradeSqft: num(row.above_grade_sqft),
     basement: text(row.basement),
+    basementTotalSqft: num(row.basement_total_sqft),
+    basementFinishedSqft: num(row.basement_finished_sqft),
     storeys: num(row.storeys),
+    structureCondition: text(row.structure_condition),
     bedrooms: num(row.bedrooms),
     bedroomsBelowGrade: num(row.bedrooms_below_grade),
     bathroomsFull: num(row.bathrooms_full),
     bathroomsHalf: num(row.bathrooms_half),
+    familyRoom: bool(row.family_room),
+    kitchens: num(row.kitchens),
+    rentalItems: text(row.rental_items),
     fireplaces: num(row.fireplaces),
+    renovationYear: num(row.renovation_year),
+    renovationType: text(row.renovation_type),
     heating: text(row.heating),
     airConditioning: bool(row.air_conditioning),
     pool: bool(row.pool),
+    garageType: text(row.garage_type),
+    garageArea: num(row.garage_area),
+    garageSpaces: num(row.garage_spaces),
     parkingTotal: num(row.parking_total),
     parkingFeatures: text(row.parking_features),
-    taxAnnualAmount: num(row.tax_annual_amount),
   };
 }
