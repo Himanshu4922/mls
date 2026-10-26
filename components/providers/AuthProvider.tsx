@@ -50,6 +50,12 @@ interface AuthContextValue {
     email: string;
     password: string;
     phone: string;
+    agreeTerms: boolean;
+    emailRecommend?: boolean;
+    emailWatchedProperty?: boolean;
+    emailWatchedCommunity?: boolean;
+    emailWatchedArea?: boolean;
+    pushWatchedProperty?: boolean;
   }) => Promise<{ ok: boolean; error?: string; detail?: string }>;
   signOut: () => Promise<void>;
   refresh: () => Promise<AuthUser | null>;

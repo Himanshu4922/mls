@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Modal } from "@/components/ui/Modal";
@@ -27,6 +28,9 @@ import {
  * Sign in / register dialog.
  *
  * Mirrors HomeAtlasUI's AuthModal visually, wired to mls-v2 `/api/auth/`.
+ * Signup includes Terms agreement and an expandable Notification Preferences
+ * accordion (email + push) that is persisted on register.
+ *
  * Two behaviours the reference could not have, because it had no backend:
  *  - registration ends in a "check your email" state (the API returns no tokens
  *    and the account stays inactive until the emailed link is opened)
@@ -47,6 +51,20 @@ type FieldName = "name" | "email" | "phone" | "password";
 type Errors = Partial<Record<FieldName, string>>;
 
 const EMPTY_FORM = { name: "", email: "", phone: "", password: "" };
+
+const DEFAULT_EMAIL_NOTIFS = {
+  recommend: true,
+  watchedProperty: true,
+  watchedCommunity: true,
+  watchedArea: true,
+};
+
+const EMAIL_NOTIF_ROWS = [
+  ["recommend", "Recommend"],
+  ["watchedProperty", "Watched property"],
+  ["watchedCommunity", "Watched community"],
+  ["watchedArea", "Watched area"],
+] as const;
 
 const MODE_TABS: Array<{ id: AuthMode; label: string }> = [
   { id: "signup", label: "Sign up" },
@@ -69,6 +87,12 @@ export function AuthModal() {
   // otherwise wipe it in the same render that opens the dialog.
   const [redirectError, setRedirectError] = useState(readRedirectError);
 
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [termsError, setTermsError] = useState<string | null>(null);
+  const [notifExpanded, setNotifExpanded] = useState(false);
+  const [emailNotifs, setEmailNotifs] = useState(DEFAULT_EMAIL_NOTIFS);
+  const [pushWatchedProperty, setPushWatchedProperty] = useState(true);
+
   const isSignup = mode === "signup";
 
   // Reset transient state whenever the dialog opens or the caller switches mode.
@@ -88,6 +112,11 @@ export function AuthModal() {
       setValues(EMPTY_FORM);
       setErrors({});
       setTouched({});
+      setAgreeTerms(false);
+      setTermsError(null);
+      setNotifExpanded(false);
+      setEmailNotifs(DEFAULT_EMAIL_NOTIFS);
+      setPushWatchedProperty(true);
     }
   }
 
@@ -108,6 +137,7 @@ export function AuthModal() {
     setError(null);
     setNotice(null);
     setUnverifiedEmail(null);
+    setTermsError(null);
     // Password rules differ between modes, so a stale error would be misleading.
     setErrors({});
     setTouched({});
@@ -163,12 +193,22 @@ export function AuthModal() {
       if (message) found[name] = message;
     }
 
-    if (Object.keys(found).length > 0) {
+    if (isSignup && !agreeTerms) {
+      setTermsError("Please agree to the Terms & Conditions and Privacy Policy.");
+    } else {
+      setTermsError(null);
+    }
+
+    if (Object.keys(found).length > 0 || (isSignup && !agreeTerms)) {
       setErrors(found);
       setTouched(Object.fromEntries(names.map((n) => [n, true])));
       // Move focus to the first problem so keyboard and screen-reader users are
       // not left guessing why submit did nothing.
-      document.getElementById(`auth-${names.find((n) => found[n])}`)?.focus();
+      if (Object.keys(found).length > 0) {
+        document.getElementById(`auth-${names.find((n) => found[n])}`)?.focus();
+      } else {
+        document.getElementById("auth-agree-terms")?.focus();
+      }
       return;
     }
 
@@ -192,6 +232,12 @@ export function AuthModal() {
       email,
       password: values.password,
       phone: values.phone.trim(),
+      agreeTerms: true,
+      emailRecommend: emailNotifs.recommend,
+      emailWatchedProperty: emailNotifs.watchedProperty,
+      emailWatchedCommunity: emailNotifs.watchedCommunity,
+      emailWatchedArea: emailNotifs.watchedArea,
+      pushWatchedProperty,
     });
 
     if (!result.ok) {
@@ -369,6 +415,125 @@ export function AuthModal() {
 
             {isSignup && values.password.length > 0 && !shown("password") && (
               <StrengthMeter strength={passwordStrength(values.password)} />
+            )}
+
+            {isSignup && (
+              <>
+                <label className="flex cursor-pointer items-start gap-3">
+                  <input
+                    id="auth-agree-terms"
+                    type="checkbox"
+                    checked={agreeTerms}
+                    onChange={(event) => {
+                      setAgreeTerms(event.target.checked);
+                      if (event.target.checked) setTermsError(null);
+                    }}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-navy)]"
+                    aria-invalid={termsError ? true : undefined}
+                    aria-describedby={termsError ? "auth-agree-terms-error" : undefined}
+                  />
+                  <span className="text-caption leading-relaxed text-ink-muted">
+                    I agree to the{" "}
+                    <Link
+                      href="/terms"
+                      target="_blank"
+                      className="font-medium text-navy underline underline-offset-2 hover:text-gold"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      Terms &amp; Conditions
+                    </Link>{" "}
+                    and{" "}
+                    <Link
+                      href="/privacy"
+                      target="_blank"
+                      className="font-medium text-navy underline underline-offset-2 hover:text-gold"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      Privacy Policy
+                    </Link>
+                  </span>
+                </label>
+                {termsError && (
+                  <p id="auth-agree-terms-error" className="-mt-2 text-caption text-negative" role="alert">
+                    {termsError}
+                  </p>
+                )}
+
+                <div className="overflow-hidden rounded-control border border-line">
+                  <button
+                    type="button"
+                    onClick={() => setNotifExpanded((open) => !open)}
+                    className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-surface-alt"
+                    aria-expanded={notifExpanded}
+                  >
+                    <span className="text-caption font-semibold text-ink">
+                      Notification Preferences
+                    </span>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      className={cn(
+                        "text-ink-muted transition-transform",
+                        notifExpanded && "rotate-180",
+                      )}
+                      aria-hidden="true"
+                    >
+                      <path d="M6 9l6 6 6-6" />
+                    </svg>
+                  </button>
+
+                  {notifExpanded && (
+                    <div className="border-t border-line px-4 pb-4">
+                      <p className="mt-3 mb-4 text-[11px] leading-relaxed text-ink-muted">
+                        This changes how you would like to receive notifications.
+                      </p>
+
+                      <div className="mb-4">
+                        <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+                          Email
+                        </p>
+                        <div className="space-y-2">
+                          {EMAIL_NOTIF_ROWS.map(([key, label]) => (
+                            <label key={key} className="flex cursor-pointer items-center gap-2.5">
+                              <input
+                                type="checkbox"
+                                checked={emailNotifs[key]}
+                                onChange={(event) =>
+                                  setEmailNotifs((prev) => ({
+                                    ...prev,
+                                    [key]: event.target.checked,
+                                  }))
+                                }
+                                className="h-3.5 w-3.5 accent-[var(--color-navy)]"
+                              />
+                              <span className="text-caption text-ink-muted">{label}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div>
+                        <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+                          Push Notification
+                        </p>
+                        <label className="flex cursor-pointer items-center gap-2.5">
+                          <input
+                            type="checkbox"
+                            checked={pushWatchedProperty}
+                            onChange={(event) => setPushWatchedProperty(event.target.checked)}
+                            className="h-3.5 w-3.5 accent-[var(--color-navy)]"
+                          />
+                          <span className="text-caption text-ink-muted">Watched property</span>
+                        </label>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
 
             <Button type="submit" variant="primary" block loading={pending}>

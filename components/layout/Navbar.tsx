@@ -212,6 +212,14 @@ export function Navbar({
             >
               Watched{favorites.length > 0 ? ` (${favorites.length})` : ""}
             </Link>
+            {user && (
+              <Link
+                href="/account"
+                className="block border-b border-line-soft py-3.5 text-small font-medium text-ink hover:text-gold"
+              >
+                Account settings
+              </Link>
+            )}
 
             <div className="flex gap-3 py-4">
               <LinkButton
@@ -286,6 +294,9 @@ function UserMenu({
           </div>
           <MenuItem href="/watched" LinkComponent={Link} onSelect={close}>
             Saved homes
+          </MenuItem>
+          <MenuItem href="/account" LinkComponent={Link} onSelect={close}>
+            Account settings
           </MenuItem>
           {/* Only rendered for Studio users. This is convenience, not security —
               the route and its API guard themselves server-side. */}

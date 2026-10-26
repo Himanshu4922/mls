@@ -36,16 +36,40 @@ export function loginRequest(input: { email: string; password: string }) {
   });
 }
 
-export function registerRequest(input: {
+export type RegisterInput = {
   name: string;
   email: string;
   password: string;
   phone: string;
-}) {
+  agreeTerms: boolean;
+  emailRecommend?: boolean;
+  emailWatchedProperty?: boolean;
+  emailWatchedCommunity?: boolean;
+  emailWatchedArea?: boolean;
+  pushWatchedProperty?: boolean;
+};
+
+export function registerRequest(input: RegisterInput) {
   return fetchJson<{ detail?: string }>("/api/auth/register", {
     method: "POST",
     body: input,
     fallback: "Registration failed.",
+  });
+}
+
+export function updateProfileRequest(input: {
+  name?: string;
+  email?: string;
+  phone?: string;
+}) {
+  return fetchJson<{
+    user?: AuthUser | null;
+    emailVerificationSent?: boolean;
+    detail?: string;
+  }>("/api/auth/profile", {
+    method: "PATCH",
+    body: input,
+    fallback: "Could not update profile.",
   });
 }
 

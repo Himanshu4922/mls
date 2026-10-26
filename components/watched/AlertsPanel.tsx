@@ -28,7 +28,8 @@ const SAVED_HOME_ROWS: AlertRow[] = [
   { key: "statusUpdates", label: "Status changes", hint: "Sold, de-listed or back on the market" },
 ];
 
-export function AlertsPanel({ overview }: WatchedPanelProps) {
+/** Accepts the full watched-panel props or just `overview` (account settings). */
+export function AlertsPanel({ overview }: Pick<WatchedPanelProps, "overview">) {
   // Optimistic: the mutation patches the shared overview cache, which is what
   // `overview` renders from, and rolls it back if the save fails.
   const update = useUpdateAlertPrefs();

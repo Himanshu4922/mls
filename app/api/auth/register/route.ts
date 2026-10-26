@@ -9,9 +9,26 @@ import { apiFetch, ApiError } from "@/lib/api/client";
  * NOTE: registration does NOT return tokens. The backend creates the user with
  * is_active=False and emails a 24h verification link, so the UI must show a
  * "check your email" state rather than treating sign-up as signed-in.
+ *
+ * Notification prefs from the signup accordion are forwarded so they land on
+ * UserAlertPreference before the user can call the authenticated prefs API.
  */
+
+type RegisterBody = {
+  name?: string;
+  email?: string;
+  password?: string;
+  phone?: string;
+  agreeTerms?: boolean;
+  emailRecommend?: boolean;
+  emailWatchedProperty?: boolean;
+  emailWatchedCommunity?: boolean;
+  emailWatchedArea?: boolean;
+  pushWatchedProperty?: boolean;
+};
+
 export async function POST(request: Request) {
-  let body: { name?: string; email?: string; password?: string; phone?: string };
+  let body: RegisterBody;
   try {
     body = await request.json();
   } catch {
@@ -28,10 +45,30 @@ export async function POST(request: Request) {
     );
   }
 
+  if (body.agreeTerms !== true) {
+    return NextResponse.json(
+      { error: "You must agree to the Terms & Conditions and Privacy Policy." },
+      { status: 400 },
+    );
+  }
+
+  const payload = {
+    name: body.name,
+    email: body.email,
+    password: body.password,
+    phone: body.phone,
+    agree_terms: true,
+    email_recommend: body.emailRecommend ?? true,
+    email_watched_property: body.emailWatchedProperty ?? true,
+    email_watched_community: body.emailWatchedCommunity ?? true,
+    email_watched_area: body.emailWatchedArea ?? true,
+    push_watched_property: body.pushWatchedProperty ?? true,
+  };
+
   try {
     const result = await apiFetch<{ detail?: string }>("/api/auth/register/", {
       method: "POST",
-      body,
+      body: payload,
     });
     return NextResponse.json({
       detail: result?.detail ?? "Check your email to verify your account.",
