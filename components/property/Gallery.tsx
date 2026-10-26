@@ -144,9 +144,9 @@ export function Gallery({
           role="dialog"
           aria-modal="true"
           aria-label={`Photo ${index + 1} of ${count} for ${address}`}
-          className="fixed inset-0 z-[250] flex flex-col bg-ink/95"
+          className="fixed inset-0 z-[250] flex h-dvh max-h-dvh flex-col overflow-hidden bg-ink/95"
         >
-          <div className="flex items-center justify-between px-5 py-4 text-white">
+          <div className="flex shrink-0 items-center justify-between px-5 py-4 text-white">
             <p className="text-small tabular-nums">
               {index + 1} / {count}
             </p>
@@ -163,14 +163,18 @@ export function Gallery({
             </button>
           </div>
 
-          <LightboxSlide
-            key={`${index}-${current.url}`}
-            src={current.url}
-            alt={`${address} — photo ${index + 1}`}
-          />
+          {/* min-h-0 is required so the flex child can shrink below the image's
+              intrinsic height — otherwise tall flyers push the nav off-screen. */}
+          <div className="min-h-0 flex-1">
+            <LightboxSlide
+              key={`${index}-${current.url}`}
+              src={current.url}
+              alt={`${address} — photo ${index + 1}`}
+            />
+          </div>
 
           {count > 1 && (
-            <div className="flex items-center justify-center gap-4 py-5">
+            <div className="flex shrink-0 items-center justify-between px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
               <GalleryNav label="Previous photo" onClick={() => go(-1)} direction="left" />
               <GalleryNav label="Next photo" onClick={() => go(1)} direction="right" />
             </div>
@@ -189,7 +193,7 @@ function LightboxSlide({ src, alt }: { src: string; alt: string }) {
   const [failed, setFailed] = useState(false);
 
   return (
-    <div className="relative flex flex-1 items-center justify-center px-4">
+    <div className="flex h-full min-h-0 w-full items-center justify-center px-4">
       {/* eslint-disable-next-line @next/next/no-img-element -- lightbox needs instant src swaps */}
       <img
         key={src}
@@ -199,7 +203,7 @@ function LightboxSlide({ src, alt }: { src: string; alt: string }) {
         fetchPriority="high"
         onError={() => setFailed(true)}
         className={cn(
-          "max-h-full max-w-full object-contain",
+          "h-auto w-auto max-h-full max-w-full object-contain",
           failed && "hidden",
         )}
       />
@@ -225,7 +229,7 @@ function GalleryNav({
       onClick={onClick}
       aria-label={label}
       className={cn(
-        "flex h-11 w-11 items-center justify-center rounded-full border border-white/25 text-white",
+        "flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-ink/40 text-white backdrop-blur-sm",
         "transition-colors hover:bg-white/10",
       )}
     >
