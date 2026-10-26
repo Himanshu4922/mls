@@ -10,6 +10,9 @@ import type { PropertyImage } from "@/lib/types/domain";
  * Photo gallery with a lightbox.
  *
  * Keyboard: arrows move between photos, Escape closes the lightbox.
+ * Lightbox swaps use a keyed <img> (not next/image) so the counter and the
+ * visible photo stay in sync — next/image was keeping the previous frame
+ * painted while the index advanced.
  */
 export function Gallery({
   images,
@@ -26,6 +29,7 @@ export function Gallery({
 
   const go = useCallback(
     (delta: number) => {
+      if (count <= 1) return;
       setIndex((current) => (current + delta + count) % count);
     },
     [count],
@@ -35,12 +39,30 @@ export function Gallery({
     if (!lightbox) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setLightbox(false);
-      if (event.key === "ArrowRight") go(1);
-      if (event.key === "ArrowLeft") go(-1);
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        go(1);
+      }
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        go(-1);
+      }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [lightbox, go]);
+
+  // Warm the neighbours so next/prev paints immediately.
+  useEffect(() => {
+    if (!lightbox || count <= 1) return;
+    for (const offset of [-2, -1, 1, 2]) {
+      const target = images[(index + offset + count) % count]?.url;
+      if (!target || typeof window === "undefined") continue;
+      const preload = new window.Image();
+      preload.decoding = "async";
+      preload.src = target;
+    }
+  }, [lightbox, index, count, images]);
 
   if (count === 0) {
     return (
@@ -50,12 +72,17 @@ export function Gallery({
     );
   }
 
+  const current = images[index] ?? images[0];
+
   return (
     <>
       <div className="grid gap-2 sm:grid-cols-[2fr_1fr]">
         <button
           type="button"
-          onClick={() => setLightbox(true)}
+          onClick={() => {
+            setIndex(0);
+            setLightbox(true);
+          }}
           className="relative h-[220px] overflow-hidden rounded-surface bg-surface-alt sm:h-[300px] lg:h-[380px]"
           aria-label={`View photo 1 of ${count} full screen`}
         >
@@ -77,24 +104,25 @@ export function Gallery({
               const shown = Math.min(count - 1, 4);
               const isLast = i === shown - 1;
               const remaining = count - 1 - shown;
+              const photoIndex = i + 1;
               return (
                 <button
-                  key={image.url}
+                  key={`${photoIndex}-${image.url}`}
                   type="button"
                   onClick={() => {
-                    setIndex(i + 1);
+                    setIndex(photoIndex);
                     setLightbox(true);
                   }}
                   className="relative overflow-hidden rounded-surface bg-surface-alt"
                   aria-label={
                     isLast && remaining > 0
                       ? `View all ${count} photos full screen`
-                      : `View photo ${i + 2} of ${count} full screen`
+                      : `View photo ${photoIndex + 1} of ${count} full screen`
                   }
                 >
                   <SafeImage
                     src={image.url}
-                    alt={`${address} — photo ${i + 2}`}
+                    alt={`${address} — photo ${photoIndex + 1}`}
                     fill
                     sizes="20vw"
                     className="object-cover transition-transform duration-500 hover:scale-[1.02]"
@@ -119,7 +147,7 @@ export function Gallery({
           className="fixed inset-0 z-[250] flex flex-col bg-ink/95"
         >
           <div className="flex items-center justify-between px-5 py-4 text-white">
-            <p className="text-small">
+            <p className="text-small tabular-nums">
               {index + 1} / {count}
             </p>
             <button
@@ -135,15 +163,11 @@ export function Gallery({
             </button>
           </div>
 
-          <div className="relative flex-1">
-            <SafeImage
-              src={images[index].url}
-              alt={`${address} — photo ${index + 1}`}
-              fill
-              sizes="100vw"
-              className="object-contain"
-            />
-          </div>
+          <LightboxSlide
+            key={`${index}-${current.url}`}
+            src={current.url}
+            alt={`${address} — photo ${index + 1}`}
+          />
 
           {count > 1 && (
             <div className="flex items-center justify-center gap-4 py-5">
@@ -154,6 +178,35 @@ export function Gallery({
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * Native <img> keyed per slide. Avoids next/image holding the previous bitmap
+ * while a new remote listing photo streams in.
+ */
+function LightboxSlide({ src, alt }: { src: string; alt: string }) {
+  const [failed, setFailed] = useState(false);
+
+  return (
+    <div className="relative flex flex-1 items-center justify-center px-4">
+      {/* eslint-disable-next-line @next/next/no-img-element -- lightbox needs instant src swaps */}
+      <img
+        key={src}
+        src={src}
+        alt={alt}
+        decoding="async"
+        fetchPriority="high"
+        onError={() => setFailed(true)}
+        className={cn(
+          "max-h-full max-w-full object-contain",
+          failed && "hidden",
+        )}
+      />
+      {failed && (
+        <p className="text-small text-white/70">This photo couldn&apos;t be loaded.</p>
+      )}
+    </div>
   );
 }
 

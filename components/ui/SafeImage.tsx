@@ -25,11 +25,14 @@ export function SafeImage({ src, alt, unoptimized, onError, ...props }: SafeImag
   // Remembers WHICH source failed, so a new `src` gets its own attempt.
   const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const usable = src && src !== failedSrc ? src : null;
+  // Remount when the URL changes so next/image can't keep a stale bitmap.
+  const imageKey = usable ?? "placeholder";
 
   if (!usable) {
     return (
       <Image
         {...props}
+        key={imageKey}
         src={PLACEHOLDER_IMAGE}
         // An SVG gains nothing from the optimiser.
         unoptimized
@@ -41,6 +44,7 @@ export function SafeImage({ src, alt, unoptimized, onError, ...props }: SafeImag
   return (
     <Image
       {...props}
+      key={imageKey}
       src={usable}
       alt={alt}
       unoptimized={unoptimized ?? !isOptimizableImage(usable)}
