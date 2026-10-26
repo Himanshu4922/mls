@@ -32,15 +32,11 @@ import { formatPostal, looksLikePostal, parsePostalList } from "@/lib/utils/post
 import { STATUS_TABS } from "@/lib/utils/status";
 
 /**
- * Map search filters — same interaction model as <ListingFilters>.
+ * Map search filters.
  *
- * On the bar: keyword search, Buy/Rent, and a Filters button.
- * In a right-side sheet (full-width on phones): AI search, home type, sort,
- * save search, and the detailed filters. Applied pills stay on the bar so the
- * sheet is not the only place to see or clear them.
- *
- * Reads/writes the same ListingQuery URL params as /listings, so a search
- * moves between the two views intact.
+ * The sidebar only shows a Filters button so the property list keeps the
+ * viewport. Search, Buy/Rent, AI, type, sort, save and every detail filter
+ * live in the right-side sheet (full-width on phones).
  */
 
 const BED_OPTIONS = [1, 2, 3, 4, 5];
@@ -58,8 +54,8 @@ const BASEMENT_OPTIONS: Array<{ value: "" | NonNullable<ListingQuery["basement"]
 
 type OnQueryChange = (next: ListingQuery) => void;
 
-/** Filters drafted in the sheet and applied as one batch. */
 interface Draft {
+  search: string;
   priceMin: string;
   priceMax: string;
   city: string;
@@ -77,6 +73,7 @@ interface Draft {
 }
 
 const EMPTY_DRAFT: Draft = {
+  search: "",
   priceMin: "",
   priceMax: "",
   city: "",
@@ -102,6 +99,7 @@ function postalDraft(codes: string[] | undefined): string {
 
 function draftFromQuery(query: ListingQuery): Draft {
   return {
+    search: query.search ?? "",
     priceMin: str(query.priceMin),
     priceMax: str(query.priceMax),
     city: query.city ?? "",
@@ -123,18 +121,18 @@ function sameDraft(a: Draft, b: Draft) {
   return (Object.keys(a) as Array<keyof Draft>).every((key) => a[key] === b[key]);
 }
 
-/** A reversed range is swapped rather than silently returning nothing. */
 function orderedRange(lo: string, hi: string): [number | undefined, number | undefined] {
   const min = num(lo);
   const max = num(hi);
   return min !== undefined && max !== undefined && min > max ? [max, min] : [min, max];
 }
 
-/** How many sheet-owned filters are in effect, for the Filters button badge. */
 function countSheetFilters(query: ListingQuery): number {
   return [
+    query.search,
     query.semantic,
     query.type,
+    query.transaction === "rent" ? "rent" : null,
     query.priceMin,
     query.priceMax,
     query.city,
@@ -149,17 +147,15 @@ function countSheetFilters(query: ListingQuery): number {
     query.yearBuiltMin,
     query.status,
     query.openHouse,
+    query.polygon?.length,
   ].filter(Boolean).length;
 }
 
-/**
- * Everything cleared except where and how you are looking: Buy/Rent, the drawn
- * area and the sort survive, since none of them is a "filter" to the user.
- */
 function clearedQuery(query: ListingQuery): ListingQuery {
   return { transaction: query.transaction, polygon: query.polygon, sort: query.sort };
 }
 
+/** Compact Filters control for the map sidebar header — sheet holds the rest. */
 export function MapFilters({
   query,
   onChange,
@@ -167,13 +163,10 @@ export function MapFilters({
   query: ListingQuery;
   onChange: OnQueryChange;
 }) {
-  const [search, setSearch] = useState(query.search ?? "");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(() => draftFromQuery(query));
   const [postalError, setPostalError] = useState<string | null>(null);
 
-  // Keep the bar search + draft in sync when the URL changes (back/forward,
-  // AI search, pill remove).
   const queryKey = [
     query.search,
     query.priceMin,
@@ -194,7 +187,6 @@ export function MapFilters({
   const [lastQueryKey, setLastQueryKey] = useState(queryKey);
   if (queryKey !== lastQueryKey) {
     setLastQueryKey(queryKey);
-    setSearch(query.search ?? "");
     setDraft(draftFromQuery(query));
     setPostalError(null);
   }
@@ -225,17 +217,6 @@ export function MapFilters({
     });
   };
 
-  const submitSearch = (event: FormEvent) => {
-    event.preventDefault();
-    const term = search.trim();
-    if (term && looksLikePostal(term)) {
-      const codes = parsePostalList([...(query.postalCodes ?? []), term].join(",")).codes;
-      onChange({ ...query, postalCodes: codes.length ? codes : undefined, search: undefined });
-      return;
-    }
-    onChange({ ...query, search: term || undefined });
-  };
-
   const openSheet = () => {
     setDraft(draftFromQuery(query));
     setPostalError(null);
@@ -248,7 +229,8 @@ export function MapFilters({
     setSheetOpen(false);
   };
 
-  const applySheet = () => {
+  const applySheet = (event?: FormEvent) => {
+    event?.preventDefault();
     const [priceMin, priceMax] = orderedRange(draft.priceMin, draft.priceMax);
     const [sqftMin, sqftMax] = orderedRange(draft.sqftMin, draft.sqftMax);
     const postal = parsePostalList(draft.postal);
@@ -258,13 +240,24 @@ export function MapFilters({
       );
       return;
     }
+
+    const term = draft.search.trim();
+    let search: string | undefined = term || undefined;
+    let postalCodes = postal.codes.length ? postal.codes : undefined;
+    if (term && looksLikePostal(term)) {
+      const codes = parsePostalList([...(postalCodes ?? []), term].join(",")).codes;
+      postalCodes = codes.length ? codes : undefined;
+      search = undefined;
+    }
+
     setPostalError(null);
     onChange({
       ...query,
+      search,
       priceMin,
       priceMax,
       city: draft.city.trim() || undefined,
-      postalCodes: postal.codes.length ? postal.codes : undefined,
+      postalCodes,
       bedsMin: num(draft.beds),
       bathsMin: num(draft.baths),
       sqftMin,
@@ -280,92 +273,90 @@ export function MapFilters({
   };
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <form
-          onSubmit={submitSearch}
-          className="flex min-w-0 flex-[1_1_100%] items-center gap-2 sm:flex-[1_1_auto]"
-        >
-          <SearchInput
-            label="Search by address, city, postal code or MLS number"
-            value={search}
-            onValueChange={setSearch}
-            placeholder="Address, city, postal or MLS…"
-            className="min-w-0 flex-1"
-          />
-          <Button type="submit" variant="primary" size="md" className="shrink-0">
-            Search
-          </Button>
-        </form>
-
-        <div role="group" aria-label="Buy or rent" className="flex shrink-0 gap-2">
-          <ChipToggle active={!rent} onClick={() => setRent(false)}>
-            Buy
-          </ChipToggle>
-          <ChipToggle active={rent} onClick={() => setRent(true)}>
-            Rent
-          </ChipToggle>
-        </div>
-
-        <Button
-          variant="secondary"
-          size="md"
-          aria-expanded={sheetOpen}
-          aria-controls="map-filter-sheet"
-          onClick={openSheet}
-          className="shrink-0"
-        >
-          <FilterIcon />
-          <span className="ml-1.5">Filters</span>
-          {sheetFilterCount > 0 && (
-            <span className="ml-1.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-navy px-1.5 text-[11px] font-semibold text-white">
-              {sheetFilterCount}
-            </span>
-          )}
-        </Button>
-      </div>
-
-      {pills.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-caption text-ink-muted">Applied:</span>
-          {pills}
-          <button
-            type="button"
-            onClick={() => onChange(clearedQuery(query))}
-            className="text-caption font-medium text-ink-muted underline underline-offset-2 transition-colors hover:text-ink"
-          >
-            Clear all
-          </button>
-        </div>
-      )}
+    <>
+      <Button
+        variant="secondary"
+        size="md"
+        aria-expanded={sheetOpen}
+        aria-controls="map-filter-sheet"
+        onClick={openSheet}
+        className="shrink-0"
+      >
+        <FilterIcon />
+        <span className="ml-1.5">Filters</span>
+        {sheetFilterCount > 0 && (
+          <span className="ml-1.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-navy px-1.5 text-[11px] font-semibold text-white">
+            {sheetFilterCount}
+          </span>
+        )}
+      </Button>
 
       <SideSheet
         open={sheetOpen}
         onClose={closeSheet}
-        title="Filters & tools"
-        description="AI search, home type, sort and detailed filters."
+        title="Search & filters"
+        description="Find homes on the map. Apply when you are ready."
         footer={
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="md"
               className="shrink-0"
-              onClick={() => setDraft(EMPTY_DRAFT)}
-              disabled={sameDraft(draft, EMPTY_DRAFT)}
+              onClick={() => {
+                setDraft(EMPTY_DRAFT);
+                onChange(clearedQuery(query));
+              }}
             >
-              Reset
+              Clear all
             </Button>
             <Button variant="secondary" size="md" className="flex-1" onClick={closeSheet}>
               Cancel
             </Button>
-            <Button variant="primary" size="md" className="flex-1" onClick={applySheet}>
+            <Button variant="primary" size="md" className="flex-1" onClick={() => applySheet()}>
               {dirty ? "Show homes" : "Done"}
             </Button>
           </div>
         }
       >
-        <div id="map-filter-sheet" className="space-y-8">
+        <form id="map-filter-sheet" className="space-y-8" onSubmit={applySheet}>
           <section className="space-y-3">
+            <div className="space-y-1.5">
+              <span className="block text-small font-medium text-ink">Keyword search</span>
+              <SearchInput
+                label="Search by address, city, postal code or MLS number"
+                value={draft.search}
+                onValueChange={(value) => setDraft((d) => ({ ...d, search: value }))}
+                placeholder="Address, city, postal or MLS…"
+              />
+            </div>
+
+            <div role="group" aria-label="Buy or rent" className="flex flex-wrap gap-2">
+              <ChipToggle active={!rent} onClick={() => setRent(false)}>
+                Buy
+              </ChipToggle>
+              <ChipToggle active={rent} onClick={() => setRent(true)}>
+                Rent
+              </ChipToggle>
+            </div>
+          </section>
+
+          {pills.length > 0 && (
+            <section className="space-y-2 border-t border-line pt-6">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-small font-semibold text-ink">Applied</h3>
+                <button
+                  type="button"
+                  onClick={() => onChange(clearedQuery(query))}
+                  className="text-caption font-medium text-ink-muted underline underline-offset-2 transition-colors hover:text-ink"
+                >
+                  Clear all
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1.5">{pills}</div>
+            </section>
+          )}
+
+          <section className="space-y-3 border-t border-line pt-6">
             <AiSearchBox
               variant="panel"
               basePath="/map-search"
@@ -436,9 +427,9 @@ export function MapFilters({
               clearPostalError={() => setPostalError(null)}
             />
           </section>
-        </div>
+        </form>
       </SideSheet>
-    </div>
+    </>
   );
 }
 
@@ -506,7 +497,6 @@ function FilterFields({
           autoComplete="postal-code"
           value={draft.postal}
           aria-invalid={postalError ? true : undefined}
-          aria-describedby={postalError ? "map-sheet-postal-error" : "map-sheet-postal-hint"}
           onChange={(event) => {
             clearPostalError();
             setDraft((d) => ({ ...d, postal: event.target.value }));
@@ -672,17 +662,11 @@ function ChipField({
   );
 }
 
-/** Every applied filter the Buy/Rent chips do not already show, each removable. */
 function appliedPills(query: ListingQuery, onChange: OnQueryChange): ReactNode[] {
   const pills: ReactNode[] = [];
-  const add = (key: string, label: string, next: Partial<ListingQuery>, icon?: ReactNode) =>
+  const add = (key: string, label: string, next: Partial<ListingQuery>) =>
     pills.push(
-      <FilterPill
-        key={key}
-        label={label}
-        icon={icon}
-        onRemove={() => onChange({ ...query, ...next })}
-      />,
+      <FilterPill key={key} label={label} onRemove={() => onChange({ ...query, ...next })} />,
     );
   const rent = query.transaction === "rent";
   const money = (value: number) => (rent ? `${formatPrice(value)}/mo` : formatPrice(value));
@@ -694,11 +678,12 @@ function appliedPills(query: ListingQuery, onChange: OnQueryChange): ReactNode[]
     });
   }
   if (query.search) add("q", `"${query.search}"`, { search: undefined });
+  if (rent) add("tx", "For rent", { transaction: "sale", priceMin: undefined, priceMax: undefined });
   if (query.type) add("type", query.type, { type: undefined });
   if (query.city) add("city", query.city, { city: undefined });
   for (const code of query.postalCodes ?? []) {
     const rest = query.postalCodes!.filter((c) => c !== code);
-    add(`postal-${code}`, formatPostal(code), { postalCodes: rest.length ? rest : undefined }, <PinIcon />);
+    add(`postal-${code}`, formatPostal(code), { postalCodes: rest.length ? rest : undefined });
   }
   if (query.priceMin && query.priceMax) {
     add("price", `${money(query.priceMin)} – ${money(query.priceMax)}`, {
@@ -746,18 +731,9 @@ function statusLabel(status: string, rent: boolean): string {
   return tab.label;
 }
 
-function FilterPill({
-  label,
-  icon,
-  onRemove,
-}: {
-  label: string;
-  icon?: ReactNode;
-  onRemove: () => void;
-}) {
+function FilterPill({ label, onRemove }: { label: string; onRemove: () => void }) {
   return (
     <span className="inline-flex items-center gap-1 rounded-full border border-line bg-surface py-1 pl-3 pr-1 text-caption text-ink">
-      {icon}
       {label}
       <button
         type="button"
@@ -787,20 +763,6 @@ function FilterIcon() {
         strokeWidth="1.8"
         strokeLinecap="round"
       />
-    </svg>
-  );
-}
-
-function PinIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 18 18" fill="none" aria-hidden="true" className="text-ink-muted">
-      <path
-        d="M9 16.5s5.25-4.5 5.25-9a5.25 5.25 0 1 0-10.5 0c0 4.5 5.25 9 5.25 9Z"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-      />
-      <circle cx="9" cy="7.5" r="1.9" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   );
 }

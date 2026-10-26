@@ -446,34 +446,33 @@ export function MapSearch() {
         )}
       </div>
 
-      <aside className="flex h-1/2 w-full flex-col overflow-hidden border-t border-line lg:h-full lg:w-2/5 lg:border-l lg:border-t-0">
-        <header className="space-y-3 border-b border-line px-5 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="min-w-0">
-              <h1 className="text-h3 text-ink">Map search</h1>
-              <p className="mt-0.5 text-caption text-ink-muted" aria-live="polite">
-                {countLabel}
-              </p>
-            </div>
-            {/* Return path for the listings view toggle, carrying the search. */}
-            <Link
-              href={listingsHref}
-              className="flex h-11 shrink-0 items-center gap-1.5 rounded-control border border-line bg-surface px-3 text-small font-medium text-ink transition-colors hover:border-navy hover:text-navy"
-            >
-              <svg width="14" height="14" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-                <path
-                  d="M14.25 9H3.75M9 14.25 3.75 9 9 3.75"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.5"
-                />
-              </svg>
-              Listings
-            </Link>
+      <aside className="flex h-1/2 min-h-0 w-full flex-col overflow-hidden border-t border-line lg:h-full lg:w-2/5 lg:border-l lg:border-t-0">
+        {/* One compact row only — search and filters live in the sheet so the
+            list keeps almost the whole half-screen on phones. */}
+        <header className="flex shrink-0 items-center gap-2 border-b border-line px-4 py-2.5 sm:px-5 sm:py-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-small font-semibold text-ink sm:text-h3">Map search</h1>
+            <p className="truncate text-caption text-ink-muted" aria-live="polite">
+              {countLabel}
+            </p>
           </div>
-
           <MapFilters query={query} onChange={pushQuery} />
+          {/* Return path for the listings view toggle, carrying the search. */}
+          <Link
+            href={listingsHref}
+            className="flex h-10 shrink-0 items-center gap-1.5 rounded-control border border-line bg-surface px-2.5 text-caption font-medium text-ink transition-colors hover:border-navy hover:text-navy sm:h-11 sm:px-3 sm:text-small"
+          >
+            <svg width="14" height="14" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+              <path
+                d="M14.25 9H3.75M9 14.25 3.75 9 9 3.75"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="1.5"
+              />
+            </svg>
+            Listings
+          </Link>
         </header>
 
         <ul
