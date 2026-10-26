@@ -20,13 +20,9 @@ import { ArrowGlyph } from "./sectionIcons";
 /**
  * "Market Intelligence, Made Useful." — HomeAtlasUI HomePage L753-831.
  *
- * The snapshot and sold teaser are LIVE from `/api/home/market-snapshot/`
- * (GTA residential sales over a rolling 30 days vs the 30 before, refreshed
- * by a backend job) with an "As of" line. If that feed is down or empty, the
- * reference's sample figures render instead. The
- * report links open the live /market-trends page for that city; the
- * reference labelled them "<City> Q3 2024 Report", but the destination shows
- * current data, not a dated report, so the period is dropped from the label.
+ * Heading sits above the cards (not in a tall empty left column). Snapshot and
+ * sold teaser are LIVE from `/api/home/market-snapshot/`; report links open
+ * /market-trends for that city.
  */
 export async function MarketIntelligence({ content }: { content?: Record<string, unknown> }) {
   const snapshot = await getMarketSnapshot();
@@ -58,8 +54,8 @@ export async function MarketIntelligence({ content }: { content?: Record<string,
 
   return (
     <Section tone="alt">
-      <div className="grid items-start gap-8 lg:grid-cols-2 lg:gap-16">
-        <div>
+      <div className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-end sm:justify-between">
+        <div className="max-w-xl">
           <Eyebrow>{textOf(content, "eyebrow", "Know before you move")}</Eyebrow>
           <h2 className="mt-2 text-display text-ink">
             {headingLines(textOf(content, "title", "Market Intelligence,\nMade Useful.")).map((line, index) => (
@@ -70,80 +66,77 @@ export async function MarketIntelligence({ content }: { content?: Record<string,
             ))}
           </h2>
         </div>
+        <Link
+          href="/market-trends"
+          className="inline-flex shrink-0 items-center gap-1.5 text-small font-medium text-navy transition-colors hover:text-gold-deep"
+        >
+          Explore market trends
+          <ArrowGlyph className="text-current" />
+        </Link>
+      </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-surface bg-surface p-5 shadow-card sm:col-span-2">
-            <h3 className="mb-4 text-h3 text-ink">GTA Market Snapshot</h3>
-            <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {stats.map((stat) => (
-                <div
-                  key={stat.label}
-                  className="rounded-control bg-surface-alt p-3"
-                >
-                  <dt className="mb-1 text-caption text-ink-muted">
-                    {stat.label}
-                  </dt>
-                  <dd className="text-h3 text-ink">{stat.value}</dd>
-                  {stat.change && (
-                    <dd
-                      className={`mt-0.5 text-caption font-medium ${stat.up ? "text-gold-deep" : "text-navy"}`}
-                    >
-                      {stat.change}
-                    </dd>
-                  )}
-                </div>
-              ))}
-            </dl>
-            <p className="mt-3 text-caption text-ink-subtle">
-              {live && snapshot
-                ? `GTA residential sales · As of ${formatDate(snapshot.asOf)}${snapshot.stale ? " (updating)" : ""}`
-                : "Sample figures for illustration"}
-            </p>
-          </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="rounded-surface bg-surface p-5 shadow-card lg:col-span-2">
+          <h3 className="mb-4 text-h3 text-ink">GTA Market Snapshot</h3>
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            {stats.map((stat) => (
+              <div key={stat.label} className="rounded-control bg-surface-alt p-3">
+                <dt className="mb-1 text-caption text-ink-muted">{stat.label}</dt>
+                <dd className="text-h3 text-ink">{stat.value}</dd>
+                {stat.change && (
+                  <dd
+                    className={`mt-0.5 text-caption font-medium ${stat.up ? "text-gold-deep" : "text-navy"}`}
+                  >
+                    {stat.change}
+                  </dd>
+                )}
+              </div>
+            ))}
+          </dl>
+          <p className="mt-3 text-caption text-ink-subtle">
+            {live && snapshot
+              ? `GTA residential sales · As of ${formatDate(snapshot.asOf)}${snapshot.stale ? " (updating)" : ""}`
+              : "Sample figures for illustration"}
+          </p>
+        </div>
 
-          <div className="rounded-surface bg-surface p-5 shadow-card">
-            <h3 className="mb-3 text-h3 text-ink">Local Market Reports</h3>
-            <ul className="space-y-2.5">
+        <div className="rounded-surface bg-ink p-5 text-white">
+          <Eyebrow className="mb-2">Sold data</Eyebrow>
+          <h3 className="mb-3 text-h3 text-white">Past Sales in Your Area</h3>
+          <dl className="mb-4 space-y-2">
+            {teaser.map((row) => (
+              <div key={row.label} className="flex justify-between text-caption">
+                <dt className="text-white/60">{row.label}</dt>
+                <dd className={row.highlight ? "font-medium text-gold" : "font-medium"}>
+                  {row.value}
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <Link
+            href={buildListingHref({ status: "Sold" })}
+            className="inline-flex items-center gap-1 text-small font-medium text-gold transition-all hover:gap-2"
+          >
+            Browse Sold Properties →
+          </Link>
+        </div>
+
+        <div className="rounded-surface bg-surface p-5 shadow-card lg:col-span-3">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <h3 className="text-h3 text-ink">Local Market Reports</h3>
+            <ul className="flex flex-wrap gap-x-6 gap-y-2">
               {marketReportCities.map((city) => (
                 <li key={city}>
                   <Link
                     href={`/market-trends?city=${encodeURIComponent(city)}`}
-                    className="group flex w-full items-center justify-between text-small text-ink transition-colors hover:text-gold-deep"
+                    className="group inline-flex items-center gap-1.5 text-small text-ink transition-colors hover:text-gold-deep"
                   >
-                    <span>{city} Market Report</span>
+                    <span>{city}</span>
                     <ArrowGlyph className="text-ink-muted group-hover:text-gold-deep" />
                   </Link>
                 </li>
               ))}
             </ul>
-          </div>
-
-          <div className="rounded-surface bg-ink p-5 text-white">
-            <Eyebrow className="mb-2">Sold data</Eyebrow>
-            <h3 className="mb-3 text-h3 text-white">Past Sales in Your Area</h3>
-            <dl className="mb-4 space-y-2">
-              {teaser.map((row) => (
-                <div
-                  key={row.label}
-                  className="flex justify-between text-caption"
-                >
-                  <dt className="text-white/60">{row.label}</dt>
-                  <dd
-                    className={
-                      row.highlight ? "font-medium text-gold" : "font-medium"
-                    }
-                  >
-                    {row.value}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-            <Link
-              href={buildListingHref({ status: "Sold" })}
-              className="inline-flex items-center gap-1 text-small font-medium text-gold transition-all hover:gap-2"
-            >
-              Browse Sold Properties →
-            </Link>
           </div>
         </div>
       </div>
