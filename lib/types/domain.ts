@@ -174,6 +174,14 @@ export interface ListingQuery {
   sqftMin?: number;
   sqftMax?: number;
   yearBuiltMin?: number;
+  /** Minimum garage spaces (backend `garages_min`). */
+  garagesMin?: number;
+  /** Minimum floors / stories (backend `stories_min`). */
+  storiesMin?: number;
+  /**
+   * Basement preference. URL `basement=yes|finished|unfinished|apartment|none`.
+   */
+  basement?: "yes" | "finished" | "unfinished" | "apartment" | "none";
   /**
    * Raw feed `property_sub_type` values, passed straight to the backend's
    * repeatable filter. Distinct from `type`, which is a canonical UI label

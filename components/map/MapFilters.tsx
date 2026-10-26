@@ -35,7 +35,16 @@ import { STATUS_TABS } from "@/lib/utils/status";
 
 const BED_OPTIONS = [1, 2, 3, 4, 5];
 const BATH_OPTIONS = [1, 2, 3, 4];
+const GARAGE_OPTIONS = [1, 2, 3];
+const FLOOR_OPTIONS = [1, 2, 3];
 const YEAR_OPTIONS = [2020, 2010, 2000, 1990, 1980];
+const BASEMENT_OPTIONS: Array<{ value: "" | NonNullable<ListingQuery["basement"]>; label: string }> = [
+  { value: "", label: "Any" },
+  { value: "yes", label: "Yes" },
+  { value: "finished", label: "Finished" },
+  { value: "unfinished", label: "Unfinished" },
+  { value: "apartment", label: "Apartment / walk-out" },
+];
 
 type OnQueryChange = (next: ListingQuery) => void;
 
@@ -47,6 +56,9 @@ interface Draft {
   baths: string;
   sqftMin: string;
   sqftMax: string;
+  garages: string;
+  floors: string;
+  basement: string;
   yearBuiltMin: string;
   status: string;
   openHouse: boolean;
@@ -60,6 +72,9 @@ const EMPTY_DRAFT: Draft = {
   baths: "",
   sqftMin: "",
   sqftMax: "",
+  garages: "",
+  floors: "",
+  basement: "",
   yearBuiltMin: "",
   status: "",
   openHouse: false,
@@ -77,6 +92,9 @@ function draftFromQuery(query: ListingQuery): Draft {
     baths: str(query.bathsMin),
     sqftMin: str(query.sqftMin),
     sqftMax: str(query.sqftMax),
+    garages: str(query.garagesMin),
+    floors: str(query.storiesMin),
+    basement: query.basement ?? "",
     yearBuiltMin: str(query.yearBuiltMin),
     status: query.status ?? "",
     openHouse: Boolean(query.openHouse),
@@ -104,6 +122,9 @@ export function countPanelFilters(query: ListingQuery): number {
     query.bathsMin,
     query.sqftMin,
     query.sqftMax,
+    query.garagesMin,
+    query.storiesMin,
+    query.basement,
     query.yearBuiltMin,
     query.status,
     query.openHouse,
@@ -282,6 +303,18 @@ function appliedPills(query: ListingQuery, onChange: OnQueryChange): ReactNode[]
       : `${lo}+ sq ft`;
     add("sqft", label, { sqftMin: undefined, sqftMax: undefined });
   }
+  if (query.garagesMin) add("garages", `${query.garagesMin}+ garage`, { garagesMin: undefined });
+  if (query.storiesMin) add("floors", `${query.storiesMin}+ floors`, { storiesMin: undefined });
+  if (query.basement) {
+    const labels: Record<NonNullable<ListingQuery["basement"]>, string> = {
+      yes: "Has basement",
+      finished: "Finished basement",
+      unfinished: "Unfinished basement",
+      apartment: "Basement apartment",
+      none: "No basement",
+    };
+    add("basement", labels[query.basement], { basement: undefined });
+  }
   if (query.yearBuiltMin) add("year", `Built ${query.yearBuiltMin}+`, { yearBuiltMin: undefined });
   if (query.status) add("status", statusLabel(query.status, rent), { status: undefined });
   if (query.openHouse) add("openHouse", "Open house", { openHouse: undefined });
@@ -316,8 +349,10 @@ export function MapFilterPanel({
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((d) => ({ ...d, [key]: value }));
   /** Tapping the selected chip again clears it. */
-  const toggle = (key: "beds" | "baths" | "yearBuiltMin" | "status", value: string) =>
-    setDraft((d) => ({ ...d, [key]: d[key] === value ? "" : value }));
+  const toggle = (
+    key: "beds" | "baths" | "garages" | "floors" | "yearBuiltMin" | "status",
+    value: string,
+  ) => setDraft((d) => ({ ...d, [key]: d[key] === value ? "" : value }));
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -340,6 +375,9 @@ export function MapFilterPanel({
       bathsMin: num(draft.baths),
       sqftMin,
       sqftMax,
+      garagesMin: num(draft.garages),
+      storiesMin: num(draft.floors),
+      basement: (draft.basement || undefined) as ListingQuery["basement"] | undefined,
       yearBuiltMin: num(draft.yearBuiltMin),
       status: draft.status || undefined,
       openHouse: draft.openHouse || undefined,
@@ -440,7 +478,49 @@ export function MapFilterPanel({
           </div>
         </fieldset>
 
-        <ChipGroup label="Year built">
+        <ChipGroup label="Garages">
+          <ChipToggle active={!draft.garages} onClick={() => set("garages", "")}>
+            Any
+          </ChipToggle>
+          {GARAGE_OPTIONS.map((n) => (
+            <ChipToggle
+              key={n}
+              active={draft.garages === String(n)}
+              onClick={() => toggle("garages", String(n))}
+            >
+              {n}+
+            </ChipToggle>
+          ))}
+        </ChipGroup>
+
+        <ChipGroup label="Floors">
+          <ChipToggle active={!draft.floors} onClick={() => set("floors", "")}>
+            Any
+          </ChipToggle>
+          {FLOOR_OPTIONS.map((n) => (
+            <ChipToggle
+              key={n}
+              active={draft.floors === String(n)}
+              onClick={() => toggle("floors", String(n))}
+            >
+              {n}+
+            </ChipToggle>
+          ))}
+        </ChipGroup>
+
+        <ChipGroup label="Basement">
+          {BASEMENT_OPTIONS.map((option) => (
+            <ChipToggle
+              key={option.value || "any"}
+              active={draft.basement === option.value}
+              onClick={() => set("basement", option.value)}
+            >
+              {option.label}
+            </ChipToggle>
+          ))}
+        </ChipGroup>
+
+        <ChipGroup label="Property age">
           <ChipToggle active={!draft.yearBuiltMin} onClick={() => set("yearBuiltMin", "")}>
             Any
           </ChipToggle>

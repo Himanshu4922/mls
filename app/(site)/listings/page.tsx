@@ -5,7 +5,6 @@ import { PropertyRow } from "@/components/property/PropertyRow";
 import { ViewToggle, type ListingView } from "@/components/property/ViewToggle";
 import { PendingContent, PendingNavigationProvider } from "@/components/navigation/PendingNavigation";
 import { ListingFilters } from "@/components/property/ListingFilters";
-import { AiSearchBox } from "@/components/search/AiSearchBox";
 import { AiSearchNotice } from "@/components/search/AiSearchNotice";
 import { StatusTabs, type StatusTabItem } from "@/components/search/StatusTabs";
 import { Pagination } from "@/components/ui/Pagination";
@@ -37,12 +36,12 @@ export default async function ListingsPage({ searchParams }: PageProps<"/listing
 
   return (
     <>
-      <header className="border-b border-line bg-surface-alt py-7 sm:py-10">
+      <header className="border-b border-line bg-surface-alt py-4 sm:py-10">
         <div className="container-page">
-          <h1 className="text-h1 text-ink">
+          <h1 className="text-h2 sm:text-h1 text-ink">
             {rent ? "GTA homes for rent" : "GTA homes for sale"}
           </h1>
-          <p className="mt-1 text-small text-ink-muted">
+          <p className="mt-0.5 hidden text-small text-ink-muted sm:mt-1 sm:block">
             Live MLS® data, updated daily.
           </p>
         </div>
@@ -52,12 +51,12 @@ export default async function ListingsPage({ searchParams }: PageProps<"/listing
           control updates at once and the results show a skeleton until the
           new page arrives, instead of the old results sitting there stale. */}
       <PendingNavigationProvider>
-        <div className="container-page py-8">
+        <div className="container-page py-4 sm:py-8">
           <Suspense fallback={<div className="h-24" />}>
             <FiltersSlot params={params} />
           </Suspense>
 
-          <div className="mt-8">
+          <div className="mt-4 sm:mt-8">
             <PendingContent fallback={<PropertyGridSkeleton />}>
               <Suspense key={JSON.stringify(params)} fallback={<PropertyGridSkeleton />}>
                 <Results params={params} />
@@ -99,9 +98,10 @@ async function FiltersSlot({
   return (
     <>
       <AiSearchNotice />
-      <AiSearchBox variant="inline" current={query} className="mb-5" />
       <ListingFilters resultCount={result?.total ?? 0} />
-      <ListingStatusTabs facets={facets} query={query} />
+      <div className="mt-3 sm:mt-4">
+        <ListingStatusTabs facets={facets} query={query} />
+      </div>
     </>
   );
 }

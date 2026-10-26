@@ -116,6 +116,9 @@ export function toBackendParams(query: ListingQuery, limit?: number, offset?: nu
     sqft_min: query.sqftMin,
     sqft_max: query.sqftMax,
     year_built_min: query.yearBuiltMin,
+    garages_min: query.garagesMin,
+    stories_min: query.storiesMin,
+    basement: query.basement,
     // Repeatable: buildQuery() appends one key per entry, which DRF reads via
     // getlist(). Only sent when the caller passes real feed values.
     property_sub_type: query.propertySubTypes?.length ? query.propertySubTypes : undefined,
@@ -248,6 +251,9 @@ export async function getPropertyFacets(
         sqft_min: query.sqftMin,
         sqft_max: query.sqftMax,
         year_built_min: query.yearBuiltMin,
+        garages_min: query.garagesMin,
+        stories_min: query.storiesMin,
+        basement: query.basement,
         property_sub_type: query.propertySubTypes?.length
           ? query.propertySubTypes
           : undefined,

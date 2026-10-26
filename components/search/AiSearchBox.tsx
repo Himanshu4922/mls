@@ -10,6 +10,8 @@ import type { ListingQuery } from "@/lib/types/domain";
 import { buildListingQueryString, hasActiveFilters } from "@/lib/utils/searchParams";
 import { cn } from "@/lib/utils/cn";
 
+/** Inline AI search starts collapsed on phones so listings stay above the fold. */
+
 const EXAMPLES = [
   "3 bed condo under $900K near a subway in Toronto",
   "Family home in Oakville with a big backyard and double garage",
@@ -35,11 +37,15 @@ export function AiSearchBox({
   current,
   variant = "hero",
   className,
+  onSearched,
 }: {
   basePath?: "/listings" | "/map-search";
   current?: ListingQuery;
-  variant?: "hero" | "inline";
+  /** `panel` stays expanded — for filter sheets. `inline` collapses on phones. */
+  variant?: "hero" | "inline" | "panel";
   className?: string;
+  /** Fired after a successful navigate so a parent sheet can close. */
+  onSearched?: () => void;
 }) {
   // On /listings and /map-search this shows the skeleton while results load.
   const { navigate } = usePendingNavigation();
@@ -47,9 +53,12 @@ export function AiSearchBox({
   const search = useAiSearch();
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(variant === "hero" || variant === "panel");
   const canRefine = Boolean(current && hasActiveFilters(current));
   const [keepFilters, setKeepFilters] = useState(true);
   const refining = canRefine && keepFilters;
+  const hero = variant === "hero";
+  const collapsed = variant === "inline" && !open;
 
   function go(query: ListingQuery, notice: { unsupported: string[]; fallback: boolean }, prompt: string) {
     const next: ListingQuery = {
@@ -60,6 +69,7 @@ export function AiSearchBox({
     const qs = buildListingQueryString(next);
     saveAiSearchNotice({ qs, prompt, ...notice });
     navigate(qs ? `${basePath}?${qs}` : basePath);
+    onSearched?.();
   }
 
   function submit(prompt: string) {
@@ -96,22 +106,62 @@ export function AiSearchBox({
     submit(text);
   }
 
-  const hero = variant === "hero";
   const placeholder = refining
-    ? "Refine these results — e.g. “cheaper”, “add a garage”, “only Mississauga”"
-    : "Describe your ideal home — e.g. “3 bed condo under $900K near a subway”";
+    ? variant === "panel"
+      ? "e.g. cheaper, add a garage…"
+      : "Refine these results — e.g. “cheaper”, “add a garage”, “only Mississauga”"
+    : variant === "panel"
+      ? "e.g. 3 bed condo under $900K near a subway"
+      : "Describe your ideal home — e.g. “3 bed condo under $900K near a subway”";
+
+  const multiline = hero || variant === "panel";
 
   return (
-    <form onSubmit={onSubmit} className={cn("w-full", className)} aria-busy={search.isPending}>
-      <label htmlFor={id} className={hero ? "sr-only" : "mb-1.5 flex items-center gap-1.5 text-small font-medium text-ink"}>
-        {!hero && <SparkleIcon />}
-        {refining ? "Refine with AI" : "Search with AI"}
-      </label>
-      <div className={cn("flex gap-2", hero ? "flex-col" : "flex-col sm:flex-row")}>
-        {hero ? (
+    <div className={cn("w-full min-w-0", className)}>
+      {collapsed && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex w-full items-center justify-between gap-3 rounded-control border border-line bg-surface px-3.5 py-2.5 text-left text-small text-ink transition-colors hover:border-navy sm:hidden"
+        >
+          <span className="flex items-center gap-1.5 font-medium">
+            <SparkleIcon />
+            Search with AI
+          </span>
+          <span className="text-caption text-ink-muted">Optional</span>
+        </button>
+      )}
+
+      <form
+        onSubmit={onSubmit}
+        className={cn("w-full min-w-0", collapsed && "hidden sm:block")}
+        aria-busy={search.isPending}
+      >
+      <div className={cn("mb-1.5 flex items-center justify-between gap-2", hero && "sr-only")}>
+        <label htmlFor={id} className="flex min-w-0 items-center gap-1.5 text-small font-medium text-ink">
+          <SparkleIcon />
+          {refining ? "Refine with AI" : "Search with AI"}
+        </label>
+        {variant === "inline" && (
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="text-caption font-medium text-ink-muted underline underline-offset-2 hover:text-ink sm:hidden"
+          >
+            Hide
+          </button>
+        )}
+      </div>
+      <div
+        className={cn(
+          "flex min-w-0 gap-2",
+          multiline ? "flex-col" : "flex-col sm:flex-row",
+        )}
+      >
+        {multiline ? (
           <textarea
             id={id}
-            rows={3}
+            rows={variant === "panel" ? 2 : 3}
             maxLength={AI_QUERY_MAX_CHARS}
             value={text}
             onChange={(event) => setText(event.target.value)}
@@ -123,7 +173,12 @@ export function AiSearchBox({
               }
             }}
             placeholder={placeholder}
-            className="w-full resize-none rounded-control border border-line bg-surface px-4 py-3 text-body text-ink placeholder:text-ink-subtle focus:border-navy focus:outline-none"
+            className={cn(
+              "box-border w-full min-w-0 max-w-full resize-none rounded-control border border-line bg-surface text-ink placeholder:text-ink-subtle focus:border-navy focus:outline-none",
+              variant === "panel"
+                ? "px-3.5 py-2.5 text-small"
+                : "px-4 py-3 text-body",
+            )}
           />
         ) : (
           <input
@@ -133,16 +188,16 @@ export function AiSearchBox({
             value={text}
             onChange={(event) => setText(event.target.value)}
             placeholder={placeholder}
-            className="h-11 min-w-0 flex-1 rounded-control border border-line bg-surface px-3.5 text-small text-ink placeholder:text-ink-subtle focus:border-navy focus:outline-none"
+            className="box-border h-11 w-full min-w-0 max-w-full flex-1 rounded-control border border-line bg-surface px-3.5 text-small text-ink placeholder:text-ink-subtle focus:border-navy focus:outline-none [&::-webkit-search-cancel-button]:appearance-none"
           />
         )}
         <Button
           type="submit"
           variant={hero ? "dark" : "primary"}
           size={hero ? "lg" : "md"}
-          block={hero}
+          block={multiline}
           disabled={!text.trim() || search.isPending}
-          className="shrink-0"
+          className="w-full shrink-0"
         >
           {search.isPending ? "Understanding your search…" : hero ? "Search with AI" : "Ask AI"}
           {!search.isPending && <SparkleIcon />}
@@ -188,7 +243,8 @@ export function AiSearchBox({
           </div>
         </div>
       )}
-    </form>
+      </form>
+    </div>
   );
 }
 

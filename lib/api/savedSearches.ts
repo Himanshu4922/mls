@@ -122,6 +122,14 @@ function intParam(value: string | undefined): number | undefined {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
+const BASEMENT_VALUES = new Set(["yes", "finished", "unfinished", "apartment", "none"]);
+
+function parseBasementFilter(value: string | undefined): ListingQuery["basement"] | undefined {
+  const raw = value?.trim().toLowerCase();
+  if (!raw || !BASEMENT_VALUES.has(raw)) return undefined;
+  return raw as ListingQuery["basement"];
+}
+
 function parsePolygonJson(raw: string | undefined): ListingQuery["polygon"] {
   if (!raw) return undefined;
   try {
@@ -162,6 +170,9 @@ export function fromBackendParams(filters: SavedFilters): ListingQuery {
     sqftMin: intParam(filters.sqft_min),
     sqftMax: intParam(filters.sqft_max),
     yearBuiltMin: intParam(filters.year_built_min),
+    garagesMin: intParam(filters.garages_min),
+    storiesMin: intParam(filters.stories_min),
+    basement: parseBasementFilter(filters.basement),
     propertySubTypes: subTypes.length ? subTypes : undefined,
     postalCodes: postal.length ? postal : undefined,
     openHouse: filters.has_open_house === "1" || filters.has_open_house === "true" || undefined,
@@ -228,6 +239,18 @@ export function describeCriteria(query: ListingQuery): string[] {
   if (query.bathsMin) chips.push(`${query.bathsMin}+ baths`);
   if (query.sqftMin) chips.push(`${query.sqftMin.toLocaleString("en-CA")}+ sq ft`);
   if (query.yearBuiltMin) chips.push(`Built ${query.yearBuiltMin}+`);
+  if (query.garagesMin) chips.push(`${query.garagesMin}+ garage`);
+  if (query.storiesMin) chips.push(`${query.storiesMin}+ floors`);
+  if (query.basement) {
+    const labels: Record<NonNullable<ListingQuery["basement"]>, string> = {
+      yes: "Has basement",
+      finished: "Finished basement",
+      unfinished: "Unfinished basement",
+      apartment: "Basement apartment",
+      none: "No basement",
+    };
+    chips.push(labels[query.basement]);
+  }
   if (query.semantic) chips.push(`Like: ${query.semantic}`);
   return chips;
 }

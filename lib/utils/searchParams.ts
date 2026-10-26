@@ -26,6 +26,16 @@ function int(value: string | string[] | undefined): number | undefined {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
+const BASEMENT_VALUES = new Set(["yes", "finished", "unfinished", "apartment", "none"]);
+
+function parseBasement(
+  value: string | undefined,
+): ListingQuery["basement"] | undefined {
+  const raw = value?.trim().toLowerCase();
+  if (!raw || !BASEMENT_VALUES.has(raw)) return undefined;
+  return raw as ListingQuery["basement"];
+}
+
 const SORTS: ListingSort[] = [
   "relevance",
   "newest",
@@ -78,6 +88,9 @@ export function parseListingParams(params: RawParams): ListingQuery {
     sqftMin: int(params.sqftMin),
     sqftMax: int(params.sqftMax),
     yearBuiltMin: int(params.yearBuiltMin),
+    garagesMin: int(params.garages),
+    storiesMin: int(params.floors),
+    basement: parseBasement(first(params.basement)),
     postalCodes: postal.length > 0 ? postal : undefined,
     openHouse: first(params.openHouse) === "1" || undefined,
     polygon: polygon ?? undefined,
@@ -113,6 +126,9 @@ export function buildListingQueryString(
   if (query.sqftMin) params.set("sqftMin", String(query.sqftMin));
   if (query.sqftMax) params.set("sqftMax", String(query.sqftMax));
   if (query.yearBuiltMin) params.set("yearBuiltMin", String(query.yearBuiltMin));
+  if (query.garagesMin) params.set("garages", String(query.garagesMin));
+  if (query.storiesMin) params.set("floors", String(query.storiesMin));
+  if (query.basement) params.set("basement", query.basement);
   if (query.postalCodes?.length) params.set("postal", query.postalCodes.join(","));
   if (query.openHouse) params.set("openHouse", "1");
   const poly = serializePolygonParam(query.polygon);
@@ -151,6 +167,9 @@ export function hasActiveFilters(query: ListingQuery): boolean {
       query.sqftMin ||
       query.sqftMax ||
       query.yearBuiltMin ||
+      query.garagesMin ||
+      query.storiesMin ||
+      query.basement ||
       query.postalCodes?.length ||
       query.openHouse ||
       query.semantic ||
