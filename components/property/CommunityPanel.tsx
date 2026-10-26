@@ -2,6 +2,10 @@ import { safeFetch } from "@/lib/api/client";
 import { getCatalogStats, getMarketTrends } from "@/lib/api/market";
 import { getCensusProfile, getNearbyAmenities, type CensusProfile } from "@/lib/api/neighbourhood";
 import { searchProperties } from "@/lib/api/properties";
+import {
+  getWpCommunityProfile,
+  type WpCommunityProfile,
+} from "@/lib/api/wpCommunity";
 import { AmenitiesSection } from "@/components/property/Neighbourhood";
 import type { PropertySummary } from "@/lib/types/domain";
 import { formatPrice } from "@/lib/utils/format";
@@ -33,7 +37,7 @@ export async function CommunityPanel({
     approximate: false,
     truncated: false,
   };
-  const [stats, trends, census, amenities, sold, active] = await Promise.all([
+  const [stats, trends, census, wpCommunity, amenities, sold, active] = await Promise.all([
     city
       ? safeFetch(getCatalogStats({ city }), null, "property:catalog")
       : Promise.resolve(null),
@@ -41,6 +45,7 @@ export async function CommunityPanel({
       ? safeFetch(getMarketTrends({ city }, 12), null, "property:trends")
       : Promise.resolve(null),
     fsa ? getCensusProfile(fsa) : Promise.resolve(null),
+    city ? getWpCommunityProfile(city) : Promise.resolve(null),
     latitude !== null && longitude !== null
       ? safeFetch(
           getNearbyAmenities(latitude, longitude),
@@ -100,6 +105,10 @@ export async function CommunityPanel({
       />
 
       {subtypes.length > 0 && <TypeSplit slices={subtypes.slice(0, 6)} city={city} />}
+
+      {/* Curated city profile from the WordPress community CPT — fills the
+          Neighbourhood Insights gap when StatCan FSA census is empty. */}
+      {wpCommunity && <WpInsightsBlock profile={wpCommunity} />}
 
       {census && <CensusBlock census={census} />}
 
@@ -352,6 +361,102 @@ function TypeSplit({
   );
 }
 
+function WpInsightsBlock({ profile }: { profile: WpCommunityProfile }) {
+  const tiles = [
+    profile.population ? { label: "Population", value: profile.population } : null,
+    profile.averageHomePrice ? { label: "Avg. home price", value: profile.averageHomePrice } : null,
+    profile.yoyGrowth ? { label: "YoY growth", value: profile.yoyGrowth } : null,
+    profile.livabilityScore ? { label: "Livability score", value: profile.livabilityScore } : null,
+  ].filter((tile): tile is { label: string; value: string } => tile !== null);
+
+  return (
+    <div className="space-y-6 rounded-2xl border border-line p-4 sm:p-5">
+      <div>
+        <h3 className="text-[18px] font-semibold text-ink">Neighbourhood Insights</h3>
+        <p className="mt-1 text-[13px] text-ink-muted">
+          Demographics, schools and lifestyle for {profile.name}
+          {profile.subtext ? ` — ${profile.subtext}` : ""}.
+        </p>
+      </div>
+
+      {tiles.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {tiles.map((tile) => (
+            <Stat key={tile.label} label={tile.label} value={tile.value} />
+          ))}
+        </div>
+      )}
+
+      {profile.whyFamiliesLove && (
+        <p className="text-[14px] leading-relaxed text-ink-soft">{profile.whyFamiliesLove}</p>
+      )}
+
+      {profile.schools.length > 0 && (
+        <div>
+          <h4 className="mb-3 text-[14px] font-semibold text-ink">Top schools</h4>
+          <ul className="space-y-2">
+            {profile.schools.map((school) => (
+              <li
+                key={school.name}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-alt px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-[14px] font-semibold text-ink">{school.name}</p>
+                  {school.type && <p className="text-[12px] text-ink-muted">{school.type}</p>}
+                </div>
+                {school.rating && (
+                  <span className="shrink-0 text-[15px] font-semibold text-navy">{school.rating}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {(profile.parks.length > 0 || profile.dining.length > 0 || profile.transit.length > 0) && (
+        <div className="grid gap-5 sm:grid-cols-3">
+          {profile.parks.length > 0 && (
+            <InsightList title="Parks" items={profile.parks} />
+          )}
+          {profile.dining.length > 0 && (
+            <InsightList title="Dining" items={profile.dining} />
+          )}
+          {profile.transit.length > 0 && (
+            <div>
+              <h4 className="mb-2 text-[14px] font-semibold text-ink">Transit</h4>
+              <ul className="space-y-2 text-[13px] text-ink-soft">
+                {profile.transit.map((stop) => (
+                  <li key={stop.name}>
+                    <span className="font-medium text-ink">{stop.name}</span>
+                    {(stop.subtext || stop.time) && (
+                      <span className="block text-[12px] text-ink-muted">
+                        {[stop.subtext, stop.time].filter(Boolean).join(" · ")}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InsightList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div>
+      <h4 className="mb-2 text-[14px] font-semibold text-ink">{title}</h4>
+      <ul className="space-y-1.5 text-[13px] text-ink-soft">
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function CensusBlock({ census }: { census: CensusProfile }) {
   const tiles = [
     census.population > 0 ? { label: "Population", value: census.population.toLocaleString() } : null,
@@ -364,9 +469,12 @@ function CensusBlock({ census }: { census: CensusProfile }) {
       : null,
   ].filter((tile): tile is { label: string; value: string } => tile !== null);
 
+  if (tiles.length === 0 && census.incomeDistribution.length === 0) return null;
+
   return (
     <div className="rounded-2xl border border-line p-4 sm:p-5">
-      <h3 className="mb-4 text-[18px] font-semibold text-ink">Neighbourhood Insights</h3>
+      <h3 className="mb-1 text-[18px] font-semibold text-ink">Census snapshot</h3>
+      <p className="mb-4 text-[13px] text-ink-muted">Statistics Canada FSA profile for this postal code.</p>
       {tiles.length > 0 && (
         <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
           {tiles.map((tile) => (
