@@ -27,12 +27,14 @@ const DELISTED = new Set([
   "de-listed",
   "delisted",
   "off market",
+  "hold",
 ]);
 
 export function statusGroup(status: string | null | undefined): StatusGroup {
   const value = (status ?? "").trim().toLowerCase();
   if (SOLD.has(value)) return "sold";
   if (DELISTED.has(value)) return "delisted";
+  // Active Under Contract / Coming Soon / Pending stay on For Sale.
   return "active";
 }
 
