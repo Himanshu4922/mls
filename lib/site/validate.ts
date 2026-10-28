@@ -422,6 +422,66 @@ export function validateSeo(document: unknown): FieldErrors {
   return errors;
 }
 
+const CURATED_GROUP_SET = new Set(["Deals", "By price", "By type", "Rentals", "By city"]);
+const CURATED_TYPE_SET = new Set(["Detached", "Semi-Detached", "Townhome", "Condo", "Luxury"]);
+const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export function validateCurated(document: unknown): FieldErrors {
+  const errors: FieldErrors = {};
+  if (!isRecord(document)) return { "": "The document must be an object." };
+  if (!Array.isArray(document.pages)) {
+    errors.pages = "Pages must be a list.";
+    return errors;
+  }
+  if (document.pages.length > 80) errors.pages = "Keep this to 80 searches or fewer.";
+  const seen = new Set<string>();
+  document.pages.forEach((item, index) => {
+    const path = `pages.${index}`;
+    const row = isRecord(item) ? item : {};
+    const slug = text(errors, `${path}.slug`, row.slug, 80);
+    if (slug && !SLUG_RE.test(slug)) {
+      errors[`${path}.slug`] = "Use lowercase letters, numbers, and hyphens only.";
+    }
+    if (slug) {
+      if (seen.has(slug)) errors[`${path}.slug`] = "Each slug must be unique.";
+      seen.add(slug);
+    }
+    text(errors, `${path}.label`, row.label, 60);
+    text(errors, `${path}.h1`, row.h1, 100);
+    text(errors, `${path}.description`, row.description, 240);
+    if (!CURATED_GROUP_SET.has(String(row.group ?? ""))) {
+      errors[`${path}.group`] = "Pick a group.";
+    }
+    const query = isRecord(row.query) ? row.query : {};
+    if (query.transaction != null && query.transaction !== "" && query.transaction !== "sale" && query.transaction !== "rent") {
+      errors[`${path}.query.transaction`] = "Choose sale or rent.";
+    }
+    if (query.type != null && query.type !== "" && !CURATED_TYPE_SET.has(String(query.type))) {
+      errors[`${path}.query.type`] = "Pick a property type.";
+    }
+    for (const key of ["priceMin", "priceMax", "bedsMin"] as const) {
+      const value = query[key];
+      if (value == null || value === "") continue;
+      const n = Number(value);
+      if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+        errors[`${path}.query.${key}`] = "Enter a whole number.";
+      }
+    }
+    if (Array.isArray(query.keywords)) {
+      if (query.keywords.length > 20) errors[`${path}.query.keywords`] = "Use at most 20 keyword phrases.";
+      query.keywords.forEach((word, wordIndex) => {
+        if (typeof word !== "string" || !word.trim()) return;
+        if (word.trim().length > 80) {
+          errors[`${path}.query.keywords.${wordIndex}`] = "Keep each keyword to 80 characters or fewer.";
+        }
+      });
+    } else if (query.keywords != null && query.keywords !== "") {
+      errors[`${path}.query.keywords`] = "Keywords must be a list.";
+    }
+  });
+  return errors;
+}
+
 export function firstError(errors: FieldErrors): string | null {
   const message = Object.values(errors)[0];
   return message ?? null;

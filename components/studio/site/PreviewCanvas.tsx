@@ -15,11 +15,12 @@ import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
 import { KeywordLinks } from "@/components/search/KeywordLinks";
 import { Section } from "@/components/ui/Section";
+import { mergeCuratedPages, type CuratedDocument } from "@/lib/seo/curatedPages";
 import type { ChromeDocument, HomepageDocument, SectionId, SeoDocument } from "@/lib/site/types";
 
 interface Payload {
-  kind: "homepage" | "header" | "footer" | "seo";
-  document: HomepageDocument | ChromeDocument | SeoDocument;
+  kind: "homepage" | "header" | "footer" | "seo" | "curated";
+  document: HomepageDocument | ChromeDocument | SeoDocument | CuratedDocument;
   sectionId?: SectionId;
   fullPage?: boolean;
 }
@@ -68,6 +69,16 @@ export function PreviewCanvas() {
         <p className="text-caption text-ink-muted">Search result</p>
         <p className="mt-2 text-h3 text-navy">{seo.title}</p>
         <p className="mt-1 max-w-xl text-small text-ink-muted">{seo.description}</p>
+      </div>
+    );
+  }
+  if (payload.kind === "curated") {
+    const pages = mergeCuratedPages(payload.document);
+    return (
+      <div className="p-6">
+        <Section eyebrow="Popular searches" title="Search by keywords">
+          <KeywordLinks pages={pages} />
+        </Section>
       </div>
     );
   }

@@ -11,11 +11,12 @@ import { EmptyState, ErrorState, PropertyGridSkeleton } from "@/components/ui/St
 import { searchProperties } from "@/lib/api/properties";
 import { propertyPath } from "@/lib/seo/urls";
 import { CURATED_PAGES, curatedPath, getCuratedPage, type CuratedPage } from "@/lib/seo/curatedPages";
+import { getCuratedPages } from "@/lib/site/load";
 import { buildListingHref } from "@/lib/utils/searchParams";
 
 export const revalidate = 600;
-// Only the configured pages exist; anything else is a 404.
-export const dynamicParams = false;
+/** Studio can add new slugs after build; resolve them at request time. */
+export const dynamicParams = true;
 
 const PAGE_SIZE = 12;
 
@@ -25,7 +26,8 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: PageProps<"/homes/[slug]">): Promise<Metadata> {
   const { slug } = await params;
-  const page = getCuratedPage(slug);
+  const pages = await getCuratedPages();
+  const page = getCuratedPage(slug, pages);
   if (!page) return { title: "Page not found" };
   return {
     title: page.h1,
@@ -42,7 +44,8 @@ export async function generateMetadata({ params }: PageProps<"/homes/[slug]">): 
  */
 export default async function CuratedListingsPage({ params, searchParams }: PageProps<"/homes/[slug]">) {
   const { slug } = await params;
-  const page = getCuratedPage(slug);
+  const pages = await getCuratedPages();
+  const page = getCuratedPage(slug, pages);
   if (!page) notFound();
   const query = await searchParams;
   const pageNumber = Math.max(1, Number(Array.isArray(query.page) ? query.page[0] : query.page) || 1);
@@ -80,7 +83,12 @@ export default async function CuratedListingsPage({ params, searchParams }: Page
           <h2 id="keyword-links" className="text-h2 text-ink">
             Search by keywords
           </h2>
-          <KeywordLinks className="mt-6" includeCities={page.group === "By city"} currentSlug={page.slug} />
+          <KeywordLinks
+            className="mt-6"
+            pages={pages}
+            includeCities={page.group === "By city"}
+            currentSlug={page.slug}
+          />
         </section>
       </div>
     </>

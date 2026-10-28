@@ -2,7 +2,8 @@ import { absoluteUrl } from "@/components/seo/JsonLd";
 import { assignmentPath, getPublicAssignments, type PublicListing } from "@/lib/api/assignments";
 import { getAllBlogPosts } from "@/lib/api/blog";
 import { getAllPreconForSitemap, getListingKeysPage } from "@/lib/api/sitemap";
-import { CURATED_PAGES, curatedPath } from "@/lib/seo/curatedPages";
+import { curatedPath } from "@/lib/seo/curatedPages";
+import { getCuratedPages } from "@/lib/site/load";
 import { listingsPageFromId } from "@/lib/seo/sitemap";
 import { blogPath, preconPath, propertyPath } from "@/lib/seo/urls";
 
@@ -47,13 +48,14 @@ function toDate(value: string | null | undefined): Date | undefined {
 
 export async function buildSitemap(id: string): Promise<SitemapEntry[]> {
   if (id === "static") {
+    const curatedPages = await getCuratedPages().catch(() => []);
     return [
       ...STATIC_PATHS.map((entry) => ({
         url: absoluteUrl(entry.path),
         changeFrequency: entry.changeFrequency,
         priority: entry.priority,
       })),
-      ...CURATED_PAGES.map((page) => ({
+      ...curatedPages.map((page) => ({
         url: absoluteUrl(curatedPath(page)),
         changeFrequency: "daily" as const,
         priority: 0.6,

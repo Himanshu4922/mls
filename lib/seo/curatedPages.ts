@@ -24,7 +24,22 @@ export interface CuratedPage {
   description: string;
   group: CuratedGroup;
   query: Partial<ListingQuery>;
+  /** Studio-only: false hides the search without deleting it. */
+  enabled?: boolean;
 }
+
+/** Studio / SiteContent document for keyword searches. */
+export interface CuratedDocument {
+  pages: CuratedPage[];
+}
+
+export const CURATED_GROUPS: readonly CuratedGroup[] = [
+  "Deals",
+  "By price",
+  "By type",
+  "Rentals",
+  "By city",
+];
 
 /*
  * Keyword lists are deliberately phrases. Single words over-match in free
@@ -45,7 +60,8 @@ const DISTRESS_KEYWORDS = [
 
 const FOR_SALE = { status: "Active" } as const;
 
-const FIXED_PAGES: CuratedPage[] = [
+/** Code defaults edited in Studio; city pages stay generated below. */
+export const DEFAULT_FIXED_PAGES: CuratedPage[] = [
   {
     slug: "power-of-sale",
     label: "Power of sale homes",
@@ -195,23 +211,113 @@ const CITY_PAGES: CuratedPage[] = COMMUNITY_CITIES.flatMap((city) =>
   })),
 );
 
-export const CURATED_PAGES: readonly CuratedPage[] = [...FIXED_PAGES, ...CITY_PAGES];
+export const CURATED_PAGES: readonly CuratedPage[] = [...DEFAULT_FIXED_PAGES, ...CITY_PAGES];
 
 const BY_SLUG = new Map(CURATED_PAGES.map((page) => [page.slug, page]));
 
-export function getCuratedPage(slug: string): CuratedPage | null {
-  return BY_SLUG.get(slug) ?? null;
+export function getCuratedPage(slug: string, pages: readonly CuratedPage[] = CURATED_PAGES): CuratedPage | null {
+  if (pages === CURATED_PAGES) return BY_SLUG.get(slug) ?? null;
+  return pages.find((page) => page.slug === slug) ?? null;
 }
 
 export function curatedPath(page: Pick<CuratedPage, "slug">): string {
   return `/homes/${page.slug}`;
 }
 
+/** Seed / reset the Studio draft from the shipped fixed searches. */
+export function defaultCuratedDocument(): CuratedDocument {
+  return {
+    pages: DEFAULT_FIXED_PAGES.map((page) => ({
+      slug: page.slug,
+      label: page.label,
+      h1: page.h1,
+      description: page.description,
+      group: page.group,
+      query: {
+        ...page.query,
+        keywords: page.query.keywords ? [...page.query.keywords] : undefined,
+      },
+      enabled: true,
+    })),
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function isCuratedGroup(value: unknown): value is CuratedGroup {
+  return typeof value === "string" && (CURATED_GROUPS as readonly string[]).includes(value);
+}
+
+/** Parse a Studio/API curated document into typed pages (skips invalid rows). */
+export function parseCuratedDocument(raw: unknown): CuratedDocument {
+  if (!isRecord(raw) || !Array.isArray(raw.pages)) return { pages: [] };
+  const pages: CuratedPage[] = [];
+  for (const item of raw.pages) {
+    if (!isRecord(item)) continue;
+    const slug = typeof item.slug === "string" ? item.slug.trim() : "";
+    const label = typeof item.label === "string" ? item.label.trim() : "";
+    const h1 = typeof item.h1 === "string" ? item.h1.trim() : "";
+    const description = typeof item.description === "string" ? item.description.trim() : "";
+    if (!slug || !label || !h1 || !isCuratedGroup(item.group)) continue;
+    const queryRaw = isRecord(item.query) ? item.query : {};
+    const query: Partial<ListingQuery> = {};
+    if (typeof queryRaw.status === "string" && queryRaw.status.trim()) query.status = queryRaw.status.trim();
+    if (queryRaw.transaction === "sale" || queryRaw.transaction === "rent") query.transaction = queryRaw.transaction;
+    if (typeof queryRaw.type === "string" && queryRaw.type.trim()) query.type = queryRaw.type.trim();
+    if (typeof queryRaw.city === "string" && queryRaw.city.trim()) query.city = queryRaw.city.trim();
+    const priceMin = Number(queryRaw.priceMin);
+    const priceMax = Number(queryRaw.priceMax);
+    const bedsMin = Number(queryRaw.bedsMin);
+    if (Number.isFinite(priceMin) && priceMin > 0) query.priceMin = Math.round(priceMin);
+    if (Number.isFinite(priceMax) && priceMax > 0) query.priceMax = Math.round(priceMax);
+    if (Number.isFinite(bedsMin) && bedsMin > 0) query.bedsMin = Math.round(bedsMin);
+    if (queryRaw.openHouse === true) query.openHouse = true;
+    if (Array.isArray(queryRaw.keywords)) {
+      const keywords = queryRaw.keywords
+        .filter((word): word is string => typeof word === "string")
+        .map((word) => word.trim())
+        .filter(Boolean);
+      if (keywords.length) query.keywords = keywords;
+    }
+    pages.push({
+      slug,
+      label,
+      h1,
+      description,
+      group: item.group,
+      query,
+      enabled: item.enabled !== false,
+    });
+  }
+  return { pages };
+}
+
+/**
+ * Public list: Studio pages when published and non-empty, else code defaults.
+ * City pages always append so community links stay available.
+ */
+export function mergeCuratedPages(document: unknown): CuratedPage[] {
+  const parsed = parseCuratedDocument(document);
+  const fixed =
+    parsed.pages.length > 0
+      ? parsed.pages.filter((page) => page.enabled !== false)
+      : DEFAULT_FIXED_PAGES;
+  // Studio may include By-city rows; drop auto city pages that collide on slug.
+  const fixedSlugs = new Set(fixed.map((page) => page.slug));
+  const cities = CITY_PAGES.filter((page) => !fixedSlugs.has(page.slug));
+  return [...fixed, ...cities];
+}
+
 /** Pages grouped for the keyword block, in display order. */
-export function curatedGroups(options: { includeCities?: boolean } = {}): Array<{ group: CuratedGroup; pages: CuratedPage[] }> {
+export function curatedGroups(
+  options: { includeCities?: boolean; pages?: readonly CuratedPage[] } = {},
+): Array<{ group: CuratedGroup; pages: CuratedPage[] }> {
+  const source = options.pages ?? CURATED_PAGES;
   const order: CuratedGroup[] = ["Deals", "By price", "By type", "Rentals", "By city"];
   return order
     .filter((group) => group !== "By city" || options.includeCities)
-    .map((group) => ({ group, pages: CURATED_PAGES.filter((page) => page.group === group) }))
+    .map((group) => ({ group, pages: source.filter((page) => page.group === group) }))
     .filter((entry) => entry.pages.length > 0);
 }

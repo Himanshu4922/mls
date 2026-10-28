@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { toBackendParams } from "@/lib/api/properties";
-import { CURATED_PAGES, curatedGroups, getCuratedPage } from "./curatedPages";
+import {
+  CURATED_PAGES,
+  DEFAULT_FIXED_PAGES,
+  curatedGroups,
+  getCuratedPage,
+  mergeCuratedPages,
+  parseCuratedDocument,
+} from "./curatedPages";
 
 describe("curated pages", () => {
   it("has unique, URL-safe slugs", () => {
@@ -26,5 +33,56 @@ describe("curated pages", () => {
   it("groups exclude city pages unless asked", () => {
     expect(curatedGroups().some((g) => g.group === "By city")).toBe(false);
     expect(curatedGroups({ includeCities: true }).some((g) => g.group === "By city")).toBe(true);
+  });
+
+  it("falls back to code defaults when Studio published empty pages", () => {
+    const merged = mergeCuratedPages({ pages: [] });
+    expect(merged.map((p) => p.slug)).toEqual(CURATED_PAGES.map((p) => p.slug));
+  });
+
+  it("uses Studio pages and skips disabled rows", () => {
+    const merged = mergeCuratedPages({
+      pages: [
+        {
+          slug: "custom-deal",
+          label: "Custom deal",
+          h1: "Custom deal homes",
+          description: "Studio-defined search.",
+          group: "Deals",
+          enabled: true,
+          query: { status: "Active", keywords: ["motivated seller"] },
+        },
+        {
+          slug: "hidden",
+          label: "Hidden",
+          h1: "Hidden",
+          description: "Off.",
+          group: "Deals",
+          enabled: false,
+          query: { status: "Active" },
+        },
+      ],
+    });
+    expect(merged.some((p) => p.slug === "custom-deal")).toBe(true);
+    expect(merged.some((p) => p.slug === "hidden")).toBe(false);
+    expect(merged.some((p) => p.slug === "power-of-sale")).toBe(false);
+    expect(merged.some((p) => p.group === "By city")).toBe(true);
+  });
+
+  it("parses keyword lists from the document", () => {
+    const doc = parseCuratedDocument({
+      pages: [
+        {
+          slug: "x",
+          label: "X",
+          h1: "X",
+          description: "Y",
+          group: "Deals",
+          query: { keywords: ["  power of sale ", "", "bank sale"] },
+        },
+      ],
+    });
+    expect(doc.pages[0]?.query.keywords).toEqual(["power of sale", "bank sale"]);
+    expect(DEFAULT_FIXED_PAGES.length).toBeGreaterThan(5);
   });
 });

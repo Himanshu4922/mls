@@ -12,6 +12,9 @@ export function revalidateSite() {
   revalidatePath("/");
   revalidatePath("/communities");
   revalidatePath("/map-search");
+  revalidatePath("/homes");
+  revalidatePath("/site-map");
+  revalidatePath("/sitemap.xml");
 }
 
 export function isSiteKey(value: string): value is SiteKey {

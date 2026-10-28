@@ -54,6 +54,7 @@ const GROUPS: Array<{
     links: [
       { href: "/studio/precon", label: "Pre-construction", icon: Building2 },
       { href: "/studio/featured", label: "Featured homes", icon: Star },
+      { href: "/studio/keywords", label: "Keyword searches", icon: Search },
       { href: "/studio/assignments", label: "Review queue", icon: ClipboardCheck },
     ],
   },
@@ -86,6 +87,7 @@ const RESERVED = new Set([
   "connections",
   "precon",
   "featured",
+  "keywords",
   "incentives",
   "partners",
   "communities",

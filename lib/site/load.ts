@@ -3,6 +3,11 @@ import { apiFetch } from "@/lib/api/client";
 import { getPublicConnections } from "@/lib/api/integrations";
 import { WHATSAPP_NUMBER } from "@/lib/constants/contact";
 import {
+  CURATED_PAGES,
+  mergeCuratedPages,
+  type CuratedPage,
+} from "@/lib/seo/curatedPages";
+import {
   SECTION_IDS,
   type ChromeDocument,
   type HomepageDocument,
@@ -58,6 +63,13 @@ export async function getSeoDocument(): Promise<SeoDocument | null> {
   const document = await loadPublished("seo");
   if (!isRecord(document) || typeof document.title !== "string") return null;
   return document as unknown as SeoDocument;
+}
+
+/** Keyword / curated searches: Studio publish when set, else code defaults. */
+export async function getCuratedPages(): Promise<CuratedPage[]> {
+  const document = await loadPublished("curated");
+  if (!document) return [...CURATED_PAGES];
+  return mergeCuratedPages(document);
 }
 
 export async function getWhatsappNumber(): Promise<string> {

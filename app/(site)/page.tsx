@@ -28,7 +28,7 @@ import { KeywordLinks } from "@/components/search/KeywordLinks";
 import { WhyHomeAtlas } from "@/components/home/sections/WhyHomeAtlas";
 import { Section } from "@/components/ui/Section";
 import { PropertyGridSkeleton } from "@/components/ui/States";
-import { getHomepageDocument } from "@/lib/site/load";
+import { getCuratedPages, getHomepageDocument } from "@/lib/site/load";
 import { SECTION_IDS, type SectionId, type SiteSection } from "@/lib/site/types";
 
 /**
@@ -177,7 +177,9 @@ function HomeBlock({ section }: { section: SiteSection }) {
           eyebrow={typeof content.eyebrow === "string" ? content.eyebrow : "Popular searches"}
           title={typeof content.title === "string" ? content.title : "Search by keywords"}
         >
-          <KeywordLinks />
+          <Live fallback={<p className="text-small text-ink-muted">Loading popular searches…</p>}>
+            <KeywordLinksLive />
+          </Live>
         </Section>
       );
     default:
@@ -188,6 +190,11 @@ function HomeBlock({ section }: { section: SiteSection }) {
 /** Streams a data-backed section so the rest of the page isn't blocked on it. */
 function Live({ fallback, children }: { fallback: ReactNode; children: ReactNode }) {
   return <Suspense fallback={fallback}>{children}</Suspense>;
+}
+
+async function KeywordLinksLive() {
+  const pages = await getCuratedPages();
+  return <KeywordLinks pages={pages} />;
 }
 
 function RailFallback({ title, tone }: { title: string; tone?: "default" | "alt" | "dark" }) {

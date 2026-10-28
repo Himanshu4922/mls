@@ -1,6 +1,6 @@
 /** Documents the admin console edits. The backend is the source of truth for limits. */
 
-export const SITE_KEYS = ["homepage", "chrome", "seo"] as const;
+export const SITE_KEYS = ["homepage", "chrome", "seo", "curated"] as const;
 export type SiteKey = (typeof SITE_KEYS)[number];
 
 export const SECTION_IDS = [
@@ -77,6 +77,9 @@ export interface SeoDocument {
   shareImageAlt: string;
 }
 
+/** Re-export for Studio; pages live in lib/seo/curatedPages. */
+export type { CuratedDocument } from "@/lib/seo/curatedPages";
+
 export interface SiteRecord<T> {
   key: SiteKey;
   draft: T;
@@ -115,5 +118,9 @@ export const SECTION_META: Record<SectionId, { label: string; summary: string; c
   howItWorks: { label: "How it works", summary: "Steps and the WhatsApp message.", canHide: true },
   dailyNews: { label: "Daily news", summary: "Heading and the newsletter blurb. Headlines come from the news feed.", canHide: true },
   resources: { label: "Resources and guides", summary: "Guide cards and their links.", canHide: true },
-  keywords: { label: "Keyword searches", summary: "The heading above the curated search chips. The chips themselves stay in the site map list.", canHide: true },
+  keywords: {
+    label: "Keyword searches",
+    summary: "Section heading only. Edit the chips and search logic under Keyword searches in the Listings nav.",
+    canHide: true,
+  },
 };

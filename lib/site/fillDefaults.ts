@@ -1,3 +1,4 @@
+import { defaultCuratedDocument, type CuratedDocument } from "@/lib/seo/curatedPages";
 import defaults from "@/lib/site/defaults.json";
 import type { ChromeDocument, HomepageDocument, SeoDocument, SiteKey } from "@/lib/site/types";
 
@@ -55,9 +56,18 @@ export function fillSeoDefaults(draft: unknown): SeoDocument {
   return fillMissing(draft, defaults.seo) as SeoDocument;
 }
 
+export function fillCuratedDefaults(draft: unknown): CuratedDocument {
+  const saved = draft && typeof draft === "object" ? (draft as Partial<CuratedDocument>) : {};
+  if (Array.isArray(saved.pages) && saved.pages.length > 0) {
+    return { pages: saved.pages };
+  }
+  return defaultCuratedDocument();
+}
+
 export function fillSiteDefaults(siteKey: SiteKey, draft: unknown): unknown {
   if (siteKey === "homepage") return fillHomepageDefaults(draft);
   if (siteKey === "chrome") return fillChromeDefaults(draft);
   if (siteKey === "seo") return fillSeoDefaults(draft);
+  if (siteKey === "curated") return fillCuratedDefaults(draft);
   return draft;
 }

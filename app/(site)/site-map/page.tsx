@@ -6,6 +6,7 @@ import { MARKET_CITIES } from "@/lib/api/market";
 import { getAllPreconForSitemap } from "@/lib/api/sitemap";
 import { COMMUNITY_CITIES } from "@/lib/constants/cities";
 import { curatedGroups, curatedPath } from "@/lib/seo/curatedPages";
+import { getCuratedPages } from "@/lib/site/load";
 import { blogPath, preconPath } from "@/lib/seo/urls";
 import { buildListingHref } from "@/lib/utils/searchParams";
 
@@ -25,9 +26,10 @@ type LinkItem = { label: string; href: string };
  * index search engines read. Backend-driven sections degrade to empty.
  */
 export default async function HtmlSitemapPage() {
-  const [projects, posts] = await Promise.all([
+  const [projects, posts, curatedPages] = await Promise.all([
     getAllPreconForSitemap().catch(() => []),
     getAllBlogPosts().catch(() => []),
+    getCuratedPages(),
   ]);
 
   const search: LinkItem[] = [
@@ -82,7 +84,7 @@ export default async function HtmlSitemapPage() {
             href: buildListingHref({ city, transaction: "rent" }),
           }))}
         />
-        {curatedGroups({ includeCities: true }).map(({ group, pages }) => (
+        {curatedGroups({ includeCities: true, pages: curatedPages }).map(({ group, pages }) => (
           <LinkGroup
             key={group}
             title={`Popular searches: ${group.toLowerCase()}`}
