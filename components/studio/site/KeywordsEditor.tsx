@@ -173,7 +173,7 @@ function KeywordsForm({
 
                 {open ? (
                   <div className="grid gap-4 p-4 sm:grid-cols-2">
-                    <FieldControl
+                    <TextControl
                       label="Chip label"
                       value={page.label}
                       max={60}
@@ -185,7 +185,7 @@ function KeywordsForm({
                         patch(index, next);
                       }}
                     />
-                    <FieldControl
+                    <TextControl
                       label="URL slug"
                       value={page.slug}
                       max={80}
@@ -193,7 +193,7 @@ function KeywordsForm({
                       error={errors[`pages.${index}.slug`]}
                       onChange={(slug) => patch(index, { slug: slugify(slug) })}
                     />
-                    <FieldControl
+                    <TextControl
                       label="Page title (H1)"
                       value={page.h1}
                       max={100}
@@ -218,7 +218,7 @@ function KeywordsForm({
                       ) : null}
                     </label>
                     <div className="sm:col-span-2">
-                      <FieldControl
+                      <TextControl
                         label="Description"
                         value={page.description}
                         max={240}
@@ -261,7 +261,7 @@ function KeywordsForm({
                         ))}
                       </select>
                     </label>
-                    <FieldControl
+                    <TextControl
                       label="Status"
                       value={page.query.status ?? ""}
                       max={40}
@@ -269,14 +269,14 @@ function KeywordsForm({
                       error={errors[`pages.${index}.query.status`]}
                       onChange={(status) => patchQuery(index, { status: status || undefined })}
                     />
-                    <FieldControl
+                    <TextControl
                       label="City"
                       value={page.query.city ?? ""}
                       max={80}
                       error={errors[`pages.${index}.query.city`]}
                       onChange={(city) => patchQuery(index, { city: city || undefined })}
                     />
-                    <FieldControl
+                    <TextControl
                       label="Min price"
                       value={page.query.priceMin != null ? String(page.query.priceMin) : ""}
                       max={12}
@@ -287,7 +287,7 @@ function KeywordsForm({
                         })
                       }
                     />
-                    <FieldControl
+                    <TextControl
                       label="Max price"
                       value={page.query.priceMax != null ? String(page.query.priceMax) : ""}
                       max={12}
@@ -298,7 +298,7 @@ function KeywordsForm({
                         })
                       }
                     />
-                    <FieldControl
+                    <TextControl
                       label="Min bedrooms"
                       value={page.query.bedsMin != null ? String(page.query.bedsMin) : ""}
                       max={2}
@@ -320,7 +320,7 @@ function KeywordsForm({
                       Open house only
                     </label>
                     <div className="sm:col-span-2">
-                      <FieldControl
+                      <TextControl
                         label="Description keywords"
                         value={keywordsText}
                         max={600}
