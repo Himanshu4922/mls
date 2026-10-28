@@ -50,11 +50,40 @@ export const SALES_STAGES: Array<{ value: PreconSalesStage; label: string }> = [
  * Meta keys the form edits as named fields. Keys are the ones the public page
  * already reads (see `lib/precon/parse.ts`); every other key is shown in the
  * editor's "Other details" list so imported data is never dropped.
+ *
+ * Location keys sit after Address in the Location panel. Ownership comes
+ * before home types; stories after home types — matching the console field order.
  */
+export const PRECON_LOCATION_META_FIELDS = [
+  { key: "city", label: "City", hint: "Written after the street address" },
+  { key: "neighbourhood", label: "Neighbourhood / Community", hint: "Community or district name" },
+  { key: "location_display", label: "Location shown to visitors", hint: "Optional, e.g. Vaughan Metropolitan Centre" },
+] as const;
+
+export const PRECON_OWNERSHIP_OPTIONS = [
+  "Freehold",
+  "Condominium",
+  "Leasehold",
+  "Other",
+] as const;
+
+export const PRECON_BASEMENT_OPTIONS = [
+  "Finished",
+  "Unfinished",
+  "Walk-out",
+  "None",
+  "TBD",
+] as const;
+
 export const PRECON_META_FIELDS = [
-  { key: "price_display", label: "Price shown to visitors", hint: "e.g. From $699,900" },
-  { key: "occupancy_year", label: "Occupancy year", hint: "e.g. 2028" },
+  { key: "ownership_type", label: "Ownership type", hint: "Freehold, condominium, or other applicable structure" },
   { key: "property_types", label: "Home types", hint: "Comma-separated, e.g. Townhomes, Detached" },
+  { key: "stories", label: "Stories", hint: "e.g. 2, 3, or 2–3" },
+  { key: "basement", label: "Basement", hint: "Finished, unfinished, walk-out, none" },
+  { key: "maintenance_fees", label: "Maintenance fees", hint: "Where applicable, e.g. $450/mo" },
+  { key: "signing_amount", label: "Signing amount", hint: "Amount due on signing, e.g. $5,000" },
+  { key: "occupancy_year", label: "Estimated occupancy / completion", hint: "Occupancy year, e.g. 2028" },
+  { key: "price_display", label: "Price shown to visitors", hint: "e.g. From $699,900" },
   { key: "deposit_structure", label: "Deposit structure", hint: "Steps separated with ; e.g. $10K on signing;$10K in 30 days", multiline: true },
   { key: "incentives", label: "Incentives", hint: "Separated with | e.g. $10,000 décor credit|Free assignment", multiline: true },
   { key: "amenities", label: "Amenities", hint: "Separated with | e.g. Parks nearby|Minutes to GO", multiline: true },
@@ -70,9 +99,9 @@ export const PRECON_DOCUMENT_FIELDS = [
 
 /** Every meta key the editor shows as a named field (location sits in its own panel). */
 export const PRECON_NAMED_META_KEYS: readonly string[] = [
+  ...PRECON_LOCATION_META_FIELDS.map((f) => f.key),
   ...PRECON_META_FIELDS.map((f) => f.key),
   ...PRECON_DOCUMENT_FIELDS.map((f) => f.key),
-  "location_display",
 ];
 
 const NAMED_META_KEYS = new Set<string>(PRECON_NAMED_META_KEYS);
@@ -114,6 +143,8 @@ export interface StudioPrecon extends StudioPreconSummary {
   lotSize: number | null;
   latitude: number | null;
   longitude: number | null;
+  /** Last time the project row was saved (studio or admin). */
+  updatedAt: string | null;
   attachments: StudioPreconAttachment[];
   meta: Record<string, string>;
 }
@@ -142,6 +173,7 @@ interface RawStudioPrecon {
   lot_size?: string | number | null;
   latitude?: string | number | null;
   longitude?: string | number | null;
+  updated_at?: string | null;
   attachments?: Array<{ url?: string; title?: string; mime_type?: string }>;
   meta?: Record<string, unknown>;
 }
@@ -183,6 +215,7 @@ export function mapStudioPrecon(raw: RawStudioPrecon): StudioPrecon {
     lotSize: toNumber(raw.lot_size),
     latitude: toNumber(raw.latitude),
     longitude: toNumber(raw.longitude),
+    updatedAt: raw.updated_at ?? null,
     attachments: (raw.attachments ?? [])
       .filter((a) => typeof a.url === "string" && a.url)
       .map((a) => ({ url: a.url as string, title: text(a.title), mimeType: text(a.mime_type) })),

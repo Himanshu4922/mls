@@ -30,13 +30,13 @@ const COPY = {
       `I'd like to schedule a showing for ${address} (MLS® ${listingKey}).`,
   },
   precon: {
-    title: "Contact an agent",
-    hint: "No obligation. Ask about releases, pricing and incentives.",
-    submit: "Send message",
+    title: "Register interest",
+    hint: "Registration and enquiry. No obligation — ask about releases, pricing and incentives.",
+    submit: "Register interest",
     // The backend has no pre-con intent; the project is named in the message.
     intent: "buy",
     message: (address: string) =>
-      `I'd like more information about ${address}, including current pricing, available units and incentives.`,
+      `I'd like to register my interest in ${address}, including current pricing, available units and incentives.`,
   },
   assignment: {
     title: "Ask about this assignment",

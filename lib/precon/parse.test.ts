@@ -161,7 +161,13 @@ describe("parsePreconMeta / parseDocuments", () => {
         bedrooms_max: "3",
         area_unit: "sq. ft.",
         city: "Vaughan",
+        neighbourhood: "VMC",
         province: "ON",
+        ownership_type: "Freehold",
+        stories: "3",
+        basement: "Finished",
+        maintenance_fees: "$450/mo",
+        signing_amount: "$5,000",
         deposit_total_percentage: "20",
         sales_status: "DEMO",
       }),
@@ -172,7 +178,14 @@ describe("parsePreconMeta / parseDocuments", () => {
     expect(fields.bathroomRange).toBe("2");
     expect(fields.garageCount).toBe("1");
     expect(fields.areaUnit).toBe("sq. ft.");
-    expect(fields.location).toBe("Vaughan, ON");
+    expect(fields.city).toBe("Vaughan");
+    expect(fields.neighbourhood).toBe("VMC");
+    expect(fields.ownershipType).toBe("Freehold");
+    expect(fields.stories).toBe("3");
+    expect(fields.basement).toBe("Finished");
+    expect(fields.maintenanceFees).toBe("$450/mo");
+    expect(fields.signingAmount).toBe("$5,000");
+    expect(fields.location).toBe("VMC, Vaughan, ON");
     expect(fields.depositTotal).toBe("20%");
     expect(fields.incentives).toEqual([]);
   });

@@ -304,6 +304,13 @@ export interface PreconMetaFields {
   garageCount: string | null;
   propertyTypes: string[];
   propertyStyle: string | null;
+  city: string | null;
+  neighbourhood: string | null;
+  ownershipType: string | null;
+  stories: string | null;
+  basement: string | null;
+  maintenanceFees: string | null;
+  signingAmount: string | null;
   location: string | null;
   depositTotal: string | null;
   incentives: string[];
@@ -332,9 +339,11 @@ export function parsePreconMeta(
   meta: PreconMeta,
   columns: { bedrooms?: number | null; bathrooms?: number | null; area?: number | null; garages?: number | null } = {},
 ): PreconMetaFields {
+  const city = text(meta.city);
+  const neighbourhood = text(meta.neighbourhood) ?? text(meta.community);
   const location =
     text(meta.location_display) ??
-    ([text(meta.city), text(meta.province)].filter(Boolean).join(", ") || null);
+    ([neighbourhood, city, text(meta.province)].filter(Boolean).join(", ") || null);
   const depositTotal = text(meta.deposit_total_percentage);
 
   return {
@@ -347,6 +356,13 @@ export function parsePreconMeta(
     garageCount: formatAmount(text(meta.garage_count) ?? columns.garages),
     propertyTypes: splitList(meta.property_types, ","),
     propertyStyle: text(meta.property_style),
+    city,
+    neighbourhood,
+    ownershipType: text(meta.ownership_type),
+    stories: text(meta.stories),
+    basement: text(meta.basement),
+    maintenanceFees: text(meta.maintenance_fees),
+    signingAmount: text(meta.signing_amount),
     location,
     depositTotal:
       depositTotal && /^\d+(?:\.\d+)?$/.test(depositTotal) ? `${depositTotal}%` : depositTotal,

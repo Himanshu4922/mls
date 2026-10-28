@@ -74,21 +74,24 @@ export function ListingActionBar({
         className="border-gold text-ink hover:border-gold hover:bg-gold-soft hover:text-ink"
       >
         <ChatIcon />
-        {compact ? "Contact" : "Contact agent"}
+        {compact ? "Register" : "Register interest"}
       </Button>
     </>
   );
 
   return (
     <>
-      <div className="hidden rounded-surface border border-line bg-surface p-5 shadow-card lg:block">
-        <Eyebrow>Interested in this project?</Eyebrow>
-        <h2 className="mt-2 text-h3 text-ink">Get floor plans and pricing</h2>
-        <p className="mt-1 text-caption text-ink-muted">
-          Verify your phone once to unlock the developer&rsquo;s documents.
-        </p>
-        <div className="mt-4 space-y-2.5">{buttons(false)}</div>
-        <StatusLine state={state} onDismiss={reset} className="mt-3" />
+      <div className="hidden space-y-4 lg:block">
+        <div className="rounded-surface border border-line bg-surface p-5 shadow-card">
+          <Eyebrow>Interested in this project?</Eyebrow>
+          <h2 className="mt-2 text-h3 text-ink">Get floor plans and pricing</h2>
+          <p className="mt-1 text-caption text-ink-muted">
+            Verify your phone once to unlock the developer&rsquo;s documents.
+          </p>
+          <div className="mt-4 space-y-2.5">{buttons(false)}</div>
+          <StatusLine state={state} onDismiss={reset} className="mt-3" />
+        </div>
+        <InquiryForm listingKey={`precon-${projectId}`} address={title} variant="precon" />
       </div>
 
       <MobileBar>
@@ -99,8 +102,8 @@ export function ListingActionBar({
       <Modal
         open={contactOpen}
         onClose={() => setContactOpen(false)}
-        title="Contact an agent"
-        description={`Ask about ${title}: releases, pricing and incentives.`}
+        title="Register interest"
+        description={`Register or enquire about ${title}: releases, pricing and incentives.`}
       >
         <InquiryForm
           listingKey={`precon-${projectId}`}

@@ -147,6 +147,8 @@ export interface PreconProjectDetail extends PreconProject, PreconMetaFields {
   garages: number | null;
   lotSize: number | null;
   publishedAt: string | null;
+  /** Last time the listing was saved; falls back to published date. */
+  updatedAt: string | null;
   images: string[];
   attachmentsDocuments: PreconAttachment[];
   documents: PreconDocuments;
@@ -157,6 +159,7 @@ interface BackendPreconDetail extends Omit<BackendPrecon, "featured_image_url"> 
   body?: string | null;
   excerpt?: string | null;
   published_at?: string | null;
+  updated_at?: string | null;
   attachments?: unknown;
   meta?: unknown;
   has_floor_plan?: boolean;
@@ -190,6 +193,7 @@ export function mapPreconDetail(raw: BackendPreconDetail): PreconProjectDetail {
     garages: raw.garages ?? null,
     lotSize: toNumber(raw.lot_size),
     publishedAt: raw.published_at ?? null,
+    updatedAt: raw.updated_at ?? raw.published_at ?? null,
     // The featured image may not be in `attachments`; lead with it when present.
     images: Array.from(new Set([...(featured ? [featured] : []), ...images])),
     attachmentsDocuments: documents,

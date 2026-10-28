@@ -15,6 +15,7 @@ import {
   NearbySection,
 } from "@/components/precon/PreconSections";
 import { SimilarPrecon } from "@/components/precon/SimilarPrecon";
+import { PreconLocationMap } from "@/components/precon/PreconLocationMap";
 import { ProjectAssignments } from "@/components/assignments/ProjectAssignments";
 import { Gallery } from "@/components/property/Gallery";
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -33,7 +34,7 @@ import {
   preconDescription,
   preconJsonLd,
 } from "@/lib/precon/seo";
-import { formatNumber, formatPrice } from "@/lib/utils/format";
+import { formatDate, formatNumber, formatPrice, formatSqft } from "@/lib/utils/format";
 
 export const revalidate = 300;
 
@@ -98,9 +99,18 @@ export default async function PreconProjectPage({
   const price = project.priceDisplay ?? (project.price ? formatPrice(project.price) : null);
   const unit = project.areaUnit;
 
+  const hasMap = project.latitude !== null && project.longitude !== null;
+  const sizeLabel =
+    project.areaRange
+      ? `${project.areaRange} ${unit}`
+      : project.area !== null
+        ? formatSqft(project.area)
+        : null;
+
   const sections = [
     { id: "facts", label: "Key facts", show: true },
     { id: "about", label: "About", show: Boolean(project.overviewHtml || project.excerpt) },
+    { id: "location", label: "Location", show: hasMap },
     { id: "deposit", label: "Deposits", show: project.depositPlans.length > 0 },
     { id: "incentives", label: "Incentives", show: project.incentives.length > 0 },
     { id: "collections", label: "Home collections", show: project.homeCollections.length > 0 },
@@ -165,17 +175,22 @@ export default async function PreconProjectPage({
               <KeyFacts
                 items={[
                   { label: "Developer", value: project.developer },
-                  { label: "Occupancy", value: project.occupancy },
-                  { label: "Sales stage", value: stage },
+                  { label: "Address", value: project.address },
+                  { label: "City", value: project.city },
+                  { label: "Neighbourhood / Community", value: project.neighbourhood },
+                  { label: "Size (sq. ft.)", value: sizeLabel },
+                  { label: "Maintenance fees", value: project.maintenanceFees },
+                  { label: "Signing amount", value: project.signingAmount },
+                  { label: "Estimated occupancy / completion", value: project.occupancy },
+                  { label: "Ownership type", value: project.ownershipType },
                   { label: "Home types", value: project.propertyTypes.join(", ") || null },
+                  { label: "Stories", value: project.stories },
+                  { label: "Basement", value: project.basement },
+                  { label: "Sales stage", value: stage },
                   { label: "Style", value: project.propertyStyle },
                   { label: "Starting price", value: price },
                   { label: "Bedrooms", value: project.bedroomRange },
                   { label: "Bathrooms", value: project.bathroomRange },
-                  {
-                    label: "Interior",
-                    value: project.areaRange ? `${project.areaRange} ${unit}` : null,
-                  },
                   { label: "Parking", value: project.garageCount },
                   {
                     label: "Lot size",
@@ -197,6 +212,17 @@ export default async function PreconProjectPage({
                     {project.excerpt}
                   </p>
                 )}
+              </SectionCard>
+            )}
+
+            {hasMap && (
+              <SectionCard id="location" title="Location">
+                <PreconLocationMap
+                  latitude={project.latitude}
+                  longitude={project.longitude}
+                  address={project.address}
+                  label={project.location}
+                />
               </SectionCard>
             )}
 
@@ -222,6 +248,12 @@ export default async function PreconProjectPage({
           <p className="mt-10 text-caption text-ink-subtle">
             Preconstruction details, pricing and availability are provided by the
             developer and are subject to change without notice.
+            {project.updatedAt ? (
+              <>
+                {" "}
+                Last listing updated {formatDate(project.updatedAt)}.
+              </>
+            ) : null}
           </p>
         </div>
 

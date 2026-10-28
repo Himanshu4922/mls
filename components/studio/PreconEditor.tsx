@@ -12,9 +12,12 @@ import { Field, Input, Select, Textarea } from "@/components/ui/Field";
 import { Switch } from "@/components/ui/Switch";
 import {
   isNamedMetaKey,
+  PRECON_BASEMENT_OPTIONS,
   PRECON_DOCUMENT_FIELDS,
+  PRECON_LOCATION_META_FIELDS,
   PRECON_META_FIELDS,
   PRECON_NAMED_META_KEYS,
+  PRECON_OWNERSHIP_OPTIONS,
   PRECON_STATUSES,
   SALES_STAGES,
   type PreconStatus,
@@ -32,9 +35,15 @@ const NUMBER_FIELDS = [
   { key: "bedrooms", label: "Bedrooms", step: "1" },
   { key: "bathrooms", label: "Bathrooms", step: "0.5" },
   { key: "garages", label: "Garages", step: "1" },
-  { key: "area", label: "Interior area (sq ft)", step: "1" },
+  { key: "area", label: "Size (sq. ft.)", step: "1" },
   { key: "lot_size", label: "Lot size", step: "0.01" },
 ] as const;
+
+/** Meta keys rendered with a fixed select instead of a free-text input. */
+const SELECT_META: Record<string, readonly string[]> = {
+  ownership_type: PRECON_OWNERSHIP_OPTIONS,
+  basement: PRECON_BASEMENT_OPTIONS,
+};
 
 type NumberKey = (typeof NUMBER_FIELDS)[number]["key"] | "latitude" | "longitude" | "featured_order";
 
@@ -311,17 +320,23 @@ export function PreconEditor({ project }: { project: StudioPrecon | null }) {
             <Field label="Address" htmlFor={fid("address")} error={errors.address}>
               <Input id={fid("address")} value={form.address} onChange={(e) => set("address", e.target.value)} />
             </Field>
+            {PRECON_LOCATION_META_FIELDS.map((field) => (
+              <Field key={field.key} label={field.label} htmlFor={fid(field.key)} hint={field.hint}>
+                <Input
+                  id={fid(field.key)}
+                  value={form.meta[field.key] ?? ""}
+                  onChange={(e) => setMeta(field.key, e.target.value)}
+                />
+              </Field>
+            ))}
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Latitude" htmlFor={fid("lat")} hint="Places the project on the map." error={errors.latitude}>
+              <Field label="Latitude" htmlFor={fid("lat")} hint="Places the project on Google Maps / Street View." error={errors.latitude}>
                 <Input id={fid("lat")} inputMode="decimal" value={form.numbers.latitude} onChange={(e) => setNumber("latitude", e.target.value)} />
               </Field>
               <Field label="Longitude" htmlFor={fid("lng")} error={errors.longitude}>
                 <Input id={fid("lng")} inputMode="decimal" value={form.numbers.longitude} onChange={(e) => setNumber("longitude", e.target.value)} />
               </Field>
             </div>
-            <Field label="Location shown to visitors" htmlFor={fid("location_display")} hint="Optional, e.g. Vaughan Metropolitan Centre">
-              <Input id={fid("location_display")} value={form.meta.location_display ?? ""} onChange={(e) => setMeta("location_display", e.target.value)} />
-            </Field>
           </Panel>
 
           <Panel title="Homes and pricing">
@@ -337,15 +352,44 @@ export function PreconEditor({ project }: { project: StudioPrecon | null }) {
                 </Field>
               ))}
             </div>
-            {PRECON_META_FIELDS.map((field) => (
-              <Field key={field.key} label={field.label} htmlFor={fid(field.key)} hint={field.hint}>
-                {"multiline" in field && field.multiline ? (
-                  <Textarea id={fid(field.key)} value={form.meta[field.key] ?? ""} onChange={(e) => setMeta(field.key, e.target.value)} className="min-h-20" />
-                ) : (
-                  <Input id={fid(field.key)} value={form.meta[field.key] ?? ""} onChange={(e) => setMeta(field.key, e.target.value)} />
-                )}
-              </Field>
-            ))}
+            {PRECON_META_FIELDS.map((field) => {
+              const options = SELECT_META[field.key];
+              return (
+                <Field key={field.key} label={field.label} htmlFor={fid(field.key)} hint={field.hint}>
+                  {options ? (
+                    <Select
+                      id={fid(field.key)}
+                      value={form.meta[field.key] ?? ""}
+                      onChange={(e) => setMeta(field.key, e.target.value)}
+                    >
+                      <option value="">Not set</option>
+                      {options.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                      {form.meta[field.key] &&
+                        !(options as readonly string[]).includes(form.meta[field.key]) && (
+                          <option value={form.meta[field.key]}>{form.meta[field.key]}</option>
+                        )}
+                    </Select>
+                  ) : "multiline" in field && field.multiline ? (
+                    <Textarea
+                      id={fid(field.key)}
+                      value={form.meta[field.key] ?? ""}
+                      onChange={(e) => setMeta(field.key, e.target.value)}
+                      className="min-h-20"
+                    />
+                  ) : (
+                    <Input
+                      id={fid(field.key)}
+                      value={form.meta[field.key] ?? ""}
+                      onChange={(e) => setMeta(field.key, e.target.value)}
+                    />
+                  )}
+                </Field>
+              );
+            })}
           </Panel>
 
           <Panel
@@ -518,6 +562,7 @@ export function PreconEditor({ project }: { project: StudioPrecon | null }) {
               Project #{saved.id}
               {saved.wpId ? ` · import ID ${saved.wpId}` : ""}
               {saved.assignmentCount ? ` · ${saved.assignmentCount} linked assignment(s)` : ""}
+              {saved.updatedAt ? ` · last updated ${new Date(saved.updatedAt).toLocaleDateString("en-CA")}` : ""}
             </p>
           )}
           {uploadError && (
