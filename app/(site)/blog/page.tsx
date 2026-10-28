@@ -136,7 +136,7 @@ function PostCard({ post }: { post: BlogPost }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={post.thumbnail}
-            alt=""
+            alt={post.title}
             className="aspect-[16/9] w-full object-cover"
             loading="lazy"
           />

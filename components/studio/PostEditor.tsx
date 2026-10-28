@@ -7,7 +7,7 @@ import { RichTextEditor } from "@/components/studio/RichTextEditor";
 import { ConfirmDialog, PromptDialog } from "@/components/ui/Dialogs";
 import type { FaqItem, StudioPost, StudioPostInput } from "@/lib/api/studio";
 import type { BlogCategory } from "@/lib/api/blog";
-import { useCreateCategory, useSavePost } from "@/lib/queries/studio";
+import { useCreateCategory, useSavePost, useUploadStudioImage } from "@/lib/queries/studio";
 import { studioStickyTop } from "@/components/studio/chrome";
 import { cn } from "@/lib/utils/cn";
 import { toArticleHtml, toPlainText } from "@/lib/utils/markdown";
@@ -29,6 +29,8 @@ interface FormState {
   seoCanonicalUrl: string;
   seoNoindex: boolean;
   faqItems: FaqItem[];
+  /** Featured / social share image URL (from the CMS or a fresh Studio upload). */
+  thumbnailUrl: string | null;
 }
 
 function toFormState(post: StudioPost | null): FormState {
@@ -51,6 +53,7 @@ function toFormState(post: StudioPost | null): FormState {
     seoCanonicalUrl: post?.seoCanonicalUrl ?? "",
     seoNoindex: post?.seoNoindex ?? false,
     faqItems: post?.faqItems ?? [],
+    thumbnailUrl: post?.thumbnailUrl ?? null,
   };
 }
 
@@ -68,8 +71,8 @@ function toIso(local: string): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-function buildPayload(form: FormState): StudioPostInput {
-  return {
+function buildPayload(form: FormState, thumbnailDirty: boolean): StudioPostInput {
+  const payload: StudioPostInput = {
     title: form.title.trim(),
     slug: form.slug.trim() || undefined,
     excerpt: form.excerpt.trim(),
@@ -86,6 +89,12 @@ function buildPayload(form: FormState): StudioPostInput {
     seo_noindex: form.seoNoindex,
     faq_items: form.faqItems.filter((item) => item.question.trim() || item.answer.trim()),
   };
+  // Only send when the author changed it — otherwise a no-op PATCH would
+  // re-download and re-save the same Cloudinary object on every autosave.
+  if (thumbnailDirty) {
+    payload.thumbnail_url = form.thumbnailUrl ?? "";
+  }
+  return payload;
 }
 
 interface PostEditorProps {
@@ -102,9 +111,13 @@ export function PostEditor({ post, categories }: PostEditorProps) {
   const [slug, setSlug] = useState(post?.slug ?? "");
   const [updatedAt, setUpdatedAt] = useState(post?.updatedAt ?? null);
   const [savedAt, setSavedAt] = useState<Date | null>(null);
+  // Featured image only goes on the wire when the author picks or clears one.
+  const [thumbnailDirty, setThumbnailDirty] = useState(false);
+  const featuredInputRef = useRef<HTMLInputElement | null>(null);
   // mutateAsync is stable, so it can sit in `persist`'s deps without churning
   // the autosave effect below.
   const { mutateAsync: savePost, isPending: saving } = useSavePost();
+  const { mutateAsync: uploadImage, isPending: uploadingFeatured } = useUploadStudioImage();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -131,7 +144,7 @@ export function PostEditor({ post, categories }: PostEditorProps) {
       overrides: Partial<StudioPostInput> = {},
       { silent = false }: { silent?: boolean } = {},
     ): Promise<StudioPost | null> => {
-      const payload = { ...buildPayload(form), ...overrides };
+      const payload = { ...buildPayload(form, thumbnailDirty), ...overrides };
       if (!payload.title) {
         setError("Give the post a title before saving.");
         return null;
@@ -150,6 +163,8 @@ export function PostEditor({ post, categories }: PostEditorProps) {
         setUpdatedAt(saved.updatedAt);
         setSavedAt(new Date());
         setDirty(false);
+        setThumbnailDirty(false);
+        setForm((prev) => ({ ...prev, thumbnailUrl: saved.thumbnailUrl }));
 
         // A new post gets a server-assigned slug; move to its real URL so a
         // refresh (or a second save) edits rather than creating a duplicate.
@@ -163,8 +178,26 @@ export function PostEditor({ post, categories }: PostEditorProps) {
         return null;
       }
     },
-    [form, isNew, router, slug, updatedAt, savePost],
+    [form, isNew, router, slug, thumbnailDirty, updatedAt, savePost],
   );
+
+  async function handleFeaturedImage(file: File) {
+    setError(null);
+    try {
+      const data = await uploadImage(file);
+      setForm((prev) => ({ ...prev, thumbnailUrl: data.url }));
+      setThumbnailDirty(true);
+      setDirty(true);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not upload that featured image.");
+    }
+  }
+
+  function clearFeaturedImage() {
+    setForm((prev) => ({ ...prev, thumbnailUrl: null }));
+    setThumbnailDirty(true);
+    setDirty(true);
+  }
 
   // Autosave — DRAFTS ONLY. Silently rewriting a live post as someone types is
   // how a half-edited article reaches readers, so a published post always takes
@@ -419,6 +452,61 @@ export function PostEditor({ post, categories }: PostEditorProps) {
                 className="w-full rounded-control border border-line bg-surface px-3 py-2 text-small text-ink"
               />
             </Field>
+          </Panel>
+
+          <Panel title="Featured image">
+            <p className="text-caption text-ink-muted">
+              Used on blog cards, Open Graph / social shares, and at the top of the article. Alt text on the public page uses the post title.
+            </p>
+            {form.thumbnailUrl ? (
+              <div className="space-y-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={form.thumbnailUrl}
+                  alt={form.title.trim() || "Featured image preview"}
+                  className="aspect-[16/9] w-full rounded-control border border-line object-cover"
+                />
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => featuredInputRef.current?.click()}
+                    disabled={uploadingFeatured}
+                    className="rounded-control border border-line px-3 py-1.5 text-caption font-medium text-ink hover:border-navy disabled:opacity-60"
+                  >
+                    {uploadingFeatured ? "Uploading…" : "Replace"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearFeaturedImage}
+                    disabled={uploadingFeatured}
+                    className="rounded-control border border-line px-3 py-1.5 text-caption font-medium text-negative hover:border-negative disabled:opacity-60"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => featuredInputRef.current?.click()}
+                disabled={uploadingFeatured}
+                className="flex w-full flex-col items-center justify-center gap-1 rounded-control border border-dashed border-line bg-surface-alt px-3 py-8 text-caption text-ink-muted hover:border-navy hover:text-navy disabled:opacity-60"
+              >
+                {uploadingFeatured ? "Uploading…" : "Upload featured image"}
+                <span className="text-ink-subtle">JPEG, PNG, WebP or GIF · max 5 MB</span>
+              </button>
+            )}
+            <input
+              ref={featuredInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void handleFeaturedImage(file);
+                event.target.value = "";
+              }}
+            />
           </Panel>
 
           <Panel title="Organise">

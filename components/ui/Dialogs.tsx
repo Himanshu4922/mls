@@ -91,6 +91,7 @@ export function PromptDialog({
   busy = false,
   error,
   validate,
+  allowEmpty = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -106,6 +107,8 @@ export function PromptDialog({
   error?: string | null;
   /** Returns a message to block submit, or null when the value is fine. */
   validate?: (value: string) => string | null;
+  /** When true, empty submit is allowed (e.g. decorative image alt=""). */
+  allowEmpty?: boolean;
 }) {
   return (
     <Modal open={open} onClose={() => !busy && onClose()} title={title} description={description} size="sm">
@@ -120,6 +123,7 @@ export function PromptDialog({
           busy={busy}
           error={error}
           validate={validate}
+          allowEmpty={allowEmpty}
           onCancel={onClose}
           onSubmit={onSubmit}
         />
@@ -137,6 +141,7 @@ function PromptForm({
   busy,
   error,
   validate,
+  allowEmpty,
   onCancel,
   onSubmit,
 }: {
@@ -148,6 +153,7 @@ function PromptForm({
   busy: boolean;
   error?: string | null;
   validate?: (value: string) => string | null;
+  allowEmpty: boolean;
   onCancel: () => void;
   onSubmit: (value: string) => void;
 }) {
@@ -158,7 +164,7 @@ function PromptForm({
   function submit(event: FormEvent) {
     event.preventDefault();
     const trimmed = value.trim();
-    if (!trimmed) return;
+    if (!trimmed && !allowEmpty) return;
     const problem = validate?.(trimmed) ?? null;
     setLocalError(problem);
     if (!problem) onSubmit(trimmed);
@@ -195,7 +201,7 @@ function PromptForm({
         <Button variant="secondary" size="sm" onClick={onCancel} disabled={busy}>
           Cancel
         </Button>
-        <Button type="submit" size="sm" loading={busy} disabled={!value.trim()}>
+        <Button type="submit" size="sm" loading={busy} disabled={!allowEmpty && !value.trim()}>
           {submitLabel}
         </Button>
       </div>

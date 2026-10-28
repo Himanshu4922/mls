@@ -169,6 +169,11 @@ export interface StudioPostInput {
   twitter_title?: string;
   twitter_description?: string;
   faq_items?: FaqItem[];
+  /**
+   * Featured image: a URL from `/api/studio/uploads`, or `""` to clear.
+   * Omitted when unchanged.
+   */
+  thumbnail_url?: string | null;
 }
 
 function rowsOf(data: { results?: RawStudioPost[] } | RawStudioPost[]): RawStudioPost[] {

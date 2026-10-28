@@ -121,7 +121,7 @@ export default async function BlogPostPage({ params }: PageProps<"/blog/[slug]">
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={post.thumbnail}
-            alt=""
+            alt={post.title}
             className="mb-8 w-full rounded-surface border border-line object-cover"
           />
         ) : null}
