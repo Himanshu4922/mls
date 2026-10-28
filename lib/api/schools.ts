@@ -7,6 +7,7 @@
  */
 
 import { apiFetch, type RequestOptions } from "@/lib/api/client";
+import { schoolLocationImageSrc } from "@/lib/utils/mapTile";
 
 const MLS = "/api/mls";
 
@@ -23,6 +24,11 @@ export interface OfficialSchool {
   eqaoLabel: string;
   latitude: number | null;
   longitude: number | null;
+  /**
+   * Location map thumbnail when coords exist. The Ministry file has no school
+   * photos; this is an OSM tile of the campus / neighbourhood instead.
+   */
+  imageUrl: string | null;
 }
 
 interface RawSchool {
@@ -43,6 +49,8 @@ interface RawSchool {
 function mapSchool(school: RawSchool): OfficialSchool | null {
   const name = school.name?.trim() || "";
   if (!name) return null;
+  const latitude = typeof school.latitude === "number" ? school.latitude : null;
+  const longitude = typeof school.longitude === "number" ? school.longitude : null;
   return {
     id: school.id?.trim() || name,
     name,
@@ -54,8 +62,12 @@ function mapSchool(school: RawSchool): OfficialSchool | null {
     website: school.website?.trim() || null,
     eqaoPercent: typeof school.eqao_percent === "number" ? school.eqao_percent : null,
     eqaoLabel: school.eqao_label?.trim() || "",
-    latitude: typeof school.latitude === "number" ? school.latitude : null,
-    longitude: typeof school.longitude === "number" ? school.longitude : null,
+    latitude,
+    longitude,
+    imageUrl:
+      latitude !== null && longitude !== null
+        ? schoolLocationImageSrc(latitude, longitude)
+        : null,
   };
 }
 
