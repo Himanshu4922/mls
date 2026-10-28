@@ -40,7 +40,7 @@ export function TopRatedSchools({
         <p className="text-small text-ink-muted">EQAO results are unavailable right now.</p>
       ) : (
         <>
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {schools.map((school) => {
               const homesHref =
                 school.latitude !== null && school.longitude !== null
@@ -50,40 +50,52 @@ export function TopRatedSchools({
               const imageAlt = place
                 ? `Map of ${school.name} in ${place}`
                 : `Map of ${school.name}`;
+              const score =
+                school.eqaoPercent === null ? "—" : `${school.eqaoPercent}%`;
               return (
                 <article
                   key={school.id}
-                  className="flex flex-col overflow-hidden rounded-surface border border-line bg-surface"
+                  className="overflow-hidden rounded-surface border border-line bg-surface"
                 >
                   {school.imageUrl ? (
-                    <div className="relative aspect-[16/10] bg-surface-alt">
+                    <div className="relative h-28 bg-surface-alt">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={school.imageUrl}
                         alt={imageAlt}
                         width={640}
-                        height={400}
+                        height={224}
                         loading="lazy"
                         decoding="async"
                         className="h-full w-full object-cover"
                       />
                       <span
                         aria-hidden="true"
-                        className="pointer-events-none absolute left-1/2 top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-navy shadow"
+                        className="pointer-events-none absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-navy shadow"
                       />
                     </div>
                   ) : null}
-                  <div className="flex flex-1 flex-col p-5">
-                    <h3 className="text-small font-semibold text-ink">{school.name}</h3>
-                    <p className="mt-1 text-caption text-ink-muted">{place}</p>
-                    <p className="mt-4 text-[28px] font-bold leading-none text-ink">
-                      {school.eqaoPercent === null ? "—" : `${school.eqaoPercent}%`}
-                    </p>
-                    <p className="mt-2 flex-1 text-caption text-ink-muted">
-                      {school.eqaoPercent === null ? "No EQAO result published" : school.eqaoLabel}
-                    </p>
+                  <div className="space-y-2 p-3.5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h3 className="text-small font-semibold leading-snug text-ink">{school.name}</h3>
+                        {place ? (
+                          <p className="mt-0.5 truncate text-caption text-ink-muted">{place}</p>
+                        ) : null}
+                      </div>
+                      <p
+                        className="shrink-0 text-[22px] font-bold leading-none text-ink"
+                        title={
+                          school.eqaoPercent === null
+                            ? "No EQAO result published"
+                            : school.eqaoLabel
+                        }
+                      >
+                        {score}
+                      </p>
+                    </div>
                     {homesHref ? (
-                      <Link href={homesHref} className="mt-4 text-small font-medium text-navy hover:underline">
+                      <Link href={homesHref} className="inline-block text-caption font-medium text-navy hover:underline">
                         Homes within 2 km →
                       </Link>
                     ) : null}
