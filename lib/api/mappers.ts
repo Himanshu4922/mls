@@ -13,6 +13,7 @@ import type {
   BackendPropertyDetail,
   BackendPropertySummary,
   BackendPropertyTypeFacet,
+  BackendRoom,
   BackendUserProfile,
 } from "@/lib/types/backend";
 import type {
@@ -273,6 +274,68 @@ function lotDepthLabel(dimensions: string | null | undefined): string | null {
   return /ft/i.test(parts[1]) ? parts[1] : `${parts[1]} ft`;
 }
 
+/**
+ * Condo floor / suite level from room rows. Skips house-style levels
+ * (Main / Second / Basement) the same way the AVM report does.
+ */
+export function deriveCondoLevel(rooms: BackendRoom[] | null | undefined): string | null {
+  if (!rooms?.length) return null;
+  for (const room of rooms) {
+    const raw = (room.room_level || "").trim();
+    if (!raw) continue;
+    const lower = raw.toLowerCase();
+    if (
+      /(main|second|third|fourth|basement|lower|ground|upper|sub-)/.test(lower)
+    ) {
+      continue;
+    }
+    return titleCase(raw) ?? raw;
+  }
+  return null;
+}
+
+/** True/false when feed text mentions a locker; null when there is nothing to scan. */
+export function deriveLocker(
+  ...blobs: Array<string | null | undefined>
+): boolean | null {
+  const joined = blobs.filter(Boolean).join(" ").toLowerCase();
+  if (!joined.trim()) return null;
+  return joined.includes("locker");
+}
+
+/**
+ * Calendar days from list entry to close (sold) or today (active).
+ * Matches mls-v2 `avm_report._days_on_market`.
+ */
+export function deriveDaysOnMarket(
+  listedAt: string | null | undefined,
+  closeDate: string | null | undefined,
+): number | null {
+  if (!listedAt) return null;
+  const start = new Date(listedAt);
+  if (Number.isNaN(start.getTime())) return null;
+  const end = closeDate ? new Date(closeDate) : new Date();
+  if (Number.isNaN(end.getTime())) return null;
+  const days = Math.floor((end.getTime() - start.getTime()) / 86_400_000);
+  return days >= 0 ? days : null;
+}
+
+/**
+ * Rented equipment under contract (HWT, etc.). Prefer OtherEquipment; fall
+ * back to inclusions only when they clearly describe a rental.
+ */
+export function deriveRentalItems(
+  otherEquipment: string | null | undefined,
+  inclusions: string | null | undefined,
+): string | null {
+  const equipment = otherEquipment?.trim();
+  if (equipment) return titleCase(equipment);
+  const text = inclusions?.trim();
+  if (!text) return null;
+  if (!/rental|hot\s*water|hwt|\bleased\b/i.test(text)) return null;
+  return titleCase(text);
+}
+
 function fact(label: string, value: string | number | null | undefined): PropertyFact | null {
   if (value === null || value === undefined) return null;
   const text = String(value).trim();
@@ -301,15 +364,32 @@ export function mapPropertyDetail(raw: BackendPropertyDetail): PropertyDetail {
   const garageSpaces = toNumber(raw.garages);
   const roomCount = (raw.rooms ?? []).filter((room) => titleCase(room.room_type)).length;
 
+  const level = deriveCondoLevel(raw.rooms);
+  const locker = deriveLocker(raw.building_features, raw.parking_features);
+  const daysOnMarket = deriveDaysOnMarket(
+    raw.original_entry_timestamp ?? summary.listedAt,
+    raw.close_date ?? summary.closeDate,
+  );
+  const rentalItems = deriveRentalItems(raw.other_equipment, raw.inclusions);
+
   const factGroups = [
     group("Property", [
       fact("Listing #", summary.mls),
       fact("Status", statusLabel(summary.status)),
       fact("Property type", summary.type),
       fact("Style", titleCase(raw.architectural_style)),
+      fact("Level", level),
+      fact("Unit #", raw.unit_number?.trim()),
+      locker === null ? null : fact("Locker", locker ? "Yes" : "No"),
       fact("Community", summary.neighbourhood),
       fact("Municipality", summary.community),
       fact("Directions", titleCase(raw.directions)),
+      daysOnMarket === null
+        ? null
+        : fact(
+            "Days on market",
+            `${daysOnMarket} day${daysOnMarket === 1 ? "" : "s"}`,
+          ),
     ]),
     group("Building", [
       fact("Bedrooms", bedsLabel ?? summary.beds),
@@ -343,14 +423,15 @@ export function mapPropertyDetail(raw: BackendPropertyDetail): PropertyDetail {
       fact("Heating", titleCase(raw.heating)),
     ]),
     group("Financial", [
-      fact("Annual taxes", taxAnnual ? formatPrice(taxAnnual) : null),
+      fact("Property taxes", taxAnnual ? formatPrice(taxAnnual) : null),
       fact(
         "Maintenance fee",
         assocFee
           ? `${formatPrice(assocFee)}${raw.association_fee_frequency ? ` / ${raw.association_fee_frequency.toLowerCase()}` : ""}`
           : null,
       ),
-      fact("Fee includes", titleCase(raw.association_fee_includes)),
+      fact("Included in maintenance costs", titleCase(raw.association_fee_includes)),
+      fact("Rental items under contract", rentalItems),
     ]),
   ].filter((g): g is { title: string; facts: PropertyFact[] } => g !== null);
 

@@ -116,6 +116,7 @@ export interface BackendPropertyDetail extends Omit<BackendPropertySummary, "med
   frontage_length_numeric: string | null;
   parking_total: number | null;
   parking_features: string | null;
+  building_features?: string | null;
   garages?: number | null;
   garage_size?: string | null;
   kitchens?: number | null;
@@ -136,6 +137,8 @@ export interface BackendPropertyDetail extends Omit<BackendPropertySummary, "med
   flooring: string | null;
   roof: string | null;
   appliances: string | null;
+  /** CREA OtherEquipment — often holds rented HWTs / contract rental items. */
+  other_equipment?: string | null;
   exterior_features: string | null;
   interior_features: string | null;
   community_features: string | null;

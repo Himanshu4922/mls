@@ -61,7 +61,7 @@ export const COMPARE_ROWS: Array<{
     numeric: (p) => p.parkingTotal,
   },
   {
-    label: "Annual taxes",
+    label: "Property taxes",
     value: (p) => (p.taxAnnualAmount === null ? EMPTY : formatPrice(p.taxAnnualAmount)),
     numeric: (p) => p.taxAnnualAmount,
     lowerIsBetter: true,
@@ -74,6 +74,10 @@ export const COMPARE_ROWS: Array<{
         : `${formatPrice(p.associationFee)}${p.associationFeeFrequency ? ` / ${p.associationFeeFrequency.toLowerCase()}` : ""}`,
     numeric: (p) => p.associationFee,
     lowerIsBetter: true,
+  },
+  {
+    label: "Unit #",
+    value: (p) => p.unitNumber ?? EMPTY,
   },
   { label: "City", value: (p) => p.community ?? EMPTY },
   { label: "Neighbourhood", value: (p) => p.neighbourhood ?? EMPTY },

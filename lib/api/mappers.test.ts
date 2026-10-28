@@ -1,8 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { mapAvmDetails } from "./valuation";
-import { resolvePropertyType } from "./mappers";
-import type { BackendPropertySummary } from "@/lib/types/backend";
-import { mapPropertySummary } from "./mappers";
+import {
+  deriveCondoLevel,
+  deriveDaysOnMarket,
+  deriveLocker,
+  deriveRentalItems,
+  mapPropertyDetail,
+  mapPropertySummary,
+  resolvePropertyType,
+} from "./mappers";
+import type { BackendPropertyDetail, BackendPropertySummary } from "@/lib/types/backend";
 
 const row = (overrides: Partial<BackendPropertySummary>) =>
   ({
@@ -105,5 +112,93 @@ describe("resolvePropertyType", () => {
 
   it("falls back to the sub-type when structure is missing", () => {
     expect(resolvePropertyType("Condo Apartment", null, null).uiType).toBe("Condo");
+  });
+});
+
+describe("listing key-fact helpers", () => {
+  it("derives condo level and skips house-style room levels", () => {
+    expect(
+      deriveCondoLevel([
+        { room_type: "Kitchen", room_level: "Main", room_length: null, room_width: null, room_dimensions: null },
+        { room_type: "Bedroom", room_level: "12", room_length: null, room_width: null, room_dimensions: null },
+      ]),
+    ).toBe("12");
+    expect(
+      deriveCondoLevel([
+        { room_type: "Kitchen", room_level: "Main", room_length: null, room_width: null, room_dimensions: null },
+      ]),
+    ).toBeNull();
+  });
+
+  it("detects locker from building/parking text", () => {
+    expect(deriveLocker("Balcony, Locker", null)).toBe(true);
+    expect(deriveLocker("Balcony", "Underground")).toBe(false);
+    expect(deriveLocker(null, null)).toBeNull();
+  });
+
+  it("counts days on market from list entry to close or now", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-28T12:00:00Z"));
+    expect(deriveDaysOnMarket("2026-10-07T00:00:00Z", null)).toBe(21);
+    expect(deriveDaysOnMarket("2026-10-01T00:00:00Z", "2026-10-11T00:00:00Z")).toBe(10);
+    expect(deriveDaysOnMarket(null, null)).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("prefers OtherEquipment for rental items under contract", () => {
+    expect(deriveRentalItems("Hot Water Tank", "Fridge, Stove")).toBe("Hot Water Tank");
+    expect(deriveRentalItems(null, "Fridge, Stove")).toBeNull();
+    expect(deriveRentalItems(null, "HWT rental")).toMatch(/hwt rental/i);
+  });
+});
+
+describe("mapPropertyDetail listing fields", () => {
+  it("surfaces Level, Unit #, Locker, taxes, fees, DOM, and rental items", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-28T12:00:00Z"));
+    const detail = mapPropertyDetail({
+      listing_key: "X123",
+      listing_id: "W1234567",
+      list_price: "750000",
+      lease_amount: null,
+      standard_status: "Active",
+      property_sub_type: "Condo Apartment",
+      structure_type: "Apartment",
+      city: "Toronto",
+      city_region: "CityPlace",
+      unparsed_address: "100 Harbour St",
+      unit_number: "1712",
+      building_features: "Locker",
+      parking_features: null,
+      tax_annual_amount: "3200.00",
+      association_fee: "650.00",
+      association_fee_frequency: "Monthly",
+      association_fee_includes: "Heat, Water, Insurance",
+      other_equipment: "Hot Water Tank",
+      original_entry_timestamp: "2026-10-14T00:00:00Z",
+      media: [],
+      rooms: [
+        {
+          room_type: "Living",
+          room_level: "17",
+          room_length: null,
+          room_width: null,
+          room_dimensions: null,
+        },
+      ],
+    } as unknown as BackendPropertyDetail);
+
+    const facts = Object.fromEntries(
+      detail.factGroups.flatMap((g) => g.facts.map((f) => [f.label, f.value])),
+    );
+    expect(facts["Level"]).toBe("17");
+    expect(facts["Unit #"]).toBe("1712");
+    expect(facts["Locker"]).toBe("Yes");
+    expect(facts["Property taxes"]).toBe("$3,200");
+    expect(facts["Maintenance fee"]).toMatch(/\$650/);
+    expect(facts["Included in maintenance costs"]).toMatch(/Heat/i);
+    expect(facts["Days on market"]).toBe("14 days");
+    expect(facts["Rental items under contract"]).toBe("Hot Water Tank");
+    vi.useRealTimers();
   });
 });
