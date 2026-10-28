@@ -1,7 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { Inter, Geist } from "next/font/google";
 import "./globals.css";
 import { CookieConsent } from "@/components/consent/CookieConsent";
+import { NavigationProgress } from "@/components/navigation/NavigationProgress";
 import { AuthProvider } from "@/components/providers/AuthProvider";
 import { PublicConnectionsProvider } from "@/components/providers/PublicConnections";
 import { QueryProvider } from "@/components/providers/QueryProvider";
@@ -108,6 +110,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <AuthProvider initialUser={user}>
               <WhatsappProvider number={whatsappNumber}>
                 <WatchedProvider>
+                  <Suspense fallback={null}>
+                    <NavigationProgress />
+                  </Suspense>
                   {children}
                   <CookieConsent
                     gaMeasurementId={connections.gaMeasurementId}

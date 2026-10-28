@@ -44,6 +44,70 @@ export function PropertyGridSkeleton({ count = 6 }: { count?: number }) {
   );
 }
 
+/**
+ * Generic public-page placeholder for route `loading.tsx` files.
+ * Keeps chrome (nav/footer) visible while the page body streams in.
+ */
+export function PageSkeleton({
+  variant = "default",
+  label = "Loading page",
+}: {
+  variant?: "default" | "detail" | "form";
+  label?: string;
+}) {
+  return (
+    <div role="status" aria-label={label} aria-busy="true">
+      {variant === "detail" ? (
+        <>
+          <div className="border-b border-line bg-surface-alt">
+            <Skeleton className="h-56 w-full rounded-none sm:h-80" />
+          </div>
+          <div className="container-page grid gap-8 py-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+            <div className="space-y-4">
+              <Skeleton className="h-8 w-3/4 max-w-xl" />
+              <Skeleton className="h-5 w-40" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-4/5 max-w-lg" />
+              <Skeleton className="mt-6 h-48 w-full" />
+            </div>
+            <div className="space-y-3">
+              <Skeleton className="h-40 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          </div>
+        </>
+      ) : variant === "form" ? (
+        <div className="container-page max-w-2xl space-y-6 py-10 sm:py-14">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-9 w-72" />
+          <Skeleton className="h-4 w-full max-w-md" />
+          <div className="space-y-4 rounded-surface border border-line bg-surface p-5">
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-11 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-11 w-36" />
+          </div>
+        </div>
+      ) : (
+        <>
+          <header className="border-b border-line bg-surface-alt py-7 sm:py-10">
+            <div className="container-page space-y-3">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-9 w-72 max-w-full" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+          </header>
+          <div className="container-page space-y-8 py-8">
+            <Skeleton className="h-12 w-full max-w-xl" />
+            <PropertyGridSkeleton count={6} />
+          </div>
+        </>
+      )}
+      <span className="sr-only">{label}…</span>
+    </div>
+  );
+}
+
 /* -------------------------------------------------------------------------- */
 /* Empty / error                                                               */
 /* -------------------------------------------------------------------------- */
