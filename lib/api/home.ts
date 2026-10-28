@@ -36,17 +36,21 @@ async function get<T>(
   revalidate: number,
   map: (payload: unknown) => T,
   params?: Record<string, number>,
+  tags?: string[],
 ): Promise<T | null> {
   return safeFetch(
     apiFetch<unknown>(`${HOME}/${path}`, {
       revalidate,
       timeoutMs: TIMEOUT_MS,
       params,
+      tags,
     }).then(map),
     null,
     `home:${path}`,
   );
 }
+
+const CONTENT_TAGS = ["home-content"];
 
 export function getInvestorPicks(limit = 3): Promise<InvestorPicksFeed | null> {
   return get("investor-picks/", FEED_REVALIDATE, mapInvestorPicks, { limit });
@@ -67,13 +71,13 @@ export function getMarketSnapshot(): Promise<MarketSnapshot | null> {
 }
 
 export function getIncentives(): Promise<Incentive[] | null> {
-  return get("incentives/", CONTENT_REVALIDATE, mapIncentives);
+  return get("incentives/", CONTENT_REVALIDATE, mapIncentives, undefined, CONTENT_TAGS);
 }
 
 export function getPartners(): Promise<Partner[] | null> {
-  return get("partners/", CONTENT_REVALIDATE, mapPartners);
+  return get("partners/", CONTENT_REVALIDATE, mapPartners, undefined, CONTENT_TAGS);
 }
 
 export function getCommunityImages(): Promise<Record<string, string> | null> {
-  return get("community-images/", CONTENT_REVALIDATE, mapCommunityImages);
+  return get("community-images/", CONTENT_REVALIDATE, mapCommunityImages, undefined, CONTENT_TAGS);
 }

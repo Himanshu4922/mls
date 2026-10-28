@@ -102,5 +102,7 @@ export function useEditorialList(resource: string, rows: Array<Record<string, un
       }),
     initialData: { results: rows },
     initialDataUpdatedAt: seededAt,
+    // Background refetches used to overwrite in-progress photo/URL edits.
+    refetchOnWindowFocus: false,
   });
 }

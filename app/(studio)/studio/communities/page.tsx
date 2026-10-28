@@ -15,7 +15,7 @@ export default async function CommunitiesPage() {
     <EditorialManager
       resource="community-images"
       title="Community photos"
-      lede="Photos for the trending community tiles. The city key must match the city name in lowercase, such as mississauga."
+      lede="Photos for community tiles on the home page and /communities. Upload a new photo or paste a link, then Save. The city key must match the city name in lowercase, such as mississauga or richmond hill."
       rows={body.results}
       idKey="city_key"
       fields={["city_key", "city_label", "image_url", "credit"]}

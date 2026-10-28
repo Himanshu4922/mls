@@ -41,6 +41,8 @@ export interface RequestOptions extends Omit<RequestInit, "body"> {
   token?: string | null;
   /** Seconds; omit for no caching. Ignored when `cache` is set. */
   revalidate?: number;
+  /** On-demand cache tags (paired with `revalidateTag` after studio edits). */
+  tags?: string[];
   /** Abort after N ms. Defaults to 15s so a hung backend can't hang a render. */
   timeoutMs?: number;
 }
@@ -73,6 +75,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     body,
     token,
     revalidate,
+    tags,
     timeoutMs = 15_000,
     headers,
     ...rest
@@ -115,7 +118,7 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
       ...(rest.cache
         ? {}
         : revalidate !== undefined && process.env.NODE_ENV === "production"
-          ? { next: { revalidate } }
+          ? { next: { revalidate, ...(tags?.length ? { tags } : {}) } }
           : { cache: "no-store" as const }),
     });
   } catch (error) {
