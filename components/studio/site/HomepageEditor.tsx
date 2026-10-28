@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { DocumentEditor } from "@/components/studio/site/DocumentEditor";
 import { TreeForm } from "@/components/studio/site/TreeForm";
+import { LinkButton } from "@/components/ui/Button";
 import { Switch } from "@/components/ui/Switch";
 import { SECTION_META, type HomepageDocument, type SectionId } from "@/lib/site/types";
 import { validateHomepage } from "@/lib/site/validate";
@@ -127,6 +128,20 @@ function HomepageForm({
           <button type="button" className={`rounded-control px-3 py-2 text-small font-medium ${fullPage ? "text-ink-muted hover:bg-surface-alt" : "bg-navy text-white"}`} aria-pressed={!fullPage} onClick={() => showPreview(false)}>Preview this section</button>
           <button type="button" className={`rounded-control px-3 py-2 text-small font-medium ${fullPage ? "bg-navy text-white" : "text-ink-muted hover:bg-surface-alt"}`} aria-pressed={fullPage} onClick={() => showPreview(true)}>Preview the whole page</button>
         </div>
+        {section.id === "keywords" ? (
+          <div className="rounded-control border border-navy/20 bg-navy-tint px-4 py-4">
+            <p className="text-small font-medium text-ink">Edit the search chips and filters</p>
+            <p className="mt-1 text-small text-ink-muted">
+              Labels, URL slugs, keywords, price, and property type are managed on a dedicated
+              page under Listings — not in these heading fields.
+            </p>
+            <div className="mt-3">
+              <LinkButton href="/studio/keywords" variant="primary" size="sm">
+                Open Keyword searches editor
+              </LinkButton>
+            </div>
+          </div>
+        ) : null}
         <TreeForm
           value={section.content}
           path={`sections.${section.id}`}

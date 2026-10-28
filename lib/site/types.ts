@@ -120,7 +120,8 @@ export const SECTION_META: Record<SectionId, { label: string; summary: string; c
   resources: { label: "Resources and guides", summary: "Guide cards and their links.", canHide: true },
   keywords: {
     label: "Keyword searches",
-    summary: "Section heading only. Edit the chips and search logic under Keyword searches in the Listings nav.",
+    summary:
+      "Heading copy for this homepage block. Use Open Keyword searches editor (or Listings → Keyword searches) to add chips, MLS filters, and /homes pages.",
     canHide: true,
   },
 };
