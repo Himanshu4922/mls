@@ -212,6 +212,25 @@ export interface ToggleFavoriteVars {
   removing: boolean;
 }
 
+function patchOverviewFavorites(
+  prev: WatchedOverview | undefined,
+  listingKey: string,
+  removing: boolean,
+): WatchedOverview | undefined {
+  if (!prev) return prev;
+  if (removing) {
+    return {
+      ...prev,
+      favorites: prev.favorites.filter((entry) => entry.propertyKey !== listingKey),
+    };
+  }
+  if (prev.favorites.some((entry) => entry.propertyKey === listingKey)) return prev;
+  return {
+    ...prev,
+    favorites: [...prev.favorites, { propertyKey: listingKey, snapshot: {}, timestamp: null }],
+  };
+}
+
 export function useToggleFavorite() {
   const queryClient = useQueryClient();
   const key = useOverviewKey();
@@ -223,29 +242,24 @@ export function useToggleFavorite() {
         "Could not save that home. Please try again.",
       ),
     /*
-     * Reconcile the shared overview cache in place rather than invalidating
-     * it. Invalidating refetched /api/watched on every heart toggle, and the
-     * watched page re-rendered off that response — so un-saving a home
-     * flashed the whole grid as if the page had reloaded. The server response
-     * carries no new information here: we already know exactly which key was
-     * added or removed.
+     * Patch the shared overview cache immediately (and roll back on error)
+     * rather than invalidating. Invalidating refetched /api/watched on every
+     * heart toggle and re-rendering the watched page off that response made
+     * un-saving a home flash the whole grid as if the page had reloaded.
      */
-    onSuccess: (_data, { listingKey, removing }) => {
-      if (!key) return;
-      queryClient.setQueryData<WatchedOverview>(key, (prev) => {
-        if (!prev) return prev;
-        if (removing) {
-          return {
-            ...prev,
-            favorites: prev.favorites.filter((entry) => entry.propertyKey !== listingKey),
-          };
-        }
-        if (prev.favorites.some((entry) => entry.propertyKey === listingKey)) return prev;
-        return {
-          ...prev,
-          favorites: [...prev.favorites, { propertyKey: listingKey, snapshot: {}, timestamp: null }],
-        };
-      });
+    onMutate: async ({ listingKey, removing }) => {
+      if (!key) return {};
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<WatchedOverview>(key);
+      queryClient.setQueryData<WatchedOverview>(key, (prev) =>
+        patchOverviewFavorites(prev, listingKey, removing),
+      );
+      return { previous };
+    },
+    onError: (_error, _vars, context) => {
+      if (key && context?.previous) {
+        queryClient.setQueryData(key, context.previous);
+      }
     },
   });
 }

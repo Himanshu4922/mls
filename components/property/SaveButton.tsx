@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils/cn";
 import { useWatched } from "@/components/providers/WatchedProvider";
 
@@ -10,6 +10,10 @@ import { useWatched } from "@/components/providers/WatchedProvider";
  * Optimistic locally, persisted through /api/watched (which proxies mls-v2's
  * `watched/favorites/toggle/`). Signed-out visitors keep favourites in local
  * storage; they merge on sign-in.
+ *
+ * Do not wrap the network call in `startTransition`: a transition that spans
+ * the request defers the optimistic heart/grid update until the server
+ * answers, which feels like a reload on /watched.
  */
 export function SaveButton({
   listingKey,
@@ -29,15 +33,18 @@ export function SaveButton({
   variant?: "icon" | "inline";
 }) {
   const { isFavorite, toggleFavorite } = useWatched();
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const saved = isFavorite(listingKey);
 
   const dims = size === "sm" ? "h-8 w-8" : "h-9 w-9";
 
   function onToggle() {
-    startTransition(async () => {
-      const message = await toggleFavorite(listingKey);
+    if (pending) return;
+    setError(null);
+    setPending(true);
+    void toggleFavorite(listingKey).then((message) => {
+      setPending(false);
       setError(message);
       if (message) setTimeout(() => setError(null), 4000);
     });

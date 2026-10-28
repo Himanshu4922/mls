@@ -64,12 +64,21 @@ export function usePropertiesByIds(ids: string[]) {
       return data;
     },
     /*
-     * Rebuild the set from per-id entries when they are ALL present. A partial
-     * set is not returned: rendering three of four homes as if complete would
-     * make the fourth look removed rather than loading.
+     * Keep the grid painted while the set key changes (save / un-save).
+     *
+     * 1. If the previous set already has every remaining id (typical un-save),
+     *    filter it — the removed card disappears with no skeleton flash.
+     * 2. Otherwise rebuild from per-id cache entries when they are ALL present.
+     *    A partial set is not returned: rendering three of four homes as if
+     *    complete would make the fourth look removed rather than loading.
      */
-    placeholderData: (): PropertyDetail[] | undefined => {
+    placeholderData: (previousData): PropertyDetail[] | undefined => {
       if (ids.length === 0) return undefined;
+      if (previousData) {
+        const wanted = new Set(ids);
+        const filtered = previousData.filter((property) => wanted.has(property.id));
+        if (filtered.length === ids.length) return filtered;
+      }
       const cached = ids.map((id) =>
         queryClient.getQueryData<PropertyDetail>(propertyKey(id)),
       );

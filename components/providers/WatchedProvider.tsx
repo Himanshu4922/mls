@@ -233,11 +233,14 @@ export function WatchedProvider({
 
   const toggleFavorite = useCallback(
     async (listingKey: string): Promise<string | null> => {
-      const next = favorites.includes(listingKey)
+      const wasSaved = favorites.includes(listingKey);
+      const next = wasSaved
         ? favorites.filter((key) => key !== listingKey)
         : [...favorites, listingKey];
 
-      setFavorites(next); // optimistic
+      // Optimistic — must run outside any transition that awaits the network,
+      // or /watched only updates when the request finishes (feels like a reload).
+      setFavorites(next);
 
       if (!user) {
         writeStorage(STORAGE_KEY, next);
@@ -245,15 +248,20 @@ export function WatchedProvider({
       }
 
       try {
-        // On success the hook reconciles the shared overview cache in place
-        // (no refetch — see useToggleFavorite for why).
+        // Overview cache is patched in onMutate (rolled back on error).
         await toggleFavoriteRequest({
           listingKey,
-          removing: !next.includes(listingKey),
+          removing: wasSaved,
         });
         return null;
       } catch (error) {
-        setFavorites(favorites); // roll back
+        // Roll back against concurrent toggles: restore only this key's prior state.
+        setFavorites((current) => {
+          if (wasSaved) {
+            return current.includes(listingKey) ? current : [...current, listingKey];
+          }
+          return current.filter((key) => key !== listingKey);
+        });
         // A 401 here means the session expired mid-visit. Previously this
         // rolled back in silence, so the heart filled and then quietly
         // emptied with no explanation — the "saves don't save" symptom.
