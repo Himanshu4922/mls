@@ -15,11 +15,11 @@ export default async function IncentivesPage() {
     <EditorialManager
       resource="incentives"
       title="Buyer incentives"
-      lede="Programs shown in the homepage incentives section. Turn a row off instead of deleting it when an amount needs to be checked."
+      lede="Programs shown in the homepage incentives section. Edit any row and click Save. Turn “Show on the site” off to hide a program without deleting it."
       rows={body.results}
       idKey="id"
       fields={["title", "label", "icon", "amount_text", "description", "source_url", "reviewed_at", "is_active", "display_order"]}
-      createBody={{ title: "New program", label: "Program", icon: "home", amount_text: "Amount", description: "Describe who qualifies.", is_active: false, display_order: 0 }}
+      createBody={{ title: "New program", label: "Program", icon: "home", amount_text: "Amount", description: "Describe who qualifies.", is_active: true, display_order: 0 }}
     />
   );
 }

@@ -271,6 +271,8 @@ export async function createCategory(
 /* Team                                                                        */
 /* -------------------------------------------------------------------------- */
 
+export type TeamRole = "author" | "admin";
+
 export interface TeamMember {
   id: number;
   name: string;
@@ -298,6 +300,10 @@ const mapMember = (raw: RawTeamMember): TeamMember => ({
   dateJoined: raw.date_joined ?? null,
 });
 
+export function teamRoleOf(member: Pick<TeamMember, "isStaff">): TeamRole {
+  return member.isStaff ? "admin" : "author";
+}
+
 export async function listTeam(
   token: string,
   options: RequestOptions = {},
@@ -313,13 +319,29 @@ export async function listTeam(
 export async function grantTeamAccess(
   token: string,
   email: string,
+  role: TeamRole = "author",
   options: RequestOptions = {},
 ): Promise<TeamMember> {
   const raw = await apiFetch<RawTeamMember>(`${VLOG}/team/`, {
     ...options,
     method: "POST",
     token,
-    body: { email },
+    body: { email, role },
+  });
+  return mapMember(raw);
+}
+
+export async function updateTeamRole(
+  token: string,
+  userId: number,
+  role: TeamRole,
+  options: RequestOptions = {},
+): Promise<TeamMember> {
+  const raw = await apiFetch<RawTeamMember>(`${VLOG}/team/${userId}/`, {
+    ...options,
+    method: "PATCH",
+    token,
+    body: { role },
   });
   return mapMember(raw);
 }

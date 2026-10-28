@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/Switch";
 import { EditorialListSkeleton } from "@/components/studio/StudioSkeletons";
 import { useUserKeys } from "@/components/providers/AuthProvider";
 import { fetchJson, HttpError } from "@/lib/queries/fetcher";
-import { useEditorialList } from "@/lib/queries/siteStudio";
+import { useEditorialList, type EditorialBody } from "@/lib/queries/siteStudio";
 
 const FIELD_LABELS: Record<string, string> = {
   title: "Title",
@@ -35,15 +35,25 @@ const FIELD_LABELS: Record<string, string> = {
 
 const FIELD_HINTS: Record<string, string> = {
   city_key: "Lowercase city name, such as mississauga or richmond hill. The tile uses this to find the photo.",
-  display_order: "1 shows first.",
+  display_order: "1 shows first. Existing rows keep their place when you add a new one.",
   reviewed_at: "Use a date like 2026-10-10, or leave it blank.",
   is_active: "Turn this off to keep the row here without showing it to visitors.",
   is_hidden: "Hidden headlines leave the homepage. The feed can still bring them back in.",
   image_url: "Upload a photo or paste an image link. At least 800×450 pixels.",
   logo_url: "Upload a logo or paste an image link.",
+  icon: "Pick the glyph shown on the homepage card.",
 };
 
 const IMAGE_FIELDS = new Set(["image_url", "logo_url"]);
+
+const INCENTIVE_ICONS = [
+  { value: "home", label: "Home" },
+  { value: "savings", label: "Savings" },
+  { value: "green", label: "Green" },
+  { value: "construction", label: "Construction" },
+  { value: "equity", label: "Equity" },
+  { value: "retirement", label: "Retirement" },
+] as const;
 
 type EditorialRow = {
   /** Stable id used in PATCH/DELETE URLs — never changes while editing. */
@@ -63,7 +73,13 @@ function buildSaveBody(resource: string, row: Record<string, unknown>, fields: s
     if (field === "display_order") {
       body.display_order = Number(row.display_order) || 0;
     } else if (field === "reviewed_at") {
-      body.reviewed_at = row.reviewed_at ? String(row.reviewed_at).slice(0, 10) : null;
+      const raw = row.reviewed_at;
+      body.reviewed_at = raw ? String(raw).slice(0, 10) : null;
+    } else if (field === "source_url" || field === "website_url" || field === "logo_url") {
+      // URLField(blank=True) rejects null; empty string is the stored blank.
+      body[field] = row[field] == null ? "" : String(row[field]).trim();
+    } else if (field === "is_active" || field === "is_hidden") {
+      body[field] = Boolean(row[field]);
     } else {
       body[field] = row[field];
     }
@@ -80,6 +96,33 @@ function errorMessage(caught: unknown, fallback: string): string {
     return caught.message || fallback;
   }
   return caught instanceof Error ? caught.message : fallback;
+}
+
+function nextCreateBody(
+  createBody: Record<string, unknown>,
+  existing: EditorialRow[],
+): Record<string, unknown> {
+  const body = { ...createBody };
+  const orders = existing.map((item) => Number(item.data.display_order) || 0);
+  const nextOrder = orders.length > 0 ? Math.max(...orders) + 1 : 0;
+  if ("display_order" in body) body.display_order = nextOrder;
+  if ("is_active" in body) body.is_active = true;
+
+  if (typeof body.title === "string" && body.title === "New program") {
+    const n = existing.filter((item) => String(item.data.title || "").startsWith("New program")).length;
+    body.title = n === 0 ? "New program" : `New program ${n + 1}`;
+  }
+  if (typeof body.name === "string" && body.name === "New partner") {
+    const n = existing.filter((item) => String(item.data.name || "").startsWith("New partner")).length;
+    body.name = n === 0 ? "New partner" : `New partner ${n + 1}`;
+  }
+  if (typeof body.city_key === "string" && body.city_key === "new-city") {
+    const n = existing.filter((item) => String(item.data.city_key || "").startsWith("new-city")).length;
+    const key = n === 0 ? "new-city" : `new-city-${n + 1}`;
+    body.city_key = key;
+    body.city_label = n === 0 ? "New city" : `New city ${n + 1}`;
+  }
+  return body;
 }
 
 export function EditorialManager({
@@ -105,19 +148,26 @@ export function EditorialManager({
   const serverRows = list.data?.results ?? rows;
   const [items, setItems] = useState(() => toRows(rows, idKey));
   const [seenAt, setSeenAt] = useState(list.dataUpdatedAt);
-  const [dirty, setDirty] = useState(false);
+  const [dirtyIds, setDirtyIds] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
 
-  // Sync from the server after saves/refreshes, but never wipe in-progress edits.
+  // Sync clean rows from the server; leave in-progress edits alone.
   if (list.dataUpdatedAt !== seenAt) {
     setSeenAt(list.dataUpdatedAt);
-    if (!dirty) setItems(toRows(serverRows, idKey));
+    setItems((current) => {
+      const server = toRows(serverRows, idKey);
+      if (dirtyIds.size === 0) return server;
+      const dirty = new Map(current.filter((item) => dirtyIds.has(item.saveId)).map((item) => [item.saveId, item]));
+      return server.map((item) => dirty.get(item.saveId) ?? item);
+    });
   }
 
   function patchItem(saveId: string, field: string, value: unknown) {
-    setDirty(true);
+    setDirtyIds((current) => new Set(current).add(saveId));
+    setNotice(null);
     setItems((current) =>
       current.map((item) =>
         item.saveId === saveId ? { ...item, data: { ...item.data, [field]: value } } : item,
@@ -125,21 +175,48 @@ export function EditorialManager({
     );
   }
 
-  async function refresh() {
-    if (keys) await queryClient.invalidateQueries({ queryKey: keys.editorial(resource) });
+  async function loadLatest(): Promise<EditorialRow[]> {
+    if (!keys) {
+      const data = await fetchJson<EditorialBody>(`/api/studio/editorial/${resource}`, {
+        cache: "no-store",
+        fallback: "Could not load this list.",
+      });
+      return toRows(data.results ?? [], idKey);
+    }
+    const data = await queryClient.fetchQuery({
+      queryKey: keys.editorial(resource),
+      queryFn: ({ signal }) =>
+        fetchJson<EditorialBody>(`/api/studio/editorial/${resource}`, {
+          signal,
+          cache: "no-store",
+          fallback: "Could not load this list.",
+        }),
+    });
+    return toRows(data.results ?? [], idKey);
   }
 
   async function save(item: EditorialRow) {
+    if (!item.saveId) {
+      setError("This row has no id yet. Refresh the page and try again.");
+      return;
+    }
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
       await fetchJson(`/api/studio/editorial/${resource}/${encodeURIComponent(item.saveId)}`, {
         method: "PATCH",
         body: buildSaveBody(resource, item.data, fields),
         fallback: "Could not save that.",
       });
-      setDirty(false);
-      await refresh();
+      const latest = await loadLatest();
+      setDirtyIds((current) => {
+        const next = new Set(current);
+        next.delete(item.saveId);
+        return next;
+      });
+      setItems(latest);
+      setNotice("Saved. The public site will show this on the next refresh.");
     } catch (caught) {
       setError(errorMessage(caught, "Could not save that."));
     } finally {
@@ -148,12 +225,23 @@ export function EditorialManager({
   }
 
   async function remove(item: EditorialRow) {
+    if (!item.saveId) {
+      setError("This row has no id yet. Refresh the page and try again.");
+      return;
+    }
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
       await fetch(`/api/studio/editorial/${resource}/${encodeURIComponent(item.saveId)}`, { method: "DELETE" });
-      setDirty(false);
-      await refresh();
+      const latest = await loadLatest();
+      setDirtyIds((current) => {
+        const next = new Set(current);
+        next.delete(item.saveId);
+        return next;
+      });
+      setItems(latest);
+      setNotice("Removed from the public page.");
     } catch (caught) {
       setError(errorMessage(caught, "Could not delete that."));
     } finally {
@@ -165,10 +253,17 @@ export function EditorialManager({
     if (!createBody) return;
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
-      await fetchJson(`/api/studio/editorial/${resource}`, { method: "POST", body: createBody, fallback: "Could not create that." });
-      setDirty(false);
-      await refresh();
+      await fetchJson(`/api/studio/editorial/${resource}`, {
+        method: "POST",
+        body: nextCreateBody(createBody, items),
+        fallback: "Could not create that.",
+      });
+      const latest = await loadLatest();
+      setItems(latest);
+      setDirtyIds(new Set());
+      setNotice("Added. Edit the new row below, then Save.");
     } catch (caught) {
       setError(errorMessage(caught, "Could not create that."));
     } finally {
@@ -230,15 +325,24 @@ export function EditorialManager({
       }
     >
       {error && <StudioAlert>{error}</StudioAlert>}
+      {notice && (
+        <p role="status" className="rounded-control border border-positive/40 bg-surface px-4 py-2.5 text-small text-ink">
+          {notice}
+        </p>
+      )}
       {items.length === 0 && <StudioEmpty title="Nothing here yet" />}
       <ul className="space-y-4">
         {items.map((item) => {
           const row = item.data;
           const heading = String(row.title || row.name || row.city_label || "Untitled");
+          const dirty = dirtyIds.has(item.saveId);
           return (
-            <li key={item.saveId} className="overflow-hidden rounded-surface border border-line bg-surface">
+            <li key={item.saveId || heading} className="overflow-hidden rounded-surface border border-line bg-surface">
               <div className="border-b border-line bg-navy-tint/60 px-5 py-3">
-                <h2 className="text-h3 text-ink">{heading}</h2>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h2 className="text-h3 text-ink">{heading}</h2>
+                  {dirty ? <span className="text-caption text-ink-muted">Unsaved changes</span> : null}
+                </div>
                 {resource === "news" && row.source ? <p className="mt-0.5 text-small text-ink-muted">{String(row.source)}</p> : null}
               </div>
               <div className="space-y-4 p-5">
@@ -258,6 +362,25 @@ export function EditorialManager({
                           checked={Boolean(row[field])}
                           onCheckedChange={(checked) => patchItem(item.saveId, field, checked)}
                         />
+                      </label>
+                    );
+                  }
+                  if (field === "icon" && resource === "incentives") {
+                    return (
+                      <label key={field} className="block text-small font-medium text-ink">
+                        {label}
+                        <select
+                          className="mt-1.5 w-full rounded-control border border-line bg-surface px-3 py-2 font-normal text-ink"
+                          value={row[field] == null ? "home" : String(row[field])}
+                          onChange={(event) => patchItem(item.saveId, field, event.target.value)}
+                        >
+                          {INCENTIVE_ICONS.map((icon) => (
+                            <option key={icon.value} value={icon.value}>
+                              {icon.label}
+                            </option>
+                          ))}
+                        </select>
+                        {FIELD_HINTS[field] && <span className="mt-1 block font-normal text-caption text-ink-muted">{FIELD_HINTS[field]}</span>}
                       </label>
                     );
                   }
@@ -310,7 +433,9 @@ export function EditorialManager({
                 })}
               </div>
               <div className="flex gap-2 border-t border-line pt-4">
-                <Button type="button" variant="secondary" disabled={busy || uploadingId === item.saveId} onClick={() => void save(item)}>Save</Button>
+                <Button type="button" variant="secondary" disabled={busy || uploadingId === item.saveId} onClick={() => void save(item)}>
+                  Save
+                </Button>
                 {resource !== "news" && (
                   <Button
                     type="button"

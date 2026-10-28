@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { errorResponse, guardStaff, isGuardFailure } from "@/app/api/studio/_guard";
-import { grantTeamAccess, listTeam } from "@/lib/api/studio";
+import { grantTeamAccess, listTeam, type TeamRole } from "@/lib/api/studio";
 
 /**
  * Team management is STAFF-only, a higher bar than the rest of the Studio: a
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   const session = await guardStaff();
   if (isGuardFailure(session)) return session;
 
-  let body: { email?: string };
+  let body: { email?: string; role?: string };
   try {
     body = await request.json();
   } catch {
@@ -36,8 +36,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "An email address is required." }, { status: 400 });
   }
 
+  const role: TeamRole = body.role === "admin" ? "admin" : "author";
+
   try {
-    return NextResponse.json({ member: await grantTeamAccess(session.token, email) });
+    return NextResponse.json({ member: await grantTeamAccess(session.token, email, role) });
   } catch (error) {
     return errorResponse(error, "Could not grant access.");
   }

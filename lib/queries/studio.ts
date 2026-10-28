@@ -2,7 +2,7 @@
 
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import type { StudioPost, StudioPostInput } from "@/lib/api/studio";
+import type { StudioPost, StudioPostInput, TeamMember, TeamRole } from "@/lib/api/studio";
 import type { BlogCategory } from "@/lib/api/blog";
 import { fetchJson, httpErrorFrom, HttpError, NETWORK_ERROR_STATUS } from "@/lib/queries/fetcher";
 
@@ -59,27 +59,38 @@ export function useCreateCategory() {
 }
 
 export function useGrantStudioAccess() {
-  const router = useRouter();
   return useMutation({
-    mutationFn: (email: string) =>
-      fetchJson<unknown>("/api/studio/team", {
+    mutationFn: async ({ email, role }: { email: string; role: TeamRole }) => {
+      const data = await fetchJson<{ member: TeamMember }>("/api/studio/team", {
         method: "POST",
-        body: { email },
+        body: { email, role },
         fallback: "Could not grant access.",
-      }),
-    onSuccess: () => router.refresh(),
+      });
+      return data.member;
+    },
+  });
+}
+
+export function useUpdateStudioRole() {
+  return useMutation({
+    mutationFn: async ({ memberId, role }: { memberId: number; role: TeamRole }) => {
+      const data = await fetchJson<{ member: TeamMember }>(`/api/studio/team/${memberId}`, {
+        method: "PATCH",
+        body: { role },
+        fallback: "Could not update access.",
+      });
+      return data.member;
+    },
   });
 }
 
 export function useRevokeStudioAccess() {
-  const router = useRouter();
   return useMutation({
     mutationFn: (memberId: number) =>
       fetchJson<unknown>(`/api/studio/team/${memberId}`, {
         method: "DELETE",
         fallback: "Could not revoke access.",
       }),
-    onSuccess: () => router.refresh(),
   });
 }
 

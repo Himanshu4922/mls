@@ -26,7 +26,7 @@ export default async function StudioTeamPage() {
     <StudioPage
       kicker="Workspace"
       title="Team"
-      description="People who can write and publish blog posts. Everyone signs in with their own account."
+      description="People who can open the Studio. Writers can manage blog posts. Administrators can manage the full site, listings, and this team list."
     >
       {error ? <StudioAlert>{error}</StudioAlert> : <TeamManager members={members} currentUserId={session.user.id} />}
     </StudioPage>

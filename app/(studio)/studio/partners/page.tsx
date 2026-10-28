@@ -15,11 +15,11 @@ export default async function PartnersPage() {
     <EditorialManager
       resource="partners"
       title="Partners"
-      lede="Trusted connections on the homepage. A website link opens in a new tab. Inactive partners stay in this list and off the public page."
+      lede="Trusted connections on the homepage. Edit any row and click Save. A website link opens in a new tab. Turn “Show on the site” off to hide a partner without deleting it."
       rows={body.results}
       idKey="id"
       fields={["name", "category", "description", "website_url", "logo_url", "is_active", "display_order"]}
-      createBody={{ name: "New partner", category: "Mortgage", description: "", website_url: "", logo_url: "", is_active: false, display_order: 0 }}
+      createBody={{ name: "New partner", category: "Mortgage", description: "", website_url: "", logo_url: "", is_active: true, display_order: 0 }}
     />
   );
 }
