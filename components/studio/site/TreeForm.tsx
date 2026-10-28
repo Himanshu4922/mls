@@ -119,7 +119,27 @@ export function TreeForm({
   }
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
-    const keys = Object.keys(record).filter((key) => key !== "id");
+    // Stable field order so hero prompts stay near the heading fields.
+    const preferred = [
+      "imageUrl",
+      "imageAlt",
+      "focalX",
+      "scrim",
+      "eyebrow",
+      "lines",
+      "accentLine",
+      "description",
+      "tryPrompts",
+      "title",
+      "caption",
+      "items",
+      "actionLabel",
+      "actionHref",
+    ];
+    const keys = [
+      ...preferred.filter((key) => key in record && key !== "id"),
+      ...Object.keys(record).filter((key) => key !== "id" && !preferred.includes(key)),
+    ];
     return (
       <div className="space-y-4">
         {keys.map((key) => {

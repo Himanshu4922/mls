@@ -10,6 +10,7 @@ import { useUserKeys } from "@/components/providers/AuthProvider";
 import { fetchJson, HttpError } from "@/lib/queries/fetcher";
 import { qk } from "@/lib/queries/keys";
 import { useSiteDocument, useSiteRevisions, type SiteRecordBody } from "@/lib/queries/siteStudio";
+import { fillSiteDefaults } from "@/lib/site/fillDefaults";
 import type { SiteKey } from "@/lib/site/types";
 import type { FieldErrors } from "@/lib/site/validate";
 
@@ -53,7 +54,9 @@ export function DocumentEditor({
 
   if (record && record.updated_at !== recordAt) {
     setRecordAt(record.updated_at);
-    setDraft(record.draft);
+    // Older drafts may omit fields added later (e.g. hero tryPrompts). Fill
+    // from defaults so the form always has something to edit.
+    setDraft(fillSiteDefaults(siteKey, record.draft));
     setServerErrors({});
   }
 
