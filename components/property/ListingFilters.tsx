@@ -23,14 +23,17 @@ import { SaveSearchButton } from "@/components/search/SaveSearchButton";
 import { SideSheet } from "@/components/ui/SideSheet";
 import { SEARCH_PROPERTY_TYPES, LISTING_SORTS, RELEVANCE_SORT } from "@/lib/types/domain";
 import type { ListingQuery } from "@/lib/types/domain";
-import { formatPrice } from "@/lib/utils/format";
+import { formatNumber, formatPrice } from "@/lib/utils/format";
 import { formatPostal, looksLikePostal, parsePostalList } from "@/lib/utils/postal";
 import { parseListingSearch } from "@/lib/utils/searchParams";
+import { STATUS_TABS } from "@/lib/utils/status";
 
 const BED_OPTIONS = [1, 2, 3, 4, 5];
 const BATH_OPTIONS = [1, 2, 3, 4];
 const GARAGE_OPTIONS = [1, 2, 3];
 const FLOOR_OPTIONS = [1, 2, 3];
+const KITCHEN_OPTIONS = [1, 2, 3];
+const DOM_OPTIONS = [7, 14, 30, 60, 90];
 const YEAR_OPTIONS = [2020, 2010, 2000, 1990, 1980];
 
 const BASEMENT_OPTIONS: Array<{ value: "" | NonNullable<ListingQuery["basement"]>; label: string }> = [
@@ -49,10 +52,17 @@ const PANEL_KEYS = [
   "postal",
   "beds",
   "baths",
+  "sqftMin",
+  "sqftMax",
   "garages",
   "floors",
   "basement",
   "yearBuiltMin",
+  "domMax",
+  "familyRoom",
+  "kitchens",
+  "status",
+  "openHouse",
 ] as const;
 type PanelKey = (typeof PANEL_KEYS)[number];
 type Draft = Record<PanelKey, string>;
@@ -65,8 +75,6 @@ const ALL_KEYS = [
   "ai",
   "q",
   "type",
-  "status",
-  "openHouse",
   "poly",
   ...PANEL_KEYS,
 ] as const;
@@ -79,10 +87,17 @@ const EMPTY_DRAFT: Draft = {
   postal: "",
   beds: "",
   baths: "",
+  sqftMin: "",
+  sqftMax: "",
   garages: "",
   floors: "",
   basement: "",
   yearBuiltMin: "",
+  domMax: "",
+  familyRoom: "",
+  kitchens: "",
+  status: "",
+  openHouse: "",
 };
 
 function postalDraft(raw: string | null): string {
@@ -97,10 +112,17 @@ function draftFromParams(params: URLSearchParams): Draft {
     postal: postalDraft(params.get("postal")),
     beds: params.get("beds") ?? "",
     baths: params.get("baths") ?? "",
+    sqftMin: params.get("sqftMin") ?? "",
+    sqftMax: params.get("sqftMax") ?? "",
     garages: params.get("garages") ?? "",
     floors: params.get("floors") ?? "",
     basement: params.get("basement") ?? "",
     yearBuiltMin: params.get("yearBuiltMin") ?? "",
+    domMax: params.get("domMax") ?? "",
+    familyRoom: params.get("familyRoom") === "1" ? "1" : "",
+    kitchens: params.get("kitchens") ?? "",
+    status: params.get("status") ?? "",
+    openHouse: params.get("openHouse") === "1" ? "1" : "",
   };
 }
 
@@ -198,6 +220,13 @@ export function ListingFilters({ resultCount }: { resultCount: number }) {
     }
     setPostalError(null);
 
+    let { sqftMin, sqftMax } = draft;
+    const sqftLo = Number(sqftMin);
+    const sqftHi = Number(sqftMax);
+    if (sqftMin && sqftMax && Number.isFinite(sqftLo) && Number.isFinite(sqftHi) && sqftLo > sqftHi) {
+      [sqftMin, sqftMax] = [sqftMax, sqftMin];
+    }
+
     update({
       priceMin: priceMin || null,
       priceMax: priceMax || null,
@@ -205,10 +234,17 @@ export function ListingFilters({ resultCount }: { resultCount: number }) {
       postal: postal.codes.join(",") || null,
       beds: draft.beds || null,
       baths: draft.baths || null,
+      sqftMin: sqftMin || null,
+      sqftMax: sqftMax || null,
       garages: draft.garages || null,
       floors: draft.floors || null,
       basement: draft.basement || null,
       yearBuiltMin: draft.yearBuiltMin || null,
+      domMax: draft.domMax || null,
+      familyRoom: draft.familyRoom || null,
+      kitchens: draft.kitchens || null,
+      status: draft.status || null,
+      openHouse: draft.openHouse || null,
     });
     setSheetOpen(false);
   };
@@ -495,6 +531,28 @@ function FilterFields({
         onChange={(baths) => setDraft((d) => ({ ...d, baths }))}
       />
 
+      <fieldset>
+        <legend className="text-small font-medium text-ink">Size (sq ft)</legend>
+        <div className="mt-1.5 grid grid-cols-2 gap-3">
+          <NumericInput
+            aria-label="Minimum square feet"
+            min={0}
+            max={100000}
+            placeholder="No min"
+            value={draft.sqftMin}
+            onChange={(event) => setDraft((d) => ({ ...d, sqftMin: event.target.value }))}
+          />
+          <NumericInput
+            aria-label="Maximum square feet"
+            min={0}
+            max={100000}
+            placeholder="No max"
+            value={draft.sqftMax}
+            onChange={(event) => setDraft((d) => ({ ...d, sqftMax: event.target.value }))}
+          />
+        </div>
+      </fieldset>
+
       <ChipField
         label="Garages"
         value={draft.garages}
@@ -549,6 +607,86 @@ function FilterFields({
               {year}+
             </ChipToggle>
           ))}
+        </div>
+      </div>
+
+      <ChipField
+        label="Days on market"
+        value={draft.domMax}
+        options={DOM_OPTIONS}
+        suffix=" or fewer"
+        onChange={(domMax) => setDraft((d) => ({ ...d, domMax }))}
+      />
+
+      <div className="space-y-1.5">
+        <span className="block text-small font-medium text-ink">Family room</span>
+        <div className="flex flex-wrap gap-2">
+          <ChipToggle
+            active={!draft.familyRoom}
+            onClick={() => setDraft((d) => ({ ...d, familyRoom: "" }))}
+          >
+            Any
+          </ChipToggle>
+          <ChipToggle
+            active={draft.familyRoom === "1"}
+            onClick={() =>
+              setDraft((d) => ({ ...d, familyRoom: d.familyRoom === "1" ? "" : "1" }))
+            }
+          >
+            Has family room
+          </ChipToggle>
+        </div>
+      </div>
+
+      <ChipField
+        label="Number of kitchens"
+        value={draft.kitchens}
+        options={KITCHEN_OPTIONS}
+        suffix="+"
+        onChange={(kitchens) => setDraft((d) => ({ ...d, kitchens }))}
+      />
+
+      <div className="space-y-1.5">
+        <span className="block text-small font-medium text-ink">Listing status</span>
+        <div className="flex flex-wrap gap-2">
+          <ChipToggle
+            active={!draft.status}
+            onClick={() => setDraft((d) => ({ ...d, status: "" }))}
+          >
+            All
+          </ChipToggle>
+          {STATUS_TABS.map((tab) => (
+            <ChipToggle
+              key={tab.param}
+              active={draft.status.toLowerCase() === tab.param.toLowerCase()}
+              onClick={() =>
+                setDraft((d) => ({
+                  ...d,
+                  status: d.status.toLowerCase() === tab.param.toLowerCase() ? "" : tab.param,
+                }))
+              }
+            >
+              {isRent && tab.group === "active"
+                ? "For Lease"
+                : isRent && tab.group === "sold"
+                  ? "Leased"
+                  : tab.label}
+            </ChipToggle>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <span className="block text-small font-medium text-ink">Open house</span>
+        <div className="flex flex-wrap gap-2">
+          <ChipToggle
+            active={draft.openHouse === "1"}
+            onClick={() =>
+              setDraft((d) => ({ ...d, openHouse: d.openHouse === "1" ? "" : "1" }))
+            }
+          >
+            Has an upcoming open house
+          </ChipToggle>
         </div>
       </div>
     </div>
@@ -617,6 +755,20 @@ function pillLabel(key: FilterKey, params: URLSearchParams): string {
     }
     case "yearBuiltMin":
       return `Built ${value}+`;
+    case "domMax":
+      return `≤${value} days on market`;
+    case "familyRoom":
+      return "Family room";
+    case "kitchens":
+      return `${value}+ kitchens`;
+    case "sqftMin":
+      return `${formatNumber(Number(value))}+ sq ft`;
+    case "sqftMax":
+      return `Up to ${formatNumber(Number(value))} sq ft`;
+    case "status": {
+      const tab = STATUS_TABS.find((t) => t.param.toLowerCase() === value.toLowerCase());
+      return tab?.label ?? value;
+    }
     case "priceMin":
       return `Min ${formatPrice(Number(value))}`;
     case "priceMax":

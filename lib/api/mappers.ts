@@ -371,13 +371,26 @@ export function mapPropertyDetail(raw: BackendPropertyDetail): PropertyDetail {
     raw.close_date ?? summary.closeDate,
   );
   const rentalItems = deriveRentalItems(raw.other_equipment, raw.inclusions);
+  const style = titleCase(raw.architectural_style);
+  const basement = titleCase(raw.basement);
+  const associationFeeIncludes = titleCase(raw.association_fee_includes);
+  const lotDepth = lotDepthLabel(raw.lot_size_dimensions);
+  const sqftAboveGrade = toNumber(raw.above_grade_finished_area);
+  const kitchens = raw.kitchens ?? null;
+  const familyRoom =
+    typeof raw.family_room === "boolean" ? raw.family_room : null;
+  const potlMonthlyFees = toNumber(
+    raw.potl_monthly_fees !== undefined && raw.potl_monthly_fees !== null
+      ? String(raw.potl_monthly_fees)
+      : null,
+  );
 
   const factGroups = [
     group("Property", [
       fact("Listing #", summary.mls),
       fact("Status", statusLabel(summary.status)),
       fact("Property type", summary.type),
-      fact("Style", titleCase(raw.architectural_style)),
+      fact("Style", style),
       fact("Level", level),
       fact("Unit #", raw.unit_number?.trim()),
       locker === null ? null : fact("Locker", locker ? "Yes" : "No"),
@@ -390,15 +403,21 @@ export function mapPropertyDetail(raw: BackendPropertyDetail): PropertyDetail {
             "Days on market",
             `${daysOnMarket} day${daysOnMarket === 1 ? "" : "s"}`,
           ),
+      familyRoom === null ? null : fact("Family room", familyRoom ? "Yes" : "No"),
+      potlMonthlyFees === null ? null : fact("POTL monthly fees", formatPrice(potlMonthlyFees)),
     ]),
     group("Building", [
       fact("Bedrooms", bedsLabel ?? summary.beds),
       fact("Bathrooms", summary.baths),
       fact("Partial baths", raw.bathrooms_partial),
-      fact("Basement", titleCase(raw.basement)),
-      fact("Kitchens", raw.kitchens),
+      fact("Basement", basement),
+      fact("Kitchens", kitchens),
       fact("Rooms", roomCount || null),
       fact("Square feet", livingArea ? `${formatNumber(livingArea)} sq ft` : null),
+      fact(
+        "Square feet above ground",
+        sqftAboveGrade ? `${formatNumber(sqftAboveGrade)} sq ft` : null,
+      ),
       fact("Year built", raw.year_built),
       fact("Stories", raw.stories),
       fact("Construction", titleCase(raw.construction_materials)),
@@ -413,7 +432,7 @@ export function mapPropertyDetail(raw: BackendPropertyDetail): PropertyDetail {
     group("Land", [
       fact("Lot size", raw.lot_size_dimensions),
       fact("Frontage", lotFrontage ? `${formatNumber(lotFrontage)} ft` : null),
-      fact("Depth", lotDepthLabel(raw.lot_size_dimensions)),
+      fact("Depth", lotDepth),
       fact("Zoning", titleCase(raw.zoning)),
     ]),
     group("Utilities", [
@@ -430,7 +449,7 @@ export function mapPropertyDetail(raw: BackendPropertyDetail): PropertyDetail {
           ? `${formatPrice(assocFee)}${raw.association_fee_frequency ? ` / ${raw.association_fee_frequency.toLowerCase()}` : ""}`
           : null,
       ),
-      fact("Included in maintenance costs", titleCase(raw.association_fee_includes)),
+      fact("Included in maintenance costs", associationFeeIncludes),
       fact("Rental items under contract", rentalItems),
     ]),
   ].filter((g): g is { title: string; facts: PropertyFact[] } => g !== null);
@@ -452,6 +471,7 @@ export function mapPropertyDetail(raw: BackendPropertyDetail): PropertyDetail {
     unitNumber: raw.unit_number?.trim() || null,
     stateOrProvince: raw.state_or_province?.trim() || null,
     lotFrontage,
+    lotDepth,
     lotSizeDimensions: raw.lot_size_dimensions?.trim() || null,
     parkingTotal: raw.parking_total ?? null,
     bedsLabel,
@@ -459,6 +479,17 @@ export function mapPropertyDetail(raw: BackendPropertyDetail): PropertyDetail {
     taxAnnualAmount: taxAnnual,
     associationFee: assocFee,
     associationFeeFrequency: raw.association_fee_frequency?.trim() || null,
+    associationFeeIncludes,
+    style,
+    level,
+    locker,
+    basement,
+    kitchens,
+    daysOnMarket,
+    sqftAboveGrade,
+    familyRoom,
+    potlMonthlyFees,
+    rentalItems,
     factGroups,
     virtualTourUrl: httpUrl(raw.virtual_tour_url),
   };

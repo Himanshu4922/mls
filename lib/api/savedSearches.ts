@@ -173,6 +173,9 @@ export function fromBackendParams(filters: SavedFilters): ListingQuery {
     garagesMin: intParam(filters.garages_min),
     storiesMin: intParam(filters.stories_min),
     basement: parseBasementFilter(filters.basement),
+    domMax: intParam(filters.days_on_market_max),
+    familyRoom: filters.family_room === "1" || filters.family_room === "true" || undefined,
+    kitchensMin: intParam(filters.kitchens_min),
     propertySubTypes: subTypes.length ? subTypes : undefined,
     postalCodes: postal.length ? postal : undefined,
     openHouse: filters.has_open_house === "1" || filters.has_open_house === "true" || undefined,
@@ -251,6 +254,9 @@ export function describeCriteria(query: ListingQuery): string[] {
     };
     chips.push(labels[query.basement]);
   }
+  if (query.domMax) chips.push(`≤${query.domMax} days on market`);
+  if (query.familyRoom) chips.push("Family room");
+  if (query.kitchensMin) chips.push(`${query.kitchensMin}+ kitchens`);
   if (query.semantic) chips.push(`Like: ${query.semantic}`);
   return chips;
 }

@@ -157,14 +157,16 @@ export default async function PreconProjectPage({
         </Link>
       </nav>
 
-      <Gallery
-        images={project.images.map((url) => ({ url, category: null, isPreferred: false }))}
-        address={project.title}
-      />
-
-      <div className="mt-8 grid gap-10 lg:grid-cols-[1fr_360px]">
+      <div className="grid gap-10 lg:grid-cols-[1fr_360px]">
         <div className="min-w-0">
-          <Header project={project} stage={stage} price={price} />
+          <Gallery
+            images={project.images.map((url) => ({ url, category: null, isPreferred: false }))}
+            address={project.title}
+          />
+
+          <div className="mt-8">
+            <Header project={project} stage={stage} price={price} />
+          </div>
 
           <div className="mt-6">
             <PreconSectionNav sections={sections} />

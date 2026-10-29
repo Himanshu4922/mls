@@ -35,7 +35,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   const session = await guardStaff();
   if (isGuardFailure(session)) return session;
   const { resource, id } = await params;
-  if (!RESOURCES.has(resource) || resource === "news") return NextResponse.json({ error: "Not found." }, { status: 404 });
+  if (!RESOURCES.has(resource)) return NextResponse.json({ error: "Not found." }, { status: 404 });
   try {
     await apiFetch(`/api/home/studio/${resource}/${encodeURIComponent(id)}/`, {
       token: session.token,

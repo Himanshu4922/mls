@@ -119,6 +119,9 @@ export function toBackendParams(query: ListingQuery, limit?: number, offset?: nu
     garages_min: query.garagesMin,
     stories_min: query.storiesMin,
     basement: query.basement,
+    days_on_market_max: query.domMax,
+    family_room: query.familyRoom ? "1" : undefined,
+    kitchens_min: query.kitchensMin,
     // Repeatable: buildQuery() appends one key per entry, which DRF reads via
     // getlist(). Only sent when the caller passes real feed values.
     property_sub_type: query.propertySubTypes?.length ? query.propertySubTypes : undefined,
@@ -254,6 +257,9 @@ export async function getPropertyFacets(
         garages_min: query.garagesMin,
         stories_min: query.storiesMin,
         basement: query.basement,
+        days_on_market_max: query.domMax,
+        family_room: query.familyRoom ? "1" : undefined,
+        kitchens_min: query.kitchensMin,
         property_sub_type: query.propertySubTypes?.length
           ? query.propertySubTypes
           : undefined,

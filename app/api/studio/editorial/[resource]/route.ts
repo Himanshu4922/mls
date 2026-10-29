@@ -23,7 +23,7 @@ export async function POST(request: Request, { params }: Params) {
   const session = await guardStaff();
   if (isGuardFailure(session)) return session;
   const { resource } = await params;
-  if (!RESOURCES.has(resource) || resource === "news") return NextResponse.json({ error: "Not found." }, { status: 404 });
+  if (!RESOURCES.has(resource)) return NextResponse.json({ error: "Not found." }, { status: 404 });
   let body: unknown;
   try {
     body = await request.json();

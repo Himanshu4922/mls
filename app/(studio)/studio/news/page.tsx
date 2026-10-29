@@ -15,10 +15,17 @@ export default async function NewsPage() {
     <EditorialManager
       resource="news"
       title="News"
-      lede="Headlines ingested from the feeds. Hide an off-topic item and it drops off the homepage. New headlines arrive from the feed, not from this screen."
+      lede="Add headlines manually for the homepage Daily News strip, or hide an off-topic feed item. Feed ingest can still bring new stories in — hidden ones stay off the homepage."
       rows={body.results}
       idKey="id"
-      fields={["title", "source", "is_hidden"]}
+      fields={["title", "source", "url", "image_url", "is_hidden"]}
+      createBody={{
+        title: "New headline",
+        source: "HomeAtlas",
+        url: "https://",
+        image_url: "",
+        is_hidden: false,
+      }}
     />
   );
 }

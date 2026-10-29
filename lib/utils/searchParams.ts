@@ -91,6 +91,9 @@ export function parseListingParams(params: RawParams): ListingQuery {
     garagesMin: int(params.garages),
     storiesMin: int(params.floors),
     basement: parseBasement(first(params.basement)),
+    domMax: int(params.domMax),
+    familyRoom: first(params.familyRoom) === "1" || undefined,
+    kitchensMin: int(params.kitchens),
     postalCodes: postal.length > 0 ? postal : undefined,
     openHouse: first(params.openHouse) === "1" || undefined,
     polygon: polygon ?? undefined,
@@ -129,6 +132,9 @@ export function buildListingQueryString(
   if (query.garagesMin) params.set("garages", String(query.garagesMin));
   if (query.storiesMin) params.set("floors", String(query.storiesMin));
   if (query.basement) params.set("basement", query.basement);
+  if (query.domMax) params.set("domMax", String(query.domMax));
+  if (query.familyRoom) params.set("familyRoom", "1");
+  if (query.kitchensMin) params.set("kitchens", String(query.kitchensMin));
   if (query.postalCodes?.length) params.set("postal", query.postalCodes.join(","));
   if (query.openHouse) params.set("openHouse", "1");
   const poly = serializePolygonParam(query.polygon);
@@ -170,6 +176,9 @@ export function hasActiveFilters(query: ListingQuery): boolean {
       query.garagesMin ||
       query.storiesMin ||
       query.basement ||
+      query.domMax ||
+      query.familyRoom ||
+      query.kitchensMin ||
       query.postalCodes?.length ||
       query.openHouse ||
       query.semantic ||

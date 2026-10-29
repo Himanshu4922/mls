@@ -33,6 +33,7 @@ const NAV_LINKS: NavLinkItem[] = [
   { label: "Sell", href: "/sell" },
   { label: "Market Insights", href: "/market-trends" },
   { label: "Communities", href: "/communities" },
+  { label: "Blog", href: "/blog" },
 ];
 
 function isLinkActive(
@@ -136,21 +137,21 @@ export function Navbar({
       <div className="container-page flex h-[72px] items-center justify-between gap-4 lg:h-20">
         <Logo className="shrink-0" />
 
-        <nav aria-label="Primary" className="hidden lg:block">
+        <nav aria-label="Primary" className="hidden min-w-0 flex-1 justify-center lg:flex">
           <NavLinks
             links={navLinks}
             pathname={pathname}
-            listClassName="flex items-center gap-6"
+            listClassName="flex max-w-full items-center gap-3 overflow-x-auto px-1 xl:gap-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             linkClassName={(active) =>
               cn(
-                "text-small font-medium transition-colors hover:text-gold",
+                "shrink-0 whitespace-nowrap text-[13px] font-medium transition-colors hover:text-gold xl:text-small",
                 active ? "text-gold" : "text-ink",
               )
             }
           />
         </nav>
 
-        <div className="hidden items-center gap-3 lg:flex">
+        <div className="hidden shrink-0 items-center gap-3 lg:flex">
           <LinkButton
             href={ctaHref}
             variant="secondary"

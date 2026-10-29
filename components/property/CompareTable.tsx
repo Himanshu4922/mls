@@ -23,51 +23,23 @@ export const COMPARE_ROWS: Array<{
   numeric?: (p: PropertyDetail) => number | null;
   lowerIsBetter?: boolean;
 }> = [
+  { label: "Municipality", value: (p) => p.community ?? EMPTY },
+  { label: "Community", value: (p) => p.neighbourhood ?? EMPTY },
+  { label: "Address", value: (p) => p.address || EMPTY },
+  { label: "Level", value: (p) => p.level ?? EMPTY },
+  { label: "Unit #", value: (p) => p.unitNumber ?? EMPTY },
   {
-    label: "Price",
-    value: (p) =>
-      p.price === null ? EMPTY : p.isLease ? formatLeasePrice(p.price) : formatPrice(p.price),
-    numeric: (p) => p.price,
-    lowerIsBetter: true,
-  },
-  { label: "Status", value: (p) => statusLabel(p.status) },
-  { label: "Type", value: (p) => p.type ?? EMPTY },
-  {
-    label: "Bedrooms",
-    value: (p) => (p.beds === null ? EMPTY : formatNumber(p.beds)),
-    numeric: (p) => p.beds,
+    label: "Locker",
+    value: (p) => (p.locker === null ? EMPTY : p.locker ? "Yes" : "No"),
   },
   {
-    label: "Bathrooms",
-    value: (p) => (p.baths === null ? EMPTY : formatNumber(p.baths)),
-    numeric: (p) => p.baths,
-  },
-  {
-    label: "Interior area",
-    value: (p) => (p.sqft === null ? EMPTY : `${formatNumber(p.sqft)} sq ft`),
-    numeric: (p) => p.sqft,
-  },
-  {
-    label: "Price per sq ft",
-    value: (p) =>
-      p.price !== null && p.sqft ? formatPrice(Math.round(p.price / p.sqft)) : EMPTY,
-    numeric: (p) => (p.price !== null && p.sqft ? Math.round(p.price / p.sqft) : null),
-    lowerIsBetter: true,
-  },
-  { label: "Year built", value: (p) => (p.yearBuilt === null ? EMPTY : String(p.yearBuilt)) },
-  {
-    label: "Parking",
-    value: (p) => (p.parkingTotal === null ? EMPTY : formatNumber(p.parkingTotal)),
-    numeric: (p) => p.parkingTotal,
-  },
-  {
-    label: "Property taxes",
-    value: (p) => (p.taxAnnualAmount === null ? EMPTY : formatPrice(p.taxAnnualAmount)),
-    numeric: (p) => p.taxAnnualAmount,
+    label: "POTL monthly fees",
+    value: (p) => (p.potlMonthlyFees === null ? EMPTY : formatPrice(p.potlMonthlyFees)),
+    numeric: (p) => p.potlMonthlyFees,
     lowerIsBetter: true,
   },
   {
-    label: "Maintenance fee",
+    label: "Maintenance",
     value: (p) =>
       p.associationFee === null
         ? EMPTY
@@ -76,15 +48,95 @@ export const COMPARE_ROWS: Array<{
     lowerIsBetter: true,
   },
   {
-    label: "Unit #",
-    value: (p) => p.unitNumber ?? EMPTY,
+    label: "Included in maintenance costs",
+    value: (p) => p.associationFeeIncludes ?? EMPTY,
   },
-  { label: "City", value: (p) => p.community ?? EMPTY },
-  { label: "Neighbourhood", value: (p) => p.neighbourhood ?? EMPTY },
+  { label: "Property type", value: (p) => p.type ?? EMPTY },
+  { label: "Style", value: (p) => p.style ?? EMPTY },
+  {
+    label: "Lot frontage",
+    value: (p) => (p.lotFrontage === null ? EMPTY : `${formatNumber(p.lotFrontage)} ft`),
+    numeric: (p) => p.lotFrontage,
+  },
+  { label: "Lot depth", value: (p) => p.lotDepth ?? EMPTY },
+  {
+    label: "List price",
+    value: (p) =>
+      p.price === null ? EMPTY : p.isLease ? formatLeasePrice(p.price) : formatPrice(p.price),
+    numeric: (p) => p.price,
+    lowerIsBetter: true,
+  },
+  {
+    label: "Last sold price",
+    value: (p) =>
+      p.closePrice === null
+        ? EMPTY
+        : p.isLease
+          ? formatLeasePrice(p.closePrice)
+          : formatPrice(p.closePrice),
+    numeric: (p) => p.closePrice,
+    lowerIsBetter: true,
+  },
+  {
+    label: "Property taxes",
+    value: (p) => (p.taxAnnualAmount === null ? EMPTY : formatPrice(p.taxAnnualAmount)),
+    numeric: (p) => p.taxAnnualAmount,
+    lowerIsBetter: true,
+  },
+  {
+    label: "Days on market",
+    value: (p) =>
+      p.daysOnMarket === null
+        ? EMPTY
+        : `${p.daysOnMarket} day${p.daysOnMarket === 1 ? "" : "s"}`,
+    numeric: (p) => p.daysOnMarket,
+    lowerIsBetter: true,
+  },
+  {
+    label: "Square feet above ground",
+    value: (p) => {
+      const area = p.sqftAboveGrade ?? p.sqft;
+      return area === null ? EMPTY : `${formatNumber(area)} sq ft`;
+    },
+    numeric: (p) => p.sqftAboveGrade ?? p.sqft,
+  },
+  {
+    label: "Garage parking spaces",
+    value: (p) => (p.garageSpaces === null ? EMPTY : formatNumber(p.garageSpaces)),
+    numeric: (p) => p.garageSpaces,
+  },
+  {
+    label: "Total parking spaces",
+    value: (p) => (p.parkingTotal === null ? EMPTY : formatNumber(p.parkingTotal)),
+    numeric: (p) => p.parkingTotal,
+  },
+  { label: "Year built", value: (p) => (p.yearBuilt === null ? EMPTY : String(p.yearBuilt)) },
+  {
+    label: "Number of bedrooms",
+    value: (p) => p.bedsLabel ?? (p.beds === null ? EMPTY : formatNumber(p.beds)),
+    numeric: (p) => p.beds,
+  },
+  {
+    label: "Number of washrooms",
+    value: (p) => (p.baths === null ? EMPTY : formatNumber(p.baths)),
+    numeric: (p) => p.baths,
+  },
+  {
+    label: "Family room",
+    value: (p) => (p.familyRoom === null ? EMPTY : p.familyRoom ? "Yes" : "No"),
+  },
+  { label: "Basement (finished/unfinished)", value: (p) => p.basement ?? EMPTY },
+  {
+    label: "Number of kitchens",
+    value: (p) => (p.kitchens === null ? EMPTY : formatNumber(p.kitchens)),
+    numeric: (p) => p.kitchens,
+  },
+  { label: "Rental items under contract", value: (p) => p.rentalItems ?? EMPTY },
+  { label: "Status", value: (p) => statusLabel(p.status) },
   { label: "MLS®", value: (p) => p.mls },
 ];
 
-const LABEL_COL = "150px";
+const LABEL_COL = "200px";
 const COL = "minmax(200px, 1fr)";
 
 /**
@@ -116,7 +168,7 @@ export function CompareTable({
   const count = properties.length + (showAdd ? 1 : 0);
   const columns = `${LABEL_COL} repeat(${count}, ${COL})`;
   // Narrower than this and the columns crush; scroll sideways instead.
-  const minWidth = 150 + count * 200;
+  const minWidth = 200 + count * 200;
 
   return (
     <div className="overflow-x-auto pb-2">

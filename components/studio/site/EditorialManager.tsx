@@ -30,6 +30,7 @@ const FIELD_LABELS: Record<string, string> = {
   image_url: "Photo",
   credit: "Photo credit",
   source: "Source",
+  url: "Article link",
   is_hidden: "Hide from the homepage",
 };
 
@@ -41,6 +42,7 @@ const FIELD_HINTS: Record<string, string> = {
   is_hidden: "Hidden headlines leave the homepage. The feed can still bring them back in.",
   image_url: "Upload a photo or paste an image link. At least 800×450 pixels.",
   logo_url: "Upload a logo or paste an image link.",
+  url: "Full https link visitors open from the Daily News card.",
   icon: "Pick the glyph shown on the homepage card.",
 };
 
@@ -65,8 +67,7 @@ function toRows(list: Array<Record<string, unknown>>, idKey: string): EditorialR
   return list.map((data) => ({ saveId: String(data[idKey] ?? ""), data: { ...data } }));
 }
 
-function buildSaveBody(resource: string, row: Record<string, unknown>, fields: string[]) {
-  if (resource === "news") return { is_hidden: Boolean(row.is_hidden) };
+function buildSaveBody(_resource: string, row: Record<string, unknown>, fields: string[]) {
   const body: Record<string, unknown> = {};
   for (const field of fields) {
     if (!(field in row)) continue;
@@ -75,7 +76,13 @@ function buildSaveBody(resource: string, row: Record<string, unknown>, fields: s
     } else if (field === "reviewed_at") {
       const raw = row.reviewed_at;
       body.reviewed_at = raw ? String(raw).slice(0, 10) : null;
-    } else if (field === "source_url" || field === "website_url" || field === "logo_url") {
+    } else if (
+      field === "source_url" ||
+      field === "website_url" ||
+      field === "logo_url" ||
+      field === "url" ||
+      field === "image_url"
+    ) {
       // URLField(blank=True) rejects null; empty string is the stored blank.
       body[field] = row[field] == null ? "" : String(row[field]).trim();
     } else if (field === "is_active" || field === "is_hidden") {
@@ -121,6 +128,10 @@ function nextCreateBody(
     const key = n === 0 ? "new-city" : `new-city-${n + 1}`;
     body.city_key = key;
     body.city_label = n === 0 ? "New city" : `New city ${n + 1}`;
+  }
+  if (typeof body.title === "string" && body.title === "New headline") {
+    const n = existing.filter((item) => String(item.data.title || "").startsWith("New headline")).length;
+    body.title = n === 0 ? "New headline" : `New headline ${n + 1}`;
   }
   return body;
 }

@@ -507,6 +507,10 @@
         {
           "label": "Communities",
           "href": "/communities"
+        },
+        {
+          "label": "Blog",
+          "href": "/blog"
         }
       ],
       "ctaLabel": "Home Evaluation",

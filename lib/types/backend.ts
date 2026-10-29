@@ -134,6 +134,9 @@ export interface BackendPropertyDetail extends Omit<BackendPropertySummary, "med
   heating: string | null;
   cooling: string | null;
   basement: string | null;
+  /** Present on some feed/AVM-enriched detail payloads; compare shows — when absent. */
+  family_room?: boolean | null;
+  potl_monthly_fees?: string | number | null;
   flooring: string | null;
   roof: string | null;
   appliances: string | null;

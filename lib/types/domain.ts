@@ -105,6 +105,7 @@ export interface PropertyDetail extends PropertySummary {
   unitNumber: string | null;
   stateOrProvince: string | null;
   lotFrontage: number | null;
+  lotDepth: string | null;
   lotSizeDimensions: string | null;
   parkingTotal: number | null;
   /** "3+1" when the feed splits above- and below-grade bedrooms. */
@@ -113,6 +114,17 @@ export interface PropertyDetail extends PropertySummary {
   taxAnnualAmount: number | null;
   associationFee: number | null;
   associationFeeFrequency: string | null;
+  associationFeeIncludes: string | null;
+  style: string | null;
+  level: string | null;
+  locker: boolean | null;
+  basement: string | null;
+  kitchens: number | null;
+  daysOnMarket: number | null;
+  sqftAboveGrade: number | null;
+  familyRoom: boolean | null;
+  potlMonthlyFees: number | null;
+  rentalItems: string | null;
   /** Grouped facts for the detail spec sections; empty groups are dropped. */
   factGroups: Array<{ title: string; facts: PropertyFact[] }>;
   /** http(s) virtual-tour link from the feed. Absent when the listing has none. */
@@ -182,6 +194,12 @@ export interface ListingQuery {
    * Basement preference. URL `basement=yes|finished|unfinished|apartment|none`.
    */
   basement?: "yes" | "finished" | "unfinished" | "apartment" | "none";
+  /** Maximum days on market (backend `days_on_market_max`). URL `domMax`. */
+  domMax?: number;
+  /** Require a family room (backend `family_room=1`). URL `familyRoom=1`. */
+  familyRoom?: boolean;
+  /** Minimum kitchens (backend `kitchens_min`). URL `kitchens`. */
+  kitchensMin?: number;
   /**
    * Raw feed `property_sub_type` values, passed straight to the backend's
    * repeatable filter. Distinct from `type`, which is a canonical UI label
