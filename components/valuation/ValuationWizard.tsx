@@ -333,14 +333,14 @@ function ResultCard({
   address: string;
   onRestart: () => void;
 }) {
-  // A zero market value means the backend could not model the property.
+  // A zero market value means every fallback (sold, proxy, active, trend) failed.
   if (result.market <= 0) {
     return (
       <div className="rounded-surface border border-line bg-surface p-6 text-center shadow-card">
         <h2 className="text-h2 text-ink">We can&rsquo;t estimate this home yet</h2>
         <p className="mt-2 text-small text-ink-muted">
           {result.message ??
-            "There aren't enough comparable sales nearby to produce a reliable range."}
+            "We couldn't find enough nearby sold or active listings to price this home. Try another address, or ask an agent for a manual CMA."}
         </p>
         <Button variant="secondary" className="mt-5" onClick={onRestart}>
           Try another address
