@@ -7,6 +7,7 @@ import {
   mergeCuratedPages,
   type CuratedPage,
 } from "@/lib/seo/curatedPages";
+import { fillChromeDefaults } from "@/lib/site/fillDefaults";
 import {
   SECTION_IDS,
   type ChromeDocument,
@@ -56,7 +57,9 @@ export async function getHomepageDocument(): Promise<HomepageDocument | null> {
 export async function getChromeDocument(): Promise<ChromeDocument | null> {
   const document = await loadPublished("chrome");
   if (!isRecord(document) || !isRecord(document.nav) || !isRecord(document.footer)) return null;
-  return document as unknown as ChromeDocument;
+  // Fill keys added after an older publish (e.g. Blog in the nav) without
+  // overwriting anything the team already set.
+  return fillChromeDefaults(document);
 }
 
 export async function getSeoDocument(): Promise<SeoDocument | null> {

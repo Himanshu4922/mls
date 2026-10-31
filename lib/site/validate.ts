@@ -3,6 +3,13 @@
  * same rules again on save. Paths match the API field errors.
  */
 
+import {
+  isHeroCountValue,
+  isHeroIntentValue,
+  isHeroPriceValue,
+  isHeroPropertyTypeValue,
+  validateHeroPopularQuery,
+} from "@/lib/site/heroFilters";
 import { SECTION_IDS, type HomepageDocument, type SectionId } from "@/lib/site/types";
 
 export type FieldErrors = Record<string, string>;
@@ -112,6 +119,71 @@ function validateSection(id: SectionId, content: Record<string, unknown>, errors
       prompts.slice(0, 8).forEach((prompt, index) =>
         text(errors, `${path}.tryPrompts.${index}`, prompt, 90),
       );
+    }
+    // Filter dropdowns under the Filters tab — values are locked to shapes the
+    // /listings URL parser understands so a bad edit cannot crash search.
+    if (content.intents !== undefined) {
+      const intents = count(errors, `${path}.intents`, content.intents, 1, 3);
+      const seen = new Set<string>();
+      intents.forEach((item, index) => {
+        const row = isRecord(item) ? item : {};
+        const value = typeof row.value === "string" ? row.value.trim() : "";
+        text(errors, `${path}.intents.${index}.label`, row.label, 16);
+        if (!isHeroIntentValue(value)) {
+          errors[`${path}.intents.${index}.value`] = "Value must be buy, rent, or sold.";
+        } else if (seen.has(value)) {
+          errors[`${path}.intents.${index}.value`] = "Each intent can only appear once.";
+        } else {
+          seen.add(value);
+        }
+      });
+    }
+    if (content.propertyTypes !== undefined) {
+      const types = count(errors, `${path}.propertyTypes`, content.propertyTypes, 1, 8);
+      types.forEach((item, index) => {
+        const row = isRecord(item) ? item : {};
+        text(errors, `${path}.propertyTypes.${index}.label`, row.label, 24);
+        const value = typeof row.value === "string" ? row.value.trim() : "";
+        if (!isHeroPropertyTypeValue(value) || !value) {
+          errors[`${path}.propertyTypes.${index}.value`] =
+            "Use Detached, Semi-Detached, Townhome, Condo, or Luxury.";
+        }
+      });
+    }
+    for (const key of ["salePrices", "rentPrices"] as const) {
+      if (content[key] === undefined) continue;
+      const prices = count(errors, `${path}.${key}`, content[key], 1, 10);
+      prices.forEach((item, index) => {
+        const row = isRecord(item) ? item : {};
+        text(errors, `${path}.${key}.${index}.label`, row.label, 28);
+        const value = typeof row.value === "string" ? row.value.trim() : "";
+        if (!isHeroPriceValue(value)) {
+          errors[`${path}.${key}.${index}.value`] =
+            "Use min-max like 500000-800000, open-ended like 2000000-, or leave blank for Any.";
+        }
+      });
+    }
+    for (const key of ["bedOptions", "bathOptions"] as const) {
+      if (content[key] === undefined) continue;
+      const options = count(errors, `${path}.${key}`, content[key], 1, 10);
+      options.forEach((item, index) => {
+        const row = isRecord(item) ? item : {};
+        text(errors, `${path}.${key}.${index}.label`, row.label, 20);
+        const value = typeof row.value === "string" ? row.value.trim() : "";
+        if (!isHeroCountValue(value)) {
+          errors[`${path}.${key}.${index}.value`] = "Use a whole number from 1 to 20, or leave blank for Any.";
+        }
+      });
+    }
+    if (content.popularSearches !== undefined) {
+      const popular = count(errors, `${path}.popularSearches`, content.popularSearches, 1, 8);
+      popular.forEach((item, index) => {
+        const row = isRecord(item) ? item : {};
+        text(errors, `${path}.popularSearches.${index}.label`, row.label, 40);
+        const query = typeof row.query === "string" ? row.query.trim() : "";
+        const queryError = validateHeroPopularQuery(query);
+        if (queryError) errors[`${path}.popularSearches.${index}.query`] = queryError;
+      });
     }
     return;
   }

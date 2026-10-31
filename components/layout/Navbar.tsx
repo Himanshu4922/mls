@@ -108,6 +108,15 @@ function decorate(link: { label: string; href: string }): NavLinkItem {
   return link;
 }
 
+const BLOG_LINK = { label: "Blog", href: "/blog" };
+
+function withBlogLink(links: Array<{ label: string; href: string }>) {
+  const hasBlog = links.some(
+    (link) => link.href.split("?")[0] === "/blog" || link.label.trim().toLowerCase() === "blog",
+  );
+  return hasBlog ? links : [...links, BLOG_LINK];
+}
+
 export function Navbar({
   links,
   ctaLabel = "Home Evaluation",
@@ -117,7 +126,7 @@ export function Navbar({
   ctaLabel?: string;
   ctaHref?: string;
 }) {
-  const navLinks = links?.length ? links.map(decorate) : NAV_LINKS;
+  const navLinks = withBlogLink(links?.length ? links : NAV_LINKS).map(decorate);
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { user, openAuth, signOut } = useAuth();

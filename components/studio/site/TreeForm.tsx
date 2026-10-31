@@ -16,6 +16,13 @@ const LABELS: Record<string, string> = {
   accentLine: "Gold accent line",
   lines: "Heading lines",
   tryPrompts: "AI “Try” prompts",
+  intents: "Buy / Rent / Sold labels",
+  propertyTypes: "Property type dropdown",
+  salePrices: "Sale price ranges",
+  rentPrices: "Rent price ranges",
+  bedOptions: "Bedroom dropdown",
+  bathOptions: "Bathroom dropdown",
+  popularSearches: "Popular search chips",
   actionLabel: "Button label",
   actionHref: "Button link",
   useAutomaticDescription: "Let the site describe the rail from the listings it actually shows",
@@ -39,6 +46,8 @@ const LABELS: Record<string, string> = {
   shareImageUrl: "Share image",
   shareImageAlt: "Share image description",
   display_order: "Position",
+  value: "Value (do not invent new codes)",
+  query: "Listings filters",
 };
 
 const HINTS: Record<string, string> = {
@@ -51,6 +60,15 @@ const HINTS: Record<string, string> = {
   imageAlt: "Say what is in the photo. Required.",
   lines: "Each line is one row of the heading. Keep it short.",
   tryPrompts: "Example searches shown under the AI box. Visitors can tap one to run it.",
+  intents: "Only change the Label visitors see. Value must stay buy, rent, or sold.",
+  propertyTypes: "Label is free text. Value must be Detached, Semi-Detached, Townhome, Condo, or Luxury.",
+  salePrices: "Label is free text. Value is min-max dollars, e.g. 500000-800000, or 2000000- for open-ended.",
+  rentPrices: "Same as sale prices, but monthly rent amounts.",
+  bedOptions: "Label is free text. Value is a number (1–20) or blank for Any.",
+  bathOptions: "Label is free text. Value is a number (1–20) or blank for Any.",
+  popularSearches: "Chip label plus a query string using known keys only: type, city, priceMin, priceMax, beds, baths, tx, status, q, postal.",
+  value: "This drives the listings URL. Wrong values are rejected on save.",
+  query: "Example: type=Condo&priceMax=800000",
 };
 
 const LIST_NOUN: Record<string, string> = {
@@ -64,6 +82,13 @@ const LIST_NOUN: Record<string, string> = {
   bullets: "Point",
   cards: "Card",
   alerts: "Alert",
+  intents: "Intent",
+  propertyTypes: "Property type",
+  salePrices: "Sale price",
+  rentPrices: "Rent price",
+  bedOptions: "Bedroom option",
+  bathOptions: "Bathroom option",
+  popularSearches: "Popular search",
 };
 
 const MAX: Record<string, number> = {
@@ -130,6 +155,13 @@ export function TreeForm({
       "accentLine",
       "description",
       "tryPrompts",
+      "intents",
+      "propertyTypes",
+      "salePrices",
+      "rentPrices",
+      "bedOptions",
+      "bathOptions",
+      "popularSearches",
       "title",
       "caption",
       "items",

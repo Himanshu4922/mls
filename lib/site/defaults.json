@@ -23,6 +23,55 @@
             "Family home in Oakville with a big backyard and double garage",
             "2 bedroom rental downtown under $3,000/month with parking",
             "Detached house in Vaughan with a basement apartment"
+          ],
+          "intents": [
+            { "value": "buy", "label": "Buy" },
+            { "value": "rent", "label": "Rent" },
+            { "value": "sold", "label": "Sold" }
+          ],
+          "propertyTypes": [
+            { "value": "Detached", "label": "Detached" },
+            { "value": "Semi-Detached", "label": "Semi-Detached" },
+            { "value": "Townhome", "label": "Townhome" },
+            { "value": "Condo", "label": "Condo" },
+            { "value": "Luxury", "label": "Luxury" }
+          ],
+          "salePrices": [
+            { "value": "", "label": "Price" },
+            { "value": "0-500000", "label": "Under $500K" },
+            { "value": "500000-800000", "label": "$500K – $800K" },
+            { "value": "800000-1200000", "label": "$800K – $1.2M" },
+            { "value": "1200000-2000000", "label": "$1.2M – $2M" },
+            { "value": "2000000-", "label": "$2M+" }
+          ],
+          "rentPrices": [
+            { "value": "", "label": "Price" },
+            { "value": "0-2000", "label": "Under $2,000/mo" },
+            { "value": "2000-3000", "label": "$2,000 – $3,000/mo" },
+            { "value": "3000-4000", "label": "$3,000 – $4,000/mo" },
+            { "value": "4000-", "label": "$4,000+/mo" }
+          ],
+          "bedOptions": [
+            { "value": "", "label": "Bedrooms" },
+            { "value": "1", "label": "1+ beds" },
+            { "value": "2", "label": "2+ beds" },
+            { "value": "3", "label": "3+ beds" },
+            { "value": "4", "label": "4+ beds" },
+            { "value": "5", "label": "5+ beds" }
+          ],
+          "bathOptions": [
+            { "value": "", "label": "Bathrooms" },
+            { "value": "1", "label": "1+ baths" },
+            { "value": "2", "label": "2+ baths" },
+            { "value": "3", "label": "3+ baths" },
+            { "value": "4", "label": "4+ baths" },
+            { "value": "5", "label": "5+ baths" }
+          ],
+          "popularSearches": [
+            { "label": "Condos under $800K", "query": "type=Condo&priceMax=800000" },
+            { "label": "Family homes in Mississauga", "query": "city=Mississauga&beds=3" },
+            { "label": "Townhomes in Vaughan", "query": "city=Vaughan&type=Townhome" },
+            { "label": "Rentals in Downtown Toronto", "query": "city=Toronto&tx=rent" }
           ]
         }
       },
