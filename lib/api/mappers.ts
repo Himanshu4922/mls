@@ -187,16 +187,31 @@ function priceDropPercent(raw: BackendPropertySummary): number | null {
 /* Media                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/** Make relative Django `/media/...` paths absolute against the API origin. */
+function resolveMediaUrl(raw: string | null | undefined): string {
+  const url = (raw || "").trim();
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  if (url.startsWith("//")) return `https:${url}`;
+  if (!url.startsWith("/")) return url;
+  const base =
+    (typeof process !== "undefined" &&
+      (process.env.NEXT_PUBLIC_API_BASE_URL || process.env.API_BASE_URL)) ||
+    "";
+  if (!base) return url;
+  return `${base.replace(/\/$/, "")}${url}`;
+}
+
 function summaryImage(raw: BackendPropertySummary): string | null {
-  const url = raw.media?.media_url?.trim();
-  return url ? url : null;
+  const url = resolveMediaUrl(raw.media?.media_url);
+  return url || null;
 }
 
 function mapImages(media: BackendMedia[] | undefined): PropertyImage[] {
   if (!Array.isArray(media)) return [];
   return media
     .map((m) => ({
-      url: (m.url || m.media_url || "")?.trim() ?? "",
+      url: resolveMediaUrl(m.url || m.media_url),
       category: m.media_category ?? null,
       isPreferred: Boolean(m.is_preferred),
     }))

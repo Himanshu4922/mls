@@ -257,11 +257,14 @@ describe("url helpers", () => {
     expect(safeUrl(" https://x.com/a ")).toBe("https://x.com/a");
   });
 
-  it("recognises hosts next/image is configured for", () => {
+  it("only optimises Cloudinary / Unsplash / estate hosts — MLS CDNs load raw", () => {
+    // ddfcdn goes through the browser directly; the Next optimizer was blanking
+    // every listing gallery on Vercel.
     expect(isOptimizableImage("https://ddfcdn.realtor.ca/listings/a.jpg")).toBe(
-      true,
+      false,
     );
     expect(isOptimizableImage("https://res.cloudinary.com/x/a.jpg")).toBe(true);
+    expect(isOptimizableImage("https://images.unsplash.com/photo.jpg")).toBe(true);
     expect(
       isOptimizableImage("https://evil-realtor.ca.example.com/a.jpg"),
     ).toBe(false);

@@ -201,6 +201,7 @@ function LightboxSlide({ src, alt }: { src: string; alt: string }) {
         alt={alt}
         decoding="async"
         fetchPriority="high"
+        referrerPolicy="no-referrer"
         onError={() => setFailed(true)}
         className={cn(
           "h-auto w-auto max-h-full max-w-full object-contain",

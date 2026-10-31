@@ -7,16 +7,20 @@ const nextConfig: NextConfig = {
     root: __dirname,
   },
   images: {
-    // Listing photos come from the MLS feed via Cloudinary and board CDNs.
+    // Listing photos come from the MLS feed (ddfcdn) and Cloudinary uploads.
+    // Pin explicit MLS hosts — Next 16 is stricter about hostname wildcards,
+    // and a missed pattern made every gallery tile fall back to the placeholder.
     remotePatterns: [
-      { protocol: "https", hostname: "res.cloudinary.com" },
-      { protocol: "https", hostname: "**.ampre.ca" },
-      { protocol: "https", hostname: "**.realtor.ca" },
-      { protocol: "https", hostname: "**.crea.ca" },
-      { protocol: "https", hostname: "images.unsplash.com" },
+      { protocol: "https", hostname: "res.cloudinary.com", pathname: "/**" },
+      { protocol: "https", hostname: "ddfcdn.realtor.ca", pathname: "/**" },
+      { protocol: "https", hostname: "*.realtor.ca", pathname: "/**" },
+      { protocol: "https", hostname: "realtor.ca", pathname: "/**" },
+      { protocol: "https", hostname: "*.ampre.ca", pathname: "/**" },
+      { protocol: "https", hostname: "*.crea.ca", pathname: "/**" },
+      { protocol: "https", hostname: "images.unsplash.com", pathname: "/**" },
       // Pre-con renderings imported from the brokerage WordPress site.
-      { protocol: "https", hostname: "estate-4u.com" },
-      { protocol: "https", hostname: "**.estate-4u.com" },
+      { protocol: "https", hostname: "estate-4u.com", pathname: "/**" },
+      { protocol: "https", hostname: "*.estate-4u.com", pathname: "/**" },
     ],
   },
   redirects() {

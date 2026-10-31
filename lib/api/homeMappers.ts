@@ -57,15 +57,17 @@ function record(value: unknown): Record<string, unknown> {
 }
 
 /**
- * Hosts next.config.ts `images.remotePatterns` allows. Admin-entered URLs
- * (community photos, partner logos) can point anywhere, and next/image throws
- * on an unlisted host — those render `unoptimized` instead.
+ * Hosts we ask next/image to optimize. MLS photo CDNs (ddfcdn.realtor.ca,
+ * AMPRE, CREA) are intentionally excluded: the Vercel image optimizer often
+ * 400/timeouts on those Azure blobs, which made every listing show the house
+ * placeholder even when "+45 more" proved the URLs were present. Those hosts
+ * still load — via `unoptimized` so the browser fetches them directly.
+ *
+ * Admin-entered URLs outside this list also render unoptimized so next/image
+ * does not throw on an unlisted host.
  */
 const OPTIMIZED_HOSTS = [
   /^res\.cloudinary\.com$/,
-  /(^|\.)ampre\.ca$/,
-  /(^|\.)realtor\.ca$/,
-  /(^|\.)crea\.ca$/,
   /^images\.unsplash\.com$/,
   /(^|\.)estate-4u\.com$/,
 ];
