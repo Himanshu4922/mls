@@ -7,6 +7,7 @@ import { Stepper } from "@/components/ui/Stepper";
 import { Field, Input, NumericInput } from "@/components/ui/Field";
 import { Badge, Eyebrow } from "@/components/ui/Badge";
 import { formatPrice, formatPercent } from "@/lib/utils/format";
+import { cn } from "@/lib/utils/cn";
 import { AUTOCOMPLETE_MIN_CHARS } from "@/lib/api/valuation";
 import type {
   AddressSuggestion,
@@ -92,16 +93,24 @@ export function ValuationWizard() {
     );
   }
 
+  const resultStep = step === "result";
+
   return (
-    <div className="mx-auto w-full max-w-2xl">
+    <div className={cn("mx-auto w-full", resultStep ? "max-w-none" : "max-w-2xl")}>
       <Stepper
-        className="mb-6"
+        className={cn("mb-6", resultStep && "mx-auto max-w-2xl")}
         steps={STEP_LABELS}
         current={STEP_ORDER.indexOf(step)}
       />
 
       {error && (
-        <p role="alert" className="mb-4 rounded-control bg-negative-soft px-4 py-3 text-small text-negative">
+        <p
+          role="alert"
+          className={cn(
+            "mb-4 rounded-control bg-negative-soft px-4 py-3 text-small text-negative",
+            resultStep && "mx-auto max-w-2xl",
+          )}
+        >
           {error}
         </p>
       )}
@@ -366,77 +375,103 @@ function ResultCard({
   const sparkMin = Math.min(...spark.map((p) => p.medianSoldPrice ?? 0), sparkMax);
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-surface border border-line bg-surface p-6 text-center shadow-card">
-        <Eyebrow>Estimated value</Eyebrow>
-        <p className="mt-3 text-display text-ink">{formatPrice(result.market)}</p>
-        <p className="mt-2 text-small text-ink-muted">
-          Likely range {formatPrice(result.low)} – {formatPrice(result.high)}
-        </p>
-        <p className="mt-1 text-caption text-ink-subtle">{address}</p>
-
-        {result.ai.used && result.ai.suggested != null && (
-          <p className="mt-3 text-small text-ink-soft">
-            AI suggested {formatPrice(result.ai.suggested)}
-            {result.ai.rationale ? ` — ${result.ai.rationale}` : ""}
+    <div className="space-y-8">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+        <div className="rounded-surface border border-line bg-surface p-6 shadow-card sm:p-8 lg:p-10">
+          <Eyebrow>Estimated value</Eyebrow>
+          <p className="mt-4 text-display text-ink sm:text-[3.25rem] sm:leading-none">
+            {formatPrice(result.market)}
           </p>
-        )}
+          <p className="mt-3 text-body text-ink-muted">
+            Likely range {formatPrice(result.low)} – {formatPrice(result.high)}
+          </p>
+          <p className="mt-2 text-small text-ink-subtle">{address}</p>
 
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          {result.beta && <Badge tone="warm">Beta model</Badge>}
-          {result.sparse && <Badge tone="negative">Low confidence</Badge>}
-          {result.confidence && !result.sparse && (
-            <Badge tone="positive">{result.confidence} confidence</Badge>
+          {result.ai.used && result.ai.suggested != null && (
+            <p className="mt-4 max-w-2xl text-small text-ink-soft">
+              AI suggested {formatPrice(result.ai.suggested)}
+              {result.ai.rationale ? ` — ${result.ai.rationale}` : ""}
+            </p>
           )}
-          {result.ai.used && <Badge tone="neutral">Hybrid CMA + AI</Badge>}
-          {trendPct !== 0 && (
-            <Badge tone="neutral">
-              {trendLabel} {formatPercent(trendPct)}
-            </Badge>
+
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            {result.beta && <Badge tone="warm">Beta model</Badge>}
+            {result.sparse && <Badge tone="negative">Low confidence</Badge>}
+            {result.confidence && !result.sparse && (
+              <Badge tone="positive">{result.confidence} confidence</Badge>
+            )}
+            {result.ai.used && <Badge tone="neutral">Hybrid CMA + AI</Badge>}
+            {trendPct !== 0 && (
+              <Badge tone="neutral">
+                {trendLabel} {formatPercent(trendPct)}
+              </Badge>
+            )}
+          </div>
+
+          {result.sparse && (
+            <p className="mt-5 rounded-control bg-surface-alt px-4 py-3 text-caption text-ink-muted">
+              Fewer than five comparable sales were found nearby, so treat this
+              range as indicative only. An agent can give you a firmer number.
+            </p>
           )}
         </div>
 
-        {spark.length >= 2 && (
-          <div className="mx-auto mt-5 max-w-sm" aria-hidden="true">
-            <svg viewBox={`0 0 ${spark.length * 24} 48`} className="h-12 w-full text-navy">
-              <polyline
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                points={spark
-                  .map((point, index) => {
-                    const yRange = Math.max(sparkMax - sparkMin, 1);
-                    const y = 40 - ((point.medianSoldPrice! - sparkMin) / yRange) * 32;
-                    return `${index * 24 + 12},${y}`;
-                  })
-                  .join(" ")}
-              />
-            </svg>
-            <p className="text-caption text-ink-subtle">Local median sold price</p>
-          </div>
-        )}
-
-        {result.sparse && (
-          <p className="mt-4 rounded-control bg-surface-alt px-4 py-3 text-caption text-ink-muted">
-            Fewer than five comparable sales were found nearby, so treat this
-            range as indicative only. An agent can give you a firmer number.
+        <div className="rounded-surface border border-line bg-surface p-6 shadow-card sm:p-8">
+          <h3 className="text-h3 text-ink">Local sold trend</h3>
+          <p className="mt-1 text-caption text-ink-muted">
+            Median sold price nearby
+            {trendPct !== 0 ? ` · ${trendLabel} ${formatPercent(trendPct)}` : ""}.
           </p>
-        )}
+          {spark.length >= 2 ? (
+            <div className="mt-6" aria-hidden="true">
+              <svg
+                viewBox={`0 0 ${Math.max(spark.length - 1, 1) * 40} 120`}
+                className="h-40 w-full text-navy"
+                preserveAspectRatio="none"
+              >
+                <polyline
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  points={spark
+                    .map((point, index) => {
+                      const yRange = Math.max(sparkMax - sparkMin, 1);
+                      const y = 100 - ((point.medianSoldPrice! - sparkMin) / yRange) * 80;
+                      return `${index * 40},${y}`;
+                    })
+                    .join(" ")}
+                />
+              </svg>
+              <div className="mt-3 flex justify-between text-caption text-ink-subtle">
+                <span>{spark[0]?.month}</span>
+                <span>{spark[spark.length - 1]?.month}</span>
+              </div>
+              <p className="mt-2 text-small text-ink-soft">
+                Latest median {formatPrice(spark[spark.length - 1]?.medianSoldPrice ?? null)}
+              </p>
+            </div>
+          ) : (
+            <p className="mt-8 text-small text-ink-muted">
+              Not enough sold-trend months to chart this neighbourhood yet.
+            </p>
+          )}
+        </div>
       </div>
 
       <AvmReport result={result} />
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line pt-6">
+        <p className="max-w-3xl text-caption text-ink-subtle">
+          This automated estimate blends recent sold comps, local sold-market
+          trends, and AI adjustments. It is not a formal appraisal or an offer
+          to purchase.
+        </p>
         <Button variant="secondary" onClick={onRestart}>
           Evaluate another home
         </Button>
       </div>
-
-      <p className="text-caption text-ink-subtle">
-        This automated estimate blends recent sold comps, local sold-market
-        trends, and AI adjustments. It is not a formal appraisal or an offer
-        to purchase.
-      </p>
     </div>
   );
 }

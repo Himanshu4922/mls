@@ -25,7 +25,7 @@ export default function HomeEvaluationPage() {
         </div>
       </section>
 
-      <section className="py-14">
+      <section className="py-10 sm:py-14">
         <div className="container-page">
           <ValuationWizard />
         </div>

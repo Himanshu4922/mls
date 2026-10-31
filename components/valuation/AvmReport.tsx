@@ -184,10 +184,10 @@ export function AvmReport({ result }: { result: ValuationResult }) {
   const aiAdj = result.breakdown.filter((b) => b.source === "ai").slice(0, 8);
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-surface border border-line bg-surface p-5 sm:p-6">
+    <div className="space-y-6 lg:space-y-8">
+      <section className="rounded-surface border border-line bg-surface p-5 sm:p-6 lg:p-8">
         <h3 className="text-h3 text-navy">AVM details</h3>
-        <dl className="mt-4 grid gap-px overflow-hidden rounded-control border border-line bg-line text-small sm:grid-cols-2">
+        <dl className="mt-4 grid gap-px overflow-hidden rounded-control border border-line bg-line text-small sm:grid-cols-2 lg:grid-cols-4">
           <Detail label="Real Time Market Value (AVM)" value={formatPrice(result.market)} />
           <Detail label="Confidence Rating" value={<Stars count={result.confidenceStars} />} />
           <Detail label="AVM Valuation Date (yyyy-mm-dd)" value={dash(result.valuationDate)} />
@@ -196,15 +196,18 @@ export function AvmReport({ result }: { result: ValuationResult }) {
       </section>
 
       {(hedonic.length > 0 || aiAdj.length > 0) && (
-        <section className="rounded-surface border border-line bg-surface p-5 sm:p-6">
+        <section className="rounded-surface border border-line bg-surface p-5 sm:p-6 lg:p-8">
           <h3 className="text-h3 text-navy">Value adjustments</h3>
           <p className="mt-1 text-caption text-ink-muted">
             Feature deltas from sold comps
             {aiAdj.length > 0 ? " plus AI-suggested adjustments" : ""}.
           </p>
-          <ul className="mt-4 divide-y divide-line text-small">
+          <ul className="mt-4 grid gap-x-8 sm:grid-cols-2 lg:grid-cols-3">
             {[...hedonic, ...aiAdj].map((item) => (
-              <li key={`${item.source}-${item.feature}`} className="flex items-start justify-between gap-4 py-2.5">
+              <li
+                key={`${item.source}-${item.feature}`}
+                className="flex items-start justify-between gap-4 border-b border-line py-2.5 text-small"
+              >
                 <div>
                   <p className="font-medium text-ink">{item.feature.replace(/_/g, " ")}</p>
                   {item.note && <p className="text-caption text-ink-muted">{item.note}</p>}
@@ -223,14 +226,14 @@ export function AvmReport({ result }: { result: ValuationResult }) {
       )}
 
       {comps.length > 0 && (
-        <section className="rounded-surface border border-line bg-surface p-5 sm:p-6">
+        <section className="rounded-surface border border-line bg-surface p-5 sm:p-6 lg:p-8">
           <h3 className="text-h3 text-navy">Comparable information</h3>
           <p className="mt-1 text-caption text-ink-muted">
             Your home beside the {comps.length} closest sold comparables used in this estimate
             {result.comps.length > comps.length ? ` (of ${formatNumber(result.comps.length)})` : ""}.
           </p>
           <div className="mt-4 overflow-x-auto rounded-control border border-line">
-            <table className="w-full min-w-[720px] text-left text-small">
+            <table className="w-full min-w-[960px] text-left text-small lg:min-w-full">
               <thead>
                 <tr className="bg-surface-alt">
                   <th
@@ -288,28 +291,27 @@ export function AvmReport({ result }: { result: ValuationResult }) {
       )}
 
       {active.length > 0 && (
-        <section className="rounded-surface border border-line bg-surface p-5 sm:p-6">
+        <section className="rounded-surface border border-line bg-surface p-5 sm:p-6 lg:p-8">
           <h3 className="text-h3 text-navy">Currently for sale</h3>
           <p className="mt-1 text-caption text-ink-muted">
             Nearby active listings — asking prices and days on market, not sale comps.
           </p>
-          <ul className="mt-4 divide-y divide-line">
+          <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {active.map((comp) => (
-              <li key={comp.listingKey ?? `${comp.address}-${comp.price}`} className="flex flex-wrap items-baseline justify-between gap-2 py-3 text-small">
-                <div>
-                  <p className="font-medium text-ink">{comp.address || "Nearby listing"}</p>
-                  <p className="text-caption text-ink-muted">
-                    {[comp.beds != null ? `${comp.beds} bed` : null, comp.baths != null ? `${comp.baths} bath` : null, comp.livingArea != null ? `${formatNumber(comp.livingArea)} sqft` : null]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="font-medium text-ink">{formatPrice(comp.listPrice ?? comp.price)}</p>
-                  <p className="text-caption text-ink-muted">
-                    {comp.daysOnMarket != null ? `${comp.daysOnMarket} days on market` : "Active"}
-                  </p>
-                </div>
+              <li
+                key={comp.listingKey ?? `${comp.address}-${comp.price}`}
+                className="rounded-control border border-line bg-surface-alt/40 px-4 py-3 text-small"
+              >
+                <p className="font-medium text-ink">{comp.address || "Nearby listing"}</p>
+                <p className="mt-1 text-caption text-ink-muted">
+                  {[comp.beds != null ? `${comp.beds} bed` : null, comp.baths != null ? `${comp.baths} bath` : null, comp.livingArea != null ? `${formatNumber(comp.livingArea)} sqft` : null]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+                <p className="mt-3 font-medium text-ink">{formatPrice(comp.listPrice ?? comp.price)}</p>
+                <p className="text-caption text-ink-muted">
+                  {comp.daysOnMarket != null ? `${comp.daysOnMarket} days on market` : "Active"}
+                </p>
               </li>
             ))}
           </ul>
