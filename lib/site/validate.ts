@@ -8,7 +8,6 @@ import {
   isHeroIntentValue,
   isHeroPriceValue,
   isHeroPropertyTypeValue,
-  validateHeroPopularQuery,
 } from "@/lib/site/heroFilters";
 import { SECTION_IDS, type HomepageDocument, type SectionId } from "@/lib/site/types";
 
@@ -173,16 +172,6 @@ function validateSection(id: SectionId, content: Record<string, unknown>, errors
         if (!isHeroCountValue(value)) {
           errors[`${path}.${key}.${index}.value`] = "Use a whole number from 1 to 20, or leave blank for Any.";
         }
-      });
-    }
-    if (content.popularSearches !== undefined) {
-      const popular = count(errors, `${path}.popularSearches`, content.popularSearches, 1, 8);
-      popular.forEach((item, index) => {
-        const row = isRecord(item) ? item : {};
-        text(errors, `${path}.popularSearches.${index}.label`, row.label, 40);
-        const query = typeof row.query === "string" ? row.query.trim() : "";
-        const queryError = validateHeroPopularQuery(query);
-        if (queryError) errors[`${path}.popularSearches.${index}.query`] = queryError;
       });
     }
     return;

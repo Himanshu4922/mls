@@ -99,7 +99,7 @@ export const SECTION_META: Record<SectionId, { label: string; summary: string; c
   hero: {
     label: "Hero",
     summary:
-      "Background photo, heading, AI “Try” prompts, and the Filters-tab dropdowns (intents, types, prices, beds/baths, popular searches).",
+      "Background photo, heading, AI “Try” prompts, and the Filters-tab dropdowns (intents, types, prices, beds/baths).",
     canHide: false,
   },
   quickActions: { label: "Quick actions", summary: "The Buy, Rent, Preconstruction, and Sell cards under the hero.", canHide: true },

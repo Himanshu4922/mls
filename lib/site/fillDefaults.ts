@@ -40,10 +40,11 @@ export function fillHomepageDefaults(draft: unknown): HomepageDocument {
     sections: sections.map((section) => {
       const fallback = byId.get(section.id);
       if (!fallback) return section;
-      return {
-        ...section,
-        content: fillMissing(section.content ?? {}, fallback.content) as Record<string, unknown>,
-      };
+      const content = fillMissing(section.content ?? {}, fallback.content) as Record<string, unknown>;
+      // Removed from the product; drop stale keys from older drafts so Studio
+      // and the public hero stop showing them.
+      if (section.id === "hero") delete content.popularSearches;
+      return { ...section, content };
     }),
   };
 }

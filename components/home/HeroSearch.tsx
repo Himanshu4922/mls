@@ -11,10 +11,8 @@ import {
   isHeroPriceValue,
   isHeroPropertyTypeValue,
   readHeroOptions,
-  readHeroPopularSearches,
   type HeroIntentValue,
   type HeroOption,
-  type HeroPopularSearch,
 } from "@/lib/site/heroFilters";
 import { listOf } from "@/lib/site/read";
 import { looksLikePostal, parsePostalList } from "@/lib/utils/postal";
@@ -73,13 +71,6 @@ const DEFAULT_BATH_OPTIONS: HeroOption[] = [
   { value: "3", label: "3+ baths" },
   { value: "4", label: "4+ baths" },
   { value: "5", label: "5+ baths" },
-];
-
-const DEFAULT_POPULAR: HeroPopularSearch[] = [
-  { label: "Condos under $800K", query: "type=Condo&priceMax=800000" },
-  { label: "Family homes in Mississauga", query: "city=Mississauga&beds=3" },
-  { label: "Townhomes in Vaughan", query: "city=Vaughan&type=Townhome" },
-  { label: "Rentals in Downtown Toronto", query: "city=Toronto&tx=rent" },
 ];
 
 const INTENT_QUERY: Record<HeroIntentValue, { status?: string; tx?: string }> = {
@@ -169,7 +160,6 @@ function FilterSearch({ content }: { content?: Record<string, unknown> }) {
   const rentPrices = readHeroOptions(content, "rentPrices", DEFAULT_RENT_PRICES, isHeroPriceValue);
   const bedOptions = readHeroOptions(content, "bedOptions", DEFAULT_BED_OPTIONS, isHeroCountValue);
   const bathOptions = readHeroOptions(content, "bathOptions", DEFAULT_BATH_OPTIONS, isHeroCountValue);
-  const popularSearches = readHeroPopularSearches(content, DEFAULT_POPULAR);
 
   const defaultIntent = (intents.find((row) => row.value === "buy")?.value ??
     intents[0]?.value ??
@@ -301,24 +291,6 @@ function FilterSearch({ content }: { content?: Record<string, unknown> }) {
           />
         </svg>
       </Button>
-
-      {popularSearches.length > 0 ? (
-        <div className="mt-5 border-t border-line pt-5">
-          <p className="mb-3 text-eyebrow uppercase text-ink-muted">Popular searches</p>
-          <div className="flex flex-wrap gap-2">
-            {popularSearches.map((item) => (
-              <button
-                key={`${item.label}-${item.query}`}
-                type="button"
-                onClick={() => router.push(`/listings?${item.query}`)}
-                className="rounded-full border border-line px-3 py-2 text-caption text-ink transition-colors hover:border-gold hover:text-gold-deep"
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
     </form>
   );
 }

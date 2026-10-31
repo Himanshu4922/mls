@@ -22,7 +22,6 @@ const LABELS: Record<string, string> = {
   rentPrices: "Rent price ranges",
   bedOptions: "Bedroom dropdown",
   bathOptions: "Bathroom dropdown",
-  popularSearches: "Popular search chips",
   actionLabel: "Button label",
   actionHref: "Button link",
   useAutomaticDescription: "Let the site describe the rail from the listings it actually shows",
@@ -47,7 +46,6 @@ const LABELS: Record<string, string> = {
   shareImageAlt: "Share image description",
   display_order: "Position",
   value: "Value (do not invent new codes)",
-  query: "Listings filters",
 };
 
 const HINTS: Record<string, string> = {
@@ -66,9 +64,7 @@ const HINTS: Record<string, string> = {
   rentPrices: "Same as sale prices, but monthly rent amounts.",
   bedOptions: "Label is free text. Value is a number (1–20) or blank for Any.",
   bathOptions: "Label is free text. Value is a number (1–20) or blank for Any.",
-  popularSearches: "Chip label plus a query string using known keys only: type, city, priceMin, priceMax, beds, baths, tx, status, q, postal.",
   value: "This drives the listings URL. Wrong values are rejected on save.",
-  query: "Example: type=Condo&priceMax=800000",
 };
 
 const LIST_NOUN: Record<string, string> = {
@@ -88,7 +84,6 @@ const LIST_NOUN: Record<string, string> = {
   rentPrices: "Rent price",
   bedOptions: "Bedroom option",
   bathOptions: "Bathroom option",
-  popularSearches: "Popular search",
 };
 
 const MAX: Record<string, number> = {
@@ -161,7 +156,6 @@ export function TreeForm({
       "rentPrices",
       "bedOptions",
       "bathOptions",
-      "popularSearches",
       "title",
       "caption",
       "items",

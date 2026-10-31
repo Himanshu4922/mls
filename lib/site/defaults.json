@@ -66,12 +66,6 @@
             { "value": "3", "label": "3+ baths" },
             { "value": "4", "label": "4+ baths" },
             { "value": "5", "label": "5+ baths" }
-          ],
-          "popularSearches": [
-            { "label": "Condos under $800K", "query": "type=Condo&priceMax=800000" },
-            { "label": "Family homes in Mississauga", "query": "city=Mississauga&beds=3" },
-            { "label": "Townhomes in Vaughan", "query": "city=Vaughan&type=Townhome" },
-            { "label": "Rentals in Downtown Toronto", "query": "city=Toronto&tx=rent" }
           ]
         }
       },
