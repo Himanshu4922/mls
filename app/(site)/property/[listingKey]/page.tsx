@@ -160,11 +160,9 @@ export default async function PropertyPage({
       </div>
 
       <PropertyTabs
+        hero={<Gallery images={property.images} address={property.address} />}
         lead={
-          <>
-      <Gallery images={property.images} address={property.address} />
-
-      <header className="mt-5 sm:mt-6">
+      <header>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-[1.75rem] font-semibold leading-tight text-ink sm:text-[2rem]">
@@ -254,7 +252,6 @@ export default async function PropertyPage({
           />
         </div>
       </header>
-          </>
         }
         actions={
           <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">

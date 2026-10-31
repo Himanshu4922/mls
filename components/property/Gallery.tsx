@@ -66,7 +66,7 @@ export function Gallery({
 
   if (count === 0) {
     return (
-      <div className="flex h-[220px] items-center justify-center rounded-surface border border-line bg-surface-alt text-small text-ink-muted sm:h-[300px] lg:h-[380px]">
+      <div className="flex h-[220px] items-center justify-center rounded-surface border border-line bg-surface-alt text-small text-ink-muted sm:h-[360px] lg:h-[440px]">
         No photos available for this listing
       </div>
     );
@@ -76,14 +76,14 @@ export function Gallery({
 
   return (
     <>
-      <div className="grid gap-2 sm:grid-cols-[2fr_1fr]">
+      <div className="grid gap-2 sm:grid-cols-[2fr_1fr] sm:h-[360px] lg:h-[440px]">
         <button
           type="button"
           onClick={() => {
             setIndex(0);
             setLightbox(true);
           }}
-          className="relative h-[220px] overflow-hidden rounded-surface bg-surface-alt sm:h-[300px] lg:h-[380px]"
+          className="relative h-[220px] overflow-hidden rounded-surface bg-surface-alt sm:h-full"
           aria-label={`View photo 1 of ${count} full screen`}
         >
           <SafeImage
@@ -91,7 +91,7 @@ export function Gallery({
             alt={`${address} — main photo`}
             fill
             priority
-            sizes="(max-width: 640px) 100vw, 66vw"
+            sizes="(max-width: 640px) 100vw, (max-width: 1280px) 70vw, 900px"
             className="object-cover transition-transform duration-500 hover:scale-[1.02]"
           />
         </button>
@@ -99,7 +99,7 @@ export function Gallery({
         {count > 1 && (
           // A 2×2 thumbnail block, as in HomeAtlasUI: one hero photo with four
           // supporting shots reads as a gallery, where two read as an offcut.
-          <div className="hidden grid-cols-2 grid-rows-2 gap-2 sm:grid">
+          <div className="hidden h-full grid-cols-2 grid-rows-2 gap-2 sm:grid">
             {images.slice(1, 5).map((image, i) => {
               const shown = Math.min(count - 1, 4);
               const isLast = i === shown - 1;
@@ -113,7 +113,7 @@ export function Gallery({
                     setIndex(photoIndex);
                     setLightbox(true);
                   }}
-                  className="relative overflow-hidden rounded-surface bg-surface-alt"
+                  className="relative min-h-0 overflow-hidden rounded-surface bg-surface-alt"
                   aria-label={
                     isLast && remaining > 0
                       ? `View all ${count} photos full screen`
@@ -124,7 +124,7 @@ export function Gallery({
                     src={image.url}
                     alt={`${address} — photo ${photoIndex + 1}`}
                     fill
-                    sizes="20vw"
+                    sizes="(max-width: 1280px) 30vw, 320px"
                     className="object-cover transition-transform duration-500 hover:scale-[1.02]"
                   />
                   {isLast && remaining > 0 && (

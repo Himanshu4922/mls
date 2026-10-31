@@ -187,11 +187,14 @@ export function FeaturedBoardSkeleton() {
         <div className="rounded-surface border border-line bg-surface p-5 sm:p-6">
           <Skeleton className="h-9 w-56" />
           <Skeleton className="mt-3 h-4 w-full max-w-xl" />
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-8 w-40" />
+            <Skeleton className="h-8 w-44" />
+          </div>
         </div>
-        <div className="grid gap-6 xl:grid-cols-2">
-          <SidePanel fields={4} />
-          <SidePanel fields={4} />
-        </div>
+        <SidePanel fields={3} />
+        <SidePanel fields={4} />
       </div>
     </Loading>
   );

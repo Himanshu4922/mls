@@ -23,6 +23,7 @@ export interface PropertyTab {
 export function PropertyTabs({
   tabs,
   actions,
+  hero,
   lead,
   aside,
   footnote,
@@ -30,7 +31,9 @@ export function PropertyTabs({
   tabs: PropertyTab[];
   /** Watch, share, tour, compare and WhatsApp. Wraps under the tabs on small screens. */
   actions?: ReactNode;
-  /** Gallery and price header. Stays visible while tabs switch, in the main column. */
+  /** Full-width photo gallery above the two-column body. */
+  hero?: ReactNode;
+  /** Price header under the gallery. Stays in the main column beside the aside. */
   lead?: ReactNode;
   /** Schedule-viewing column. Stacks under the tabs below the `lg` breakpoint. */
   aside?: ReactNode;
@@ -84,6 +87,7 @@ export function PropertyTabs({
       </div>
 
       <div className="container-page py-6 sm:py-8">
+        {hero ? <div className="mb-6 sm:mb-8">{hero}</div> : null}
         <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]">
           <div className="min-w-0">
             {lead && <div className="mb-8">{lead}</div>}
