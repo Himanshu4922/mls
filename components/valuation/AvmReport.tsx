@@ -3,8 +3,8 @@ import type { AvmDetails, ValuationComp, ValuationResult } from "@/lib/api/valua
 import { cn } from "@/lib/utils/cn";
 import { EMPTY, formatNumber, formatPrice } from "@/lib/utils/format";
 
-/** How many comparables sit beside the subject, as in the sample AVM report. */
-export const AVM_COMP_COLUMNS = 3;
+/** WOWA targets at least five sold comps beside the subject. */
+export const AVM_COMP_COLUMNS = 5;
 
 type Column = { kind: "subject"; details: AvmDetails } | { kind: "comp"; comp: ValuationComp; details: AvmDetails };
 type Row = { label: string; value: (column: Column) => ReactNode };
@@ -82,9 +82,13 @@ const ROWS: Row[] = [
         "Subject"
       ) : (
         <>
-          {formatPrice(c.comp.price)}
+          {formatPrice(c.comp.closePrice ?? c.comp.price)}
           <span className="block text-caption text-ink-subtle">
-            {c.comp.source === "sold_proxy" ? "Last asking (off market)" : "List price (active)"}
+            {c.comp.source === "sold"
+              ? "Sold (close price)"
+              : c.comp.source === "sold_proxy"
+                ? "Last asking (off market)"
+                : "List price (active)"}
           </span>
         </>
       ),
@@ -99,7 +103,11 @@ const ROWS: Row[] = [
           {dash(c.comp.eventDate)}
           {c.comp.eventDate && (
             <span className="block text-caption text-ink-subtle">
-              {c.comp.source === "sold_proxy" ? "Left market" : "Listed"}
+              {c.comp.source === "sold"
+                ? "Closed"
+                : c.comp.source === "sold_proxy"
+                  ? "Left market"
+                  : "Listed"}
             </span>
           )}
         </>
@@ -161,12 +169,19 @@ const ROWS: Row[] = [
  * on narrow screens; the first column stays pinned.
  */
 export function AvmReport({ result }: { result: ValuationResult }) {
-  const comps = result.comps.slice(0, AVM_COMP_COLUMNS);
+  const soldPreferred = [
+    ...result.comps.filter((c) => c.source === "sold"),
+    ...result.comps.filter((c) => c.source === "sold_proxy"),
+  ];
+  const comps = (soldPreferred.length > 0 ? soldPreferred : result.comps).slice(0, AVM_COMP_COLUMNS);
   const columns: Column[] = [
     { kind: "subject", details: result.subjectDetails },
     ...comps.map((comp) => ({ kind: "comp" as const, comp, details: comp.details })),
   ];
   const anyProxy = comps.some((comp) => comp.source === "sold_proxy");
+  const active = result.activeComps.slice(0, 5);
+  const hedonic = result.breakdown.filter((b) => b.source !== "ai" && b.delta !== 0).slice(0, 8);
+  const aiAdj = result.breakdown.filter((b) => b.source === "ai").slice(0, 8);
 
   return (
     <div className="space-y-6">
@@ -180,11 +195,38 @@ export function AvmReport({ result }: { result: ValuationResult }) {
         </dl>
       </section>
 
+      {(hedonic.length > 0 || aiAdj.length > 0) && (
+        <section className="rounded-surface border border-line bg-surface p-5 sm:p-6">
+          <h3 className="text-h3 text-navy">Value adjustments</h3>
+          <p className="mt-1 text-caption text-ink-muted">
+            Feature deltas from sold comps
+            {aiAdj.length > 0 ? " plus AI-suggested adjustments" : ""}.
+          </p>
+          <ul className="mt-4 divide-y divide-line text-small">
+            {[...hedonic, ...aiAdj].map((item) => (
+              <li key={`${item.source}-${item.feature}`} className="flex items-start justify-between gap-4 py-2.5">
+                <div>
+                  <p className="font-medium text-ink">{item.feature.replace(/_/g, " ")}</p>
+                  {item.note && <p className="text-caption text-ink-muted">{item.note}</p>}
+                  <p className="text-caption text-ink-subtle">
+                    {item.source === "ai" ? "AI" : "Comparable model"}
+                  </p>
+                </div>
+                <p className={item.delta >= 0 ? "text-positive" : "text-negative"}>
+                  {item.delta >= 0 ? "+" : ""}
+                  {formatPrice(item.delta)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {comps.length > 0 && (
         <section className="rounded-surface border border-line bg-surface p-5 sm:p-6">
           <h3 className="text-h3 text-navy">Comparable information</h3>
           <p className="mt-1 text-caption text-ink-muted">
-            Your home beside the {comps.length} closest comparables used in this estimate
+            Your home beside the {comps.length} closest sold comparables used in this estimate
             {result.comps.length > comps.length ? ` (of ${formatNumber(result.comps.length)})` : ""}.
           </p>
           <div className="mt-4 overflow-x-auto rounded-control border border-line">
@@ -242,6 +284,35 @@ export function AvmReport({ result }: { result: ValuationResult }) {
               : ""}
             Dashes mark details the listing does not include.
           </p>
+        </section>
+      )}
+
+      {active.length > 0 && (
+        <section className="rounded-surface border border-line bg-surface p-5 sm:p-6">
+          <h3 className="text-h3 text-navy">Currently for sale</h3>
+          <p className="mt-1 text-caption text-ink-muted">
+            Nearby active listings — asking prices and days on market, not sale comps.
+          </p>
+          <ul className="mt-4 divide-y divide-line">
+            {active.map((comp) => (
+              <li key={comp.listingKey ?? `${comp.address}-${comp.price}`} className="flex flex-wrap items-baseline justify-between gap-2 py-3 text-small">
+                <div>
+                  <p className="font-medium text-ink">{comp.address || "Nearby listing"}</p>
+                  <p className="text-caption text-ink-muted">
+                    {[comp.beds != null ? `${comp.beds} bed` : null, comp.baths != null ? `${comp.baths} bath` : null, comp.livingArea != null ? `${formatNumber(comp.livingArea)} sqft` : null]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-medium text-ink">{formatPrice(comp.listPrice ?? comp.price)}</p>
+                  <p className="text-caption text-ink-muted">
+                    {comp.daysOnMarket != null ? `${comp.daysOnMarket} days on market` : "Active"}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
     </div>

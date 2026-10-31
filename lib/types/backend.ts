@@ -214,9 +214,26 @@ export interface BackendValuationEstimate {
     quick_sale_low: number;
     quick_sale_high: number;
   };
-  breakdown: Array<{ label?: string; factor?: string; amount?: number; [k: string]: unknown }>;
-  trend: { pct_30d: number; applied: number };
+  breakdown: Array<{
+    label?: string;
+    feature?: string;
+    factor?: string;
+    amount?: number;
+    delta?: number;
+    source?: string;
+    note?: string;
+    [k: string]: unknown;
+  }>;
+  trend: {
+    pct_30d: number;
+    applied: number;
+    pct_90d?: number;
+    pct_12m?: number;
+    source?: string | null;
+    series?: Array<{ month?: string; median_sold_price?: number | null; units_sold?: number | null }>;
+  };
   comps: Array<Record<string, unknown>>;
+  active_comps?: Array<Record<string, unknown>>;
   agent: Record<string, unknown> | null;
   beta: boolean;
   sparse: boolean;
@@ -225,6 +242,17 @@ export interface BackendValuationEstimate {
   confidence_stars?: number;
   valuation_date?: string;
   subject_details?: Record<string, unknown>;
+  ai?: {
+    suggested?: number | null;
+    weight?: number;
+    rationale?: string | null;
+    adjustments?: Array<{ feature?: string; delta?: number; note?: string | null; source?: string }>;
+    used?: boolean;
+    confidence?: string | null;
+  };
+  methodology?: string;
+  cma_point?: number;
+  prior_sale_anchor?: number | null;
 }
 
 export interface BackendValuationSuggestion {

@@ -349,6 +349,22 @@ function ResultCard({
     );
   }
 
+  const trendPct =
+    result.trendPct90d !== 0
+      ? result.trendPct90d
+      : result.trendPct12m !== 0
+        ? result.trendPct12m
+        : result.trendPct30d;
+  const trendLabel =
+    result.trendPct90d !== 0
+      ? "90-day sold trend"
+      : result.trendPct12m !== 0
+        ? "12-month sold trend"
+        : "30-day trend";
+  const spark = result.trendSeries.filter((p) => p.medianSoldPrice != null);
+  const sparkMax = Math.max(...spark.map((p) => p.medianSoldPrice ?? 0), 1);
+  const sparkMin = Math.min(...spark.map((p) => p.medianSoldPrice ?? 0), sparkMax);
+
   return (
     <div className="space-y-6">
       <div className="rounded-surface border border-line bg-surface p-6 text-center shadow-card">
@@ -359,22 +375,50 @@ function ResultCard({
         </p>
         <p className="mt-1 text-caption text-ink-subtle">{address}</p>
 
+        {result.ai.used && result.ai.suggested != null && (
+          <p className="mt-3 text-small text-ink-soft">
+            AI suggested {formatPrice(result.ai.suggested)}
+            {result.ai.rationale ? ` — ${result.ai.rationale}` : ""}
+          </p>
+        )}
+
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           {result.beta && <Badge tone="warm">Beta model</Badge>}
           {result.sparse && <Badge tone="negative">Low confidence</Badge>}
           {result.confidence && !result.sparse && (
             <Badge tone="positive">{result.confidence} confidence</Badge>
           )}
-          {result.trendPct30d !== 0 && (
+          {result.ai.used && <Badge tone="neutral">Hybrid CMA + AI</Badge>}
+          {trendPct !== 0 && (
             <Badge tone="neutral">
-              30-day trend {formatPercent(result.trendPct30d)}
+              {trendLabel} {formatPercent(trendPct)}
             </Badge>
           )}
         </div>
 
+        {spark.length >= 2 && (
+          <div className="mx-auto mt-5 max-w-sm" aria-hidden="true">
+            <svg viewBox={`0 0 ${spark.length * 24} 48`} className="h-12 w-full text-navy">
+              <polyline
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                points={spark
+                  .map((point, index) => {
+                    const yRange = Math.max(sparkMax - sparkMin, 1);
+                    const y = 40 - ((point.medianSoldPrice! - sparkMin) / yRange) * 32;
+                    return `${index * 24 + 12},${y}`;
+                  })
+                  .join(" ")}
+              />
+            </svg>
+            <p className="text-caption text-ink-subtle">Local median sold price</p>
+          </div>
+        )}
+
         {result.sparse && (
           <p className="mt-4 rounded-control bg-surface-alt px-4 py-3 text-caption text-ink-muted">
-            Fewer than three comparable sales were found nearby, so treat this
+            Fewer than five comparable sales were found nearby, so treat this
             range as indicative only. An agent can give you a firmer number.
           </p>
         )}
@@ -389,8 +433,9 @@ function ResultCard({
       </div>
 
       <p className="text-caption text-ink-subtle">
-        This is an automated estimate generated from comparable listings, not a
-        formal appraisal or an offer to purchase.
+        This automated estimate blends recent sold comps, local sold-market
+        trends, and AI adjustments. It is not a formal appraisal or an offer
+        to purchase.
       </p>
     </div>
   );

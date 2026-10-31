@@ -1,9 +1,8 @@
 /**
  * Home valuation — the seller funnel.
  *
- * Backed by a real engine in mls-v2 (`mls/services/valuation/`): comparable
- * selection, a hedonic adjustment model, a 30-day trend multiplier and agent
- * matching. Nothing here is simulated.
+ * Backed by mls-v2 hybrid CMA (`mls/services/valuation/`): AMPRE sold comps,
+ * sold-market trends, hedonic adjustments, and an optional AI blend.
  */
 
 import { apiFetch, type RequestOptions } from "@/lib/api/client";
@@ -99,15 +98,17 @@ export interface AvmDetails {
 }
 
 /**
- * `sold_proxy`: a listing that left the market; its price is the LAST ASKING
- * price, not a confirmed sale price (the backend has no sold prices for
- * comps). `active_listing`: currently for sale.
+ * `sold`: AMPRE closed sale with ClosePrice.
+ * `sold_proxy`: left the market; price is last asking (fallback).
+ * `active_listing`: currently for sale (DOM / asking signal).
  */
-export type CompSource = "sold_proxy" | "active_listing";
+export type CompSource = "sold" | "sold_proxy" | "active_listing";
 
 export interface ValuationComp {
   listingKey: string | null;
   price: number | null;
+  closePrice: number | null;
+  listPrice: number | null;
   beds: number | null;
   baths: number | null;
   livingArea: number | null;
@@ -115,9 +116,32 @@ export interface ValuationComp {
   city: string;
   distanceKm: number | null;
   source: CompSource | null;
-  /** Off-market date for a sold proxy; listed date for an active comp. */
+  /** Close date for sold; off-market date for proxy; listed date for active. */
   eventDate: string | null;
+  daysOnMarket: number | null;
   details: AvmDetails;
+}
+
+export interface ValuationTrendPoint {
+  month: string;
+  medianSoldPrice: number | null;
+  unitsSold: number | null;
+}
+
+export interface ValuationBreakdownItem {
+  feature: string;
+  delta: number;
+  source: "hedonic" | "ai" | string;
+  note: string | null;
+}
+
+export interface ValuationAiSuggestion {
+  suggested: number | null;
+  weight: number;
+  rationale: string | null;
+  adjustments: ValuationBreakdownItem[];
+  used: boolean;
+  confidence: string | null;
 }
 
 export interface ValuationResult {
@@ -126,8 +150,19 @@ export interface ValuationResult {
   high: number;
   quickSaleLow: number;
   quickSaleHigh: number;
+  /** Display percent (e.g. 1.5 for +1.5%). */
   trendPct30d: number;
+  trendPct90d: number;
+  trendPct12m: number;
+  trendSource: string | null;
+  trendSeries: ValuationTrendPoint[];
   comps: ValuationComp[];
+  activeComps: ValuationComp[];
+  breakdown: ValuationBreakdownItem[];
+  ai: ValuationAiSuggestion;
+  methodology: string | null;
+  cmaPoint: number | null;
+  priorSaleAnchor: number | null;
   confidence: string | null;
   /** 0-5, derived by the backend from the model's confidence band. */
   confidenceStars: number;
@@ -209,6 +244,50 @@ export interface EstimateInput {
   lotDepth?: number | null;
 }
 
+function mapComp(comp: Record<string, unknown>): ValuationComp {
+  const source =
+    comp.source === "sold" || comp.source === "sold_proxy" || comp.source === "active_listing"
+      ? comp.source
+      : null;
+  return {
+    listingKey: (comp.listing_key as string) ?? null,
+    price: typeof comp.price === "number" ? comp.price : null,
+    closePrice: typeof comp.close_price === "number" ? comp.close_price : null,
+    listPrice: typeof comp.list_price === "number" ? comp.list_price : null,
+    beds: typeof comp.bedrooms_total === "number" ? comp.bedrooms_total : null,
+    baths:
+      typeof comp.bathrooms_total_integer === "number" ? comp.bathrooms_total_integer : null,
+    livingArea: typeof comp.living_area === "number" ? comp.living_area : null,
+    address: (comp.unparsed_address as string) ?? "",
+    city: (comp.city as string) ?? "",
+    distanceKm: typeof comp.distance_km === "number" ? comp.distance_km : null,
+    source,
+    eventDate: typeof comp.event_date === "string" ? comp.event_date : null,
+    daysOnMarket: typeof comp.days_on_market === "number" ? comp.days_on_market : null,
+    details: mapAvmDetails(comp.details),
+  };
+}
+
+function mapBreakdownItem(raw: Record<string, unknown>): ValuationBreakdownItem {
+  const feature =
+    (typeof raw.feature === "string" && raw.feature) ||
+    (typeof raw.label === "string" && raw.label) ||
+    (typeof raw.factor === "string" && raw.factor) ||
+    "adjustment";
+  const delta =
+    typeof raw.delta === "number"
+      ? raw.delta
+      : typeof raw.amount === "number"
+        ? raw.amount
+        : 0;
+  return {
+    feature,
+    delta,
+    source: typeof raw.source === "string" ? raw.source : "hedonic",
+    note: typeof raw.note === "string" ? raw.note : null,
+  };
+}
+
 export async function estimateValue(
   input: EstimateInput,
   options: RequestOptions = {},
@@ -236,6 +315,13 @@ export async function estimateValue(
   );
 
   const agent = data.agent as Record<string, unknown> | null;
+  const ai = data.ai;
+  const series = (data.trend?.series ?? []).map((point) => ({
+    month: typeof point.month === "string" ? point.month : "",
+    medianSoldPrice:
+      typeof point.median_sold_price === "number" ? point.median_sold_price : null,
+    unitsSold: typeof point.units_sold === "number" ? point.units_sold : null,
+  })).filter((point) => point.month);
 
   return {
     low: data.estimate?.low ?? 0,
@@ -243,23 +329,29 @@ export async function estimateValue(
     high: data.estimate?.high ?? 0,
     quickSaleLow: data.estimate?.quick_sale_low ?? 0,
     quickSaleHigh: data.estimate?.quick_sale_high ?? 0,
+    // Backend stores fractions (0.012); display as percent.
     trendPct30d: Number(data.trend?.pct_30d ?? 0) * 100,
-    comps: (data.comps ?? []).map((comp) => ({
-      listingKey: (comp.listing_key as string) ?? null,
-      price: typeof comp.price === "number" ? comp.price : null,
-      beds: typeof comp.bedrooms_total === "number" ? comp.bedrooms_total : null,
-      baths:
-        typeof comp.bathrooms_total_integer === "number"
-          ? comp.bathrooms_total_integer
-          : null,
-      livingArea: typeof comp.living_area === "number" ? comp.living_area : null,
-      address: (comp.unparsed_address as string) ?? "",
-      city: (comp.city as string) ?? "",
-      distanceKm: typeof comp.distance_km === "number" ? comp.distance_km : null,
-      source: comp.source === "sold_proxy" || comp.source === "active_listing" ? comp.source : null,
-      eventDate: typeof comp.event_date === "string" ? comp.event_date : null,
-      details: mapAvmDetails(comp.details),
-    })),
+    trendPct90d: Number(data.trend?.pct_90d ?? 0) * 100,
+    trendPct12m: Number(data.trend?.pct_12m ?? 0) * 100,
+    trendSource: typeof data.trend?.source === "string" ? data.trend.source : null,
+    trendSeries: series,
+    comps: (data.comps ?? []).map(mapComp),
+    activeComps: (data.active_comps ?? []).map(mapComp),
+    breakdown: (data.breakdown ?? []).map((row) => mapBreakdownItem(row as Record<string, unknown>)),
+    ai: {
+      suggested: typeof ai?.suggested === "number" ? ai.suggested : null,
+      weight: typeof ai?.weight === "number" ? ai.weight : 0,
+      rationale: typeof ai?.rationale === "string" ? ai.rationale : null,
+      adjustments: (ai?.adjustments ?? []).map((row) =>
+        mapBreakdownItem(row as Record<string, unknown>),
+      ),
+      used: Boolean(ai?.used),
+      confidence: typeof ai?.confidence === "string" ? ai.confidence : null,
+    },
+    methodology: typeof data.methodology === "string" ? data.methodology : null,
+    cmaPoint: typeof data.cma_point === "number" ? data.cma_point : null,
+    priorSaleAnchor:
+      typeof data.prior_sale_anchor === "number" ? data.prior_sale_anchor : null,
     confidence: (data.confidence as string) ?? null,
     confidenceStars: typeof data.confidence_stars === "number" ? data.confidence_stars : 0,
     valuationDate: typeof data.valuation_date === "string" ? data.valuation_date : null,
