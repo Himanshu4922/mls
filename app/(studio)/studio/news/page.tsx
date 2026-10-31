@@ -22,7 +22,7 @@ export default async function NewsPage() {
       createBody={{
         title: "New headline",
         source: "HomeAtlas",
-        url: "https://",
+        url: "https://www.homeatlas.ca/news/draft",
         image_url: "",
         is_hidden: false,
       }}

@@ -145,6 +145,20 @@ export function StudioShell({
     return () => query.removeEventListener("change", sync);
   }, []);
 
+  // Lock the document: only the main pane scrolls, not the browser window.
+  useEffect(() => {
+    const html = document.documentElement;
+    const { body } = document;
+    const prevHtml = html.style.overflow;
+    const prevBody = body.style.overflow;
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    return () => {
+      html.style.overflow = prevHtml;
+      body.style.overflow = prevBody;
+    };
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     function onKey(event: KeyboardEvent) {
@@ -180,7 +194,7 @@ export function StudioShell({
   const initial = (email.trim()[0] || "A").toUpperCase();
 
   return (
-    <div className="studio-console flex h-dvh overflow-hidden text-ink">
+    <div className="studio-console fixed inset-0 z-10 flex overflow-hidden text-ink">
       {open && (
         <button
           type="button"
@@ -264,7 +278,12 @@ export function StudioShell({
         </div>
       </aside>
 
-      <div className={cn("flex min-w-0 flex-1 flex-col transition-[padding] duration-200", rail ? "lg:pl-[4.75rem]" : "lg:pl-[17rem]")}>
+      <div
+        className={cn(
+          "flex h-full min-h-0 min-w-0 flex-1 flex-col transition-[padding] duration-200",
+          rail ? "lg:pl-[4.75rem]" : "lg:pl-[17rem]",
+        )}
+      >
         <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface px-3 sm:px-5">
           <button
             type="button"

@@ -133,6 +133,9 @@ function nextCreateBody(
     const n = existing.filter((item) => String(item.data.title || "").startsWith("New headline")).length;
     body.title = n === 0 ? "New headline" : `New headline ${n + 1}`;
   }
+  if (typeof body.url === "string" && body.url === "https://www.homeatlas.ca/news/draft") {
+    body.url = `https://www.homeatlas.ca/news/draft-${Date.now()}`;
+  }
   return body;
 }
 
@@ -359,7 +362,6 @@ export function EditorialManager({
               <div className="space-y-4 p-5">
               <div className="grid gap-4 sm:grid-cols-2">
                 {fields.map((field) => {
-                  if (resource === "news" && field !== "is_hidden") return null;
                   const label = FIELD_LABELS[field] || field;
                   if (typeof row[field] === "boolean") {
                     return (
@@ -429,7 +431,7 @@ export function EditorialManager({
                       </div>
                     );
                   }
-                  const wide = field === "description" || field === "source_url" || field === "website_url";
+                  const wide = field === "description" || field === "source_url" || field === "website_url" || field === "url";
                   return (
                     <label key={field} className={`block text-small font-medium text-ink ${wide ? "sm:col-span-2" : ""}`}>
                       {label}
