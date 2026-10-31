@@ -1,32 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/providers/AuthProvider";
 import { Button } from "@/components/ui/Button";
-import { MARKET_CITIES } from "@/lib/api/market";
-import {
-  ALERT_CADENCE_LABELS,
-  ALERT_CADENCES,
-  defaultSearchName,
-  toSavedFilters,
-  type AlertCadence,
-} from "@/lib/api/savedSearches";
+import { defaultSearchName, toSavedFilters } from "@/lib/api/savedSearches";
 import { SEARCH_PROPERTY_TYPES } from "@/lib/types/domain";
 import type { ListingQuery } from "@/lib/types/domain";
 import { useFollowArea } from "@/lib/queries/watched";
 import { useSavedSearch, useSavedSearchActions } from "@/lib/queries/savedSearches";
+import { textOf } from "@/lib/site/read";
+import { normalizePostal } from "@/lib/utils/postal";
+import { cn } from "@/lib/utils/cn";
 
 /**
- * Homepage Smart alerts — criteria form aligned with HomeAtlasUI.
+ * Homepage Smart alerts — matches the HomeAtlasUI navy + white card layout.
  *
- * Area + property type + max price become a saved search with email cadence
- * (backed by mls-v2 saved-search alerts). The account email is used — no
- * duplicate email field. Area follow keeps the city on Watched Areas.
+ * Area / postal + property type + max price become a daily saved-search alert.
+ * Guests enter an email then sign up; signed-in users get the account mailbox.
  */
 
 const PRICE_OPTIONS = [
-  { label: "No max", value: "" },
+  { label: "Any Price", value: "" },
   { label: "$500K", value: "500000" },
   { label: "$750K", value: "750000" },
   { label: "$1M", value: "1000000" },
@@ -35,6 +30,29 @@ const PRICE_OPTIONS = [
   { label: "$3M", value: "3000000" },
 ] as const;
 
+const DEFAULT_ALERTS = [
+  {
+    key: "newListings",
+    label: "New Listings",
+    description: "Be first to see new properties.",
+  },
+  {
+    key: "priceChanges",
+    label: "Price Drops",
+    description: "Get notified on reductions.",
+  },
+  {
+    key: "statusUpdates",
+    label: "Smart Match",
+    description: "Based on your criteria.",
+  },
+] as const;
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const FIELD =
+  "w-full rounded-xl border border-line bg-surface px-4 py-3 text-small text-ink outline-none transition-colors placeholder:text-ink-subtle focus:border-navy focus:ring-1 focus:ring-navy";
+
 export function AlertsCta({ content }: { content?: Record<string, unknown> }) {
   const { user, openAuth } = useAuth();
   const router = useRouter();
@@ -42,26 +60,32 @@ export function AlertsCta({ content }: { content?: Record<string, unknown> }) {
   const { save } = useSavedSearchActions();
   const followArea = useFollowArea();
 
-  const [area, setArea] = useState<string>(MARKET_CITIES[0]);
-  const [type, setType] = useState<string>("");
-  const [priceMax, setPriceMax] = useState<string>("");
-  const [alertCadence, setAlertCadence] = useState<AlertCadence>("daily");
+  const [area, setArea] = useState("");
+  const [type, setType] = useState("");
+  const [priceMax, setPriceMax] = useState("");
+  const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
+  useEffect(() => {
+    if (user?.email) setEmail(user.email);
+  }, [user?.email]);
+
   const saving = save.isPending || followArea.isPending;
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault();
+  const alerts = Array.isArray(content?.alerts)
+    ? (content.alerts as Array<Record<string, unknown>>).map((row, index) => ({
+        key: String(row.key ?? DEFAULT_ALERTS[index]?.key ?? index),
+        label: String(row.label ?? DEFAULT_ALERTS[index]?.label ?? "Alert"),
+        description: String(row.description ?? DEFAULT_ALERTS[index]?.description ?? ""),
+      }))
+    : [...DEFAULT_ALERTS];
 
-    if (!user) {
-      openAuth("signup");
-      return;
-    }
-
-    setError(null);
+  async function createAlert() {
+    const trimmedArea = area.trim();
+    const postal = normalizePostal(trimmedArea);
     const query: ListingQuery = {
-      city: area,
+      ...(postal ? { postalCodes: [postal] } : { city: trimmedArea }),
       type: type || undefined,
       priceMax: priceMax ? Number(priceMax) : undefined,
       status: "Active",
@@ -70,23 +94,51 @@ export function AlertsCta({ content }: { content?: Record<string, unknown> }) {
     const filters = toSavedFilters(query);
     const name = defaultSearchName(query);
 
-    try {
-      await save.mutateAsync({
-        name,
-        filters,
-        alertCadence,
-        replaceId: saved?.id,
-      });
+    await save.mutateAsync({
+      name,
+      filters,
+      alertCadence: "daily",
+      replaceId: saved?.id,
+    });
 
+    if (!postal) {
       await followArea.mutateAsync({
-        areaKey: area.toLowerCase(),
-        areaLabel: area,
+        areaKey: trimmedArea.toLowerCase(),
+        areaLabel: trimmedArea,
         areaKind: "community",
         follow: true,
       });
+    }
 
-      setDone(true);
-      router.refresh();
+    setDone(true);
+    router.refresh();
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    setError(null);
+
+    const trimmedArea = area.trim();
+    if (!trimmedArea) {
+      setError("Enter an area or postal code.");
+      return;
+    }
+    if (!EMAIL_RE.test(email.trim())) {
+      setError("Enter a valid email address.");
+      return;
+    }
+
+    if (!user) {
+      openAuth("signup", () => {
+        void createAlert().catch(() => {
+          setError("We couldn't save that alert. Please try again.");
+        });
+      });
+      return;
+    }
+
+    try {
+      await createAlert();
     } catch {
       setError("We couldn't save that alert. Please try again.");
     }
@@ -98,143 +150,124 @@ export function AlertsCta({ content }: { content?: Record<string, unknown> }) {
       className="scroll-mt-24 bg-navy py-12 sm:py-14 lg:py-16 lg:scroll-mt-28"
     >
       <div className="container-page">
-        <div className="grid items-start gap-8 lg:grid-cols-2 lg:gap-12">
+        <div className="grid items-center gap-8 lg:grid-cols-2 lg:gap-12 xl:gap-16">
           <div className="min-w-0">
-            <p className="text-eyebrow uppercase text-white/70">
-              {typeof content?.eyebrow === "string" && content.eyebrow.trim()
-                ? content.eyebrow
-                : "Stay ahead of the market"}
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/65">
+              {textOf(content, "eyebrow", "Stay ahead of the market")}
             </p>
-            <h2 className="mt-3 text-h1 text-white">
-              {typeof content?.title === "string" && content.title.trim()
-                ? content.title
-                : "Smart alerts"}
+            <h2 className="mt-3 text-[2rem] font-semibold leading-tight tracking-tight text-white sm:text-[2.35rem]">
+              {textOf(content, "title", "Smart Alerts")}
             </h2>
-            <p className="mt-4 max-w-xl text-body text-white/80">
-              {typeof content?.description === "string" && content.description.trim()
-                ? content.description
-                : "Tell us the area, home type and budget you care about. We'll email you when matching homes are listed — manage everything from your saved homes anytime."}
+            <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-white/75 sm:text-body">
+              {textOf(
+                content,
+                "description",
+                "Create your own personalized search and receive daily updates. New listings, price drops, sold data, and matching preferences — all delivered directly to you.",
+              )}
             </p>
 
-            <ul className="mt-8 grid gap-3 sm:grid-cols-3 sm:gap-4">
-              {[
-                { label: "Area match", description: "Follow the city or community you care about" },
-                { label: "Your criteria", description: "Type and price filters, not just a zip code" },
-                { label: "Email cadence", description: "Daily or weekly — turn off whenever you like" },
-              ].map((item) => (
-                <li key={item.label} className="rounded-control bg-white/10 p-4">
-                  <p className="text-small font-semibold text-white">{item.label}</p>
-                  <p className="mt-1 text-caption text-white/70">{item.description}</p>
+            <ul className="mt-8 flex flex-col gap-3">
+              {alerts.map((item) => (
+                <li
+                  key={item.key}
+                  className="flex items-start gap-3 rounded-2xl bg-white/[0.08] px-4 py-3.5 ring-1 ring-white/10"
+                >
+                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white">
+                    <AlertIcon name={item.key} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-small font-semibold text-white">{item.label}</span>
+                    <span className="mt-0.5 block text-caption leading-snug text-white/65">
+                      {item.description}
+                    </span>
+                  </span>
                 </li>
               ))}
             </ul>
           </div>
 
-          <div className="min-w-0 rounded-surface bg-surface p-5 sm:p-6 lg:p-8">
+          <div className="min-w-0 rounded-2xl bg-white p-5 shadow-xl shadow-black/20 sm:p-7 lg:p-8">
             {done ? (
               <AlertCreated
-                area={area}
-                email={user?.email ?? null}
+                area={area.trim()}
+                email={user?.email ?? email.trim()}
                 onAddAnother={() => setDone(false)}
                 onViewSaved={() => router.push("/watched?tab=alerts")}
               />
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <h3 className="text-h3 text-ink">Create a neighbourhood alert</h3>
+              <form onSubmit={(event) => void handleSubmit(event)} className="space-y-4 sm:space-y-5">
+                <h3 className="text-[1.25rem] font-semibold tracking-tight text-ink sm:text-[1.35rem]">
+                  Create Your Search Alert
+                </h3>
 
                 <div>
-                  <label
-                    htmlFor="alert-area"
-                    className="mb-1.5 block text-caption text-ink-muted"
-                  >
-                    Area
+                  <label htmlFor="alert-area" className="mb-1.5 block text-caption font-medium text-ink-muted">
+                    Area or Postal Code
                   </label>
-                  <select
+                  <input
                     id="alert-area"
+                    type="text"
                     value={area}
                     onChange={(event) => setArea(event.target.value)}
-                    className="w-full cursor-pointer rounded-control border border-line bg-surface px-4 py-3 text-small text-ink outline-none transition-colors focus:border-navy"
-                  >
-                    {MARKET_CITIES.map((city) => (
-                      <option key={city} value={city}>
-                        {city}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="e.g. Vaughan, L7A, or Brampton"
+                    autoComplete="address-level2"
+                    className={FIELD}
+                  />
                 </div>
 
-                <div>
-                  <label
-                    htmlFor="alert-type"
-                    className="mb-1.5 block text-caption text-ink-muted"
-                  >
-                    Property type
-                  </label>
-                  <select
-                    id="alert-type"
-                    value={type}
-                    onChange={(event) => setType(event.target.value)}
-                    className="w-full cursor-pointer rounded-control border border-line bg-surface px-4 py-3 text-small text-ink outline-none transition-colors focus:border-navy"
-                  >
-                    <option value="">Any type</option>
-                    {SEARCH_PROPERTY_TYPES.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="alert-price"
-                    className="mb-1.5 block text-caption text-ink-muted"
-                  >
-                    Max price
-                  </label>
-                  <select
-                    id="alert-price"
-                    value={priceMax}
-                    onChange={(event) => setPriceMax(event.target.value)}
-                    className="w-full cursor-pointer rounded-control border border-line bg-surface px-4 py-3 text-small text-ink outline-none transition-colors focus:border-navy"
-                  >
-                    {PRICE_OPTIONS.map((option) => (
-                      <option key={option.label} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <fieldset>
-                  <legend className="mb-2 text-caption text-ink-muted">Email me</legend>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    {ALERT_CADENCES.map((cadence) => (
-                      <label
-                        key={cadence}
-                        className="flex cursor-pointer items-center gap-2 rounded-control border border-line px-3 py-3 transition-colors hover:border-navy has-[:checked]:border-navy has-[:checked]:bg-navy/5"
-                      >
-                        <input
-                          type="radio"
-                          name="alert-cadence"
-                          value={cadence}
-                          checked={alertCadence === cadence}
-                          onChange={() => setAlertCadence(cadence)}
-                          className="h-4 w-4 shrink-0 accent-navy"
-                        />
-                        <span className="text-caption text-ink">
-                          {ALERT_CADENCE_LABELS[cadence].replace(/^Email me /i, "").replace(/^No emails$/i, "Off")}
-                        </span>
-                      </label>
-                    ))}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="alert-type" className="mb-1.5 block text-caption font-medium text-ink-muted">
+                      Property Type
+                    </label>
+                    <select
+                      id="alert-type"
+                      value={type}
+                      onChange={(event) => setType(event.target.value)}
+                      className={cn(FIELD, "cursor-pointer")}
+                    >
+                      <option value="">Any Type</option>
+                      {SEARCH_PROPERTY_TYPES.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                </fieldset>
+                  <div>
+                    <label htmlFor="alert-price" className="mb-1.5 block text-caption font-medium text-ink-muted">
+                      Max Price
+                    </label>
+                    <select
+                      id="alert-price"
+                      value={priceMax}
+                      onChange={(event) => setPriceMax(event.target.value)}
+                      className={cn(FIELD, "cursor-pointer")}
+                    >
+                      {PRICE_OPTIONS.map((option) => (
+                        <option key={option.label} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-                {user?.email && (
-                  <p className="text-caption text-ink-muted">
-                    Alerts go to <span className="font-medium text-ink">{user.email}</span>
-                  </p>
-                )}
+                <div>
+                  <label htmlFor="alert-email" className="mb-1.5 block text-caption font-medium text-ink-muted">
+                    Your Email
+                  </label>
+                  <input
+                    id="alert-email"
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="you@example.com"
+                    autoComplete="email"
+                    inputMode="email"
+                    className={FIELD}
+                  />
+                </div>
 
                 {error && (
                   <p role="alert" className="text-caption text-negative">
@@ -242,20 +275,12 @@ export function AlertsCta({ content }: { content?: Record<string, unknown> }) {
                   </p>
                 )}
 
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="lg"
-                  block
-                  loading={saving}
-                >
-                  {user ? "Create alert" : "Sign up to create alerts"}
+                <Button type="submit" variant="dark" size="lg" block loading={saving} className="rounded-xl">
+                  Create Daily Alert →
                 </Button>
 
                 <p className="text-center text-caption text-ink-subtle">
-                  {user
-                    ? "Change or turn these off any time from your saved homes."
-                    : "Free account. Change or turn alerts off at any time."}
+                  Unsubscribe at any time · No spam, ever
                 </p>
               </form>
             )}
@@ -266,6 +291,42 @@ export function AlertsCta({ content }: { content?: Record<string, unknown> }) {
   );
 }
 
+function AlertIcon({ name }: { name: string }) {
+  if (name === "priceChanges") {
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path
+          d="M4 8l5 5 3.5-3.5L20 17"
+          stroke="#f87171"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path d="M15 17h5v-5" stroke="#f87171" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (name === "statusUpdates") {
+    return (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="7.25" stroke="#f9a8d4" strokeWidth="1.8" />
+        <circle cx="12" cy="12" r="3.25" stroke="currentColor" strokeWidth="1.8" />
+        <circle cx="12" cy="12" r="1" fill="currentColor" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function AlertCreated({
   area,
   email,
@@ -273,12 +334,12 @@ function AlertCreated({
   onViewSaved,
 }: {
   area: string;
-  email: string | null;
+  email: string;
   onAddAnother: () => void;
   onViewSaved: () => void;
 }) {
   return (
-    <div className="py-4 text-center">
+    <div className="py-2 text-center sm:py-4">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-positive-soft">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path
@@ -290,18 +351,18 @@ function AlertCreated({
           />
         </svg>
       </div>
-      <h3 className="mt-4 text-h3 text-ink">You&apos;re set for {area}</h3>
+      <h3 className="mt-4 text-h3 text-ink">You&apos;re set{area ? ` for ${area}` : ""}</h3>
       <p className="mx-auto mt-2 max-w-sm text-small text-ink-muted">
         {email
-          ? `We'll email ${email} when matching homes are listed.`
-          : "We'll email you when matching homes are listed."}{" "}
-        Manage this from your saved homes.
+          ? `We'll email ${email} with daily matches.`
+          : "We'll email you with daily matches."}{" "}
+        Manage this anytime from your saved homes.
       </p>
       <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:justify-center">
         <Button type="button" variant="secondary" onClick={onAddAnother}>
           Adjust criteria
         </Button>
-        <Button type="button" variant="primary" onClick={onViewSaved}>
+        <Button type="button" variant="dark" onClick={onViewSaved}>
           Manage alerts
         </Button>
       </div>

@@ -24,6 +24,11 @@ export function PreconStatusPill({ status }: { status: string }) {
   return <span className={cn(PILL, entry.tone)}>{entry.label}</span>;
 }
 
+/** Same vocabulary as pre-con publish statuses (draft / publish / private / …). */
+export function ListingStatusPill({ status }: { status: string }) {
+  return <PreconStatusPill status={status} />;
+}
+
 export function SubmissionStatusPill({ status, label }: { status: string; label: string }) {
   return <span className={cn(PILL, SUBMISSION_STATUS[status] ?? "bg-surface-alt text-ink-muted")}>{label}</span>;
 }

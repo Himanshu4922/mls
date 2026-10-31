@@ -256,23 +256,23 @@
         "visible": true,
         "content": {
           "eyebrow": "Stay ahead of the market",
-          "title": "Smart alerts",
-          "description": "Follow an area and we'll tell you when homes are listed, when prices move, and when they sell. Manage everything from your saved homes at any time.",
+          "title": "Smart Alerts",
+          "description": "Create your own personalized search and receive daily updates. New listings, price drops, sold data, and matching preferences — all delivered directly to you.",
           "alerts": [
             {
               "key": "newListings",
-              "label": "New listings",
-              "description": "Be first to see new properties in this area"
+              "label": "New Listings",
+              "description": "Be first to see new properties."
             },
             {
               "key": "priceChanges",
-              "label": "Price drops",
-              "description": "Get notified when asking prices fall"
+              "label": "Price Drops",
+              "description": "Get notified on reductions."
             },
             {
               "key": "statusUpdates",
-              "label": "Status updates",
-              "description": "Know when a home sells or is de-listed"
+              "label": "Smart Match",
+              "description": "Based on your criteria."
             }
           ]
         }

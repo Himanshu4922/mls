@@ -10,6 +10,7 @@ import {
   ClipboardCheck,
   ExternalLink,
   Handshake,
+  Home,
   Images,
   KeyRound,
   LayoutTemplate,
@@ -52,6 +53,7 @@ const GROUPS: Array<{
     label: "Listings",
     staff: true,
     links: [
+      { href: "/studio/listings", label: "Brokerage listings", icon: Home },
       { href: "/studio/precon", label: "Pre-construction", icon: Building2 },
       { href: "/studio/featured", label: "Featured homes", icon: Star },
       { href: "/studio/keywords", label: "Keyword searches", icon: Search },
@@ -85,6 +87,7 @@ const GROUPS: Array<{
 const RESERVED = new Set([
   "site",
   "connections",
+  "listings",
   "precon",
   "featured",
   "keywords",

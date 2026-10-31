@@ -3,6 +3,10 @@
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import type {
+  StudioListing,
+  StudioListingInput,
+} from "@/lib/api/estateListings";
+import type {
   BulkUploadResult,
   DecisionInput,
   ReviewSubmission,
@@ -105,5 +109,52 @@ export function useLinkSubmissionPrecon(id: number) {
       return data.submission;
     },
     onSuccess: () => router.refresh(),
+  });
+}
+
+/* -------------------------------------------------------------------------- */
+/* Brokerage listings (estate-properties)                                      */
+/* -------------------------------------------------------------------------- */
+
+export function useSaveListing() {
+  const router = useRouter();
+  return useMutation({
+    mutationFn: async ({ id, payload }: { id: number | null; payload: StudioListingInput }) => {
+      const data = await fetchJson<{ listing: StudioListing }>(
+        id ? `/api/studio/listings/${id}` : "/api/studio/listings",
+        {
+          method: id ? "PATCH" : "POST",
+          body: payload,
+          fallback: "Could not save the listing.",
+        },
+      );
+      return data.listing;
+    },
+    onSuccess: () => router.refresh(),
+  });
+}
+
+export function useDeleteListing() {
+  return useMutation({
+    mutationFn: (id: number) =>
+      fetchJson<unknown>(`/api/studio/listings/${id}`, {
+        method: "DELETE",
+        fallback: "Could not delete the listing.",
+      }),
+  });
+}
+
+export function useUploadListingMedia() {
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const form = new FormData();
+      form.append("file", file, file.name);
+      const data = await fetchJson<{ asset: { url: string } }>("/api/studio/listings/media", {
+        method: "POST",
+        body: form,
+        fallback: "Could not upload that photo.",
+      });
+      return data.asset;
+    },
   });
 }

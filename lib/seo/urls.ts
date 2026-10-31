@@ -33,6 +33,11 @@ export function propertyPath(listingKey: string): string {
   return `/property/${encodeURIComponent(listingKey)}`;
 }
 
+/** Brokerage-managed estate listing (not an MLS® feed property). */
+export function estateListingPath(id: number | string): string {
+  return `/estate-listing/${id}`;
+}
+
 export function blogPath(slug: string): string {
   return `/blog/${encodeURIComponent(slug)}`;
 }
