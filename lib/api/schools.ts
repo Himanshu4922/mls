@@ -7,9 +7,16 @@
  */
 
 import { apiFetch, type RequestOptions } from "@/lib/api/client";
-import { schoolLocationImageSrc } from "@/lib/utils/mapTile";
 
 const MLS = "/api/mls";
+
+/** Generic stock photos (Unsplash licence), hosted in /public. None shows a real listed school. */
+const SCHOOL_STOCK_IMAGES = [
+  "/images/schools/school-building.jpg",
+  "/images/schools/classroom.jpg",
+  "/images/schools/books.jpg",
+  "/images/schools/students.jpg",
+];
 
 export interface OfficialSchool {
   id: string;
@@ -25,10 +32,10 @@ export interface OfficialSchool {
   latitude: number | null;
   longitude: number | null;
   /**
-   * Location map thumbnail when coords exist. The Ministry file has no school
-   * photos; this is an OSM tile of the campus / neighbourhood instead.
+   * Illustrative stock photo. The Ministry file has no school photos, so this
+   * never depicts the named school; render it as decoration (empty alt).
    */
-  imageUrl: string | null;
+  imageUrl: string;
 }
 
 interface RawSchool {
@@ -46,7 +53,8 @@ interface RawSchool {
   longitude?: number | null;
 }
 
-function mapSchool(school: RawSchool): OfficialSchool | null {
+/** `index` cycles the stock photos so neighbouring cards differ. */
+function mapSchool(school: RawSchool, index: number): OfficialSchool | null {
   const name = school.name?.trim() || "";
   if (!name) return null;
   const latitude = typeof school.latitude === "number" ? school.latitude : null;
@@ -64,10 +72,7 @@ function mapSchool(school: RawSchool): OfficialSchool | null {
     eqaoLabel: school.eqao_label?.trim() || "",
     latitude,
     longitude,
-    imageUrl:
-      latitude !== null && longitude !== null
-        ? schoolLocationImageSrc(latitude, longitude)
-        : null,
+    imageUrl: SCHOOL_STOCK_IMAGES[index % SCHOOL_STOCK_IMAGES.length],
   };
 }
 

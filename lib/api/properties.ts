@@ -95,7 +95,17 @@ export function toBackendParams(query: ListingQuery, limit?: number, offset?: nu
   const group = backendStatusGroup(query.status);
   // Keyword pages (power of sale, distress) must read as empty, not relaxed.
   const strict = Boolean(
-    query.postalCodes?.length || query.openHouse || query.keywords?.length || (group && group !== "active"),
+    query.postalCodes?.length ||
+      query.openHouse ||
+      query.keywords?.length ||
+      query.buildingType ||
+      query.ownership ||
+      query.yearBuiltMax ||
+      query.storiesMax ||
+      query.feeMin ||
+      query.feeMax ||
+      query.listedSince ||
+      (group && group !== "active"),
   );
   return {
     limit,
@@ -128,6 +138,13 @@ export function toBackendParams(query: ListingQuery, limit?: number, offset?: nu
     home_type: query.type ? HOME_TYPE_PARAM[query.type] : undefined,
     // Matched against the listing description (public_remarks), OR'ed.
     keywords: query.keywords?.length ? query.keywords.join(",") : undefined,
+    year_built_max: query.yearBuiltMax,
+    stories_max: query.storiesMax,
+    maintenance_fee_min: query.feeMin,
+    maintenance_fee_max: query.feeMax,
+    listed_since: query.listedSince,
+    structure_type: query.buildingType,
+    common_interest: query.ownership,
     lat_min: query.bounds?.latMin,
     lat_max: query.bounds?.latMax,
     lng_min: query.bounds?.lngMin,

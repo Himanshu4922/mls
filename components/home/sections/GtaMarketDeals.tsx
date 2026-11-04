@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { PropertyCard } from "@/components/property/PropertyCard";
 import { Badge } from "@/components/ui/Badge";
 import { Section } from "@/components/ui/Section";
+import { safeFetch } from "@/lib/api/client";
 import { getMarketDeals } from "@/lib/api/home";
+import { getNewlyListed } from "@/lib/api/properties";
 import { dealHref, formatDay, type PriceDropDeal } from "@/lib/api/homeMappers";
 import { marketDeals } from "@/lib/home/staticSections";
 import { textOf } from "@/lib/site/read";
@@ -20,10 +23,28 @@ import { DealGlyph } from "./sectionIcons";
  * When the feed is down (503) or empty, the reference's category cards render
  * instead — each a real link to the search it describes; their counts are the
  * reference's sample figures.
+ *
+ * The deals feed has no photos and its rows aren't in our catalogue, so real
+ * catalogue listings with photos sit below the cards. They are new GTA homes for
+ * sale and are labelled that way: they are not claimed to be price reductions.
  */
+const LISTINGS_SHOWN = 4;
+/** Anchored: the feed's city reads "Toronto (Moss Park)", and "Hamilton" contains "milton". */
+const GTA_CITY =
+  /^(toronto|mississauga|brampton|caledon|vaughan|markham|richmond hill|aurora|newmarket|king|oakville|burlington|milton|halton hills|ajax|pickering|whitby|oshawa|clarington)\b/i;
+
 export async function GtaMarketDeals({ content }: { content?: Record<string, unknown> }) {
-  const deals = await getMarketDeals(4);
+  const [deals, newest] = await Promise.all([
+    getMarketDeals(4),
+    // `newly-listed` is the feed with photos (`properties/filter/` sends media
+    // null). It mixes rentals and all of Ontario, hence the wide fetch to filter.
+    safeFetch(getNewlyListed(100), [], "home:deals-listings"),
+  ]);
   const live = deals !== null && deals.length > 0;
+  const listings = newest
+    .filter((p) => p.image && !p.isLease && p.price && GTA_CITY.test(p.community ?? ""))
+    // Skips the front of the feed, which "Today's New Listings" already shows.
+    .slice(4, 4 + LISTINGS_SHOWN);
 
   return (
     <Section
@@ -43,6 +64,24 @@ export async function GtaMarketDeals({ content }: { content?: Record<string, unk
           <SampleDeals />
         )}
       </div>
+      {listings.length > 0 && (
+        <div className="mt-10">
+          <div className="mb-5 flex items-baseline justify-between gap-4">
+            <h3 className="text-h3 text-ink">New GTA homes for sale</h3>
+            <Link
+              href={buildListingHref({ transaction: "sale", status: "Active" })}
+              className="shrink-0 text-small font-medium text-navy hover:underline"
+            >
+              View all →
+            </Link>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {listings.map((property) => (
+              <PropertyCard key={property.id} property={property} className="h-full" />
+            ))}
+          </div>
+        </div>
+      )}
     </Section>
   );
 }

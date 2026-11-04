@@ -36,6 +36,11 @@ function parseBasement(
   return raw as ListingQuery["basement"];
 }
 
+function parseKeywords(value: string | undefined): string[] | undefined {
+  const words = (value ?? "").split(",").map((word) => word.trim()).filter(Boolean).slice(0, 10);
+  return words.length > 0 ? words : undefined;
+}
+
 const SORTS: ListingSort[] = [
   "relevance",
   "newest",
@@ -94,6 +99,14 @@ export function parseListingParams(params: RawParams): ListingQuery {
     domMax: int(params.domMax),
     familyRoom: first(params.familyRoom) === "1" || undefined,
     kitchensMin: int(params.kitchens),
+    yearBuiltMax: int(params.yearBuiltMax),
+    storiesMax: int(params.floorsMax),
+    feeMin: int(params.feeMin),
+    feeMax: int(params.feeMax),
+    listedSince: /^\d{4}-\d{2}-\d{2}$/.test(first(params.listedSince) ?? "") ? first(params.listedSince) : undefined,
+    buildingType: first(params.building)?.trim() || undefined,
+    ownership: first(params.ownership)?.trim() || undefined,
+    keywords: parseKeywords(first(params.keywords)),
     postalCodes: postal.length > 0 ? postal : undefined,
     openHouse: first(params.openHouse) === "1" || undefined,
     polygon: polygon ?? undefined,
@@ -135,6 +148,14 @@ export function buildListingQueryString(
   if (query.domMax) params.set("domMax", String(query.domMax));
   if (query.familyRoom) params.set("familyRoom", "1");
   if (query.kitchensMin) params.set("kitchens", String(query.kitchensMin));
+  if (query.yearBuiltMax) params.set("yearBuiltMax", String(query.yearBuiltMax));
+  if (query.storiesMax) params.set("floorsMax", String(query.storiesMax));
+  if (query.feeMin) params.set("feeMin", String(query.feeMin));
+  if (query.feeMax) params.set("feeMax", String(query.feeMax));
+  if (query.listedSince) params.set("listedSince", query.listedSince);
+  if (query.buildingType) params.set("building", query.buildingType);
+  if (query.ownership) params.set("ownership", query.ownership);
+  if (query.keywords?.length) params.set("keywords", query.keywords.join(","));
   if (query.postalCodes?.length) params.set("postal", query.postalCodes.join(","));
   if (query.openHouse) params.set("openHouse", "1");
   const poly = serializePolygonParam(query.polygon);
@@ -179,6 +200,14 @@ export function hasActiveFilters(query: ListingQuery): boolean {
       query.domMax ||
       query.familyRoom ||
       query.kitchensMin ||
+      query.yearBuiltMax ||
+      query.storiesMax ||
+      query.feeMin ||
+      query.feeMax ||
+      query.listedSince ||
+      query.buildingType ||
+      query.ownership ||
+      query.keywords?.length ||
       query.postalCodes?.length ||
       query.openHouse ||
       query.semantic ||

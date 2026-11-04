@@ -11,8 +11,8 @@ const LIVE_DESCRIPTION =
  * Homepage school cards. Live pages pass Ministry results. The studio preview
  * has no school list, so it does not show the sample ratings stored on the section.
  *
- * Cards use a map tile of the school coordinates — the Ministry open file has
- * no building photos.
+ * Cards use generic stock photos — the Ministry open file has no building
+ * photos — and the footnote says so, so nobody takes one for the named school.
  */
 export function TopRatedSchools({
   content,
@@ -47,9 +47,6 @@ export function TopRatedSchools({
                   ? homesNearSchoolHref(school.latitude, school.longitude)
                   : null;
               const place = [school.city, school.board].filter(Boolean).join(" · ");
-              const imageAlt = place
-                ? `Map of ${school.name} in ${place}`
-                : `Map of ${school.name}`;
               const score =
                 school.eqaoPercent === null ? "—" : `${school.eqaoPercent}%`;
               return (
@@ -57,24 +54,18 @@ export function TopRatedSchools({
                   key={school.id}
                   className="overflow-hidden rounded-surface border border-line bg-surface"
                 >
-                  {school.imageUrl ? (
-                    <div className="relative h-28 bg-surface-alt">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={school.imageUrl}
-                        alt={imageAlt}
-                        width={640}
-                        height={224}
-                        loading="lazy"
-                        decoding="async"
-                        className="h-full w-full object-cover"
-                      />
-                      <span
-                        aria-hidden="true"
-                        className="pointer-events-none absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-navy shadow"
-                      />
-                    </div>
-                  ) : null}
+                  <div className="relative h-28 bg-surface-alt">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={school.imageUrl}
+                      alt=""
+                      width={640}
+                      height={224}
+                      loading="lazy"
+                      decoding="async"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
                   <div className="space-y-2 p-3.5">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -109,11 +100,7 @@ export function TopRatedSchools({
             <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer" className="underline">
               Open Government Licence – Ontario
             </a>
-            . Map tiles ©{" "}
-            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline">
-              OpenStreetMap
-            </a>
-            .
+            . Photos are illustrative stock images, not the schools listed.
           </p>
         </>
       )}

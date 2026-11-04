@@ -186,6 +186,14 @@ export interface ListingQuery {
   sqftMin?: number;
   sqftMax?: number;
   yearBuiltMin?: number;
+  yearBuiltMax?: number;
+  /** Maximum floors (backend `stories_max`). URL `floorsMax`. */
+  storiesMax?: number;
+  /** Monthly maintenance fee range. URL `feeMin` / `feeMax`. */
+  feeMin?: number;
+  feeMax?: number;
+  /** First listed on or after this YYYY-MM-DD date. URL `listedSince`. */
+  listedSince?: string;
   /** Minimum garage spaces (backend `garages_min`). */
   garagesMin?: number;
   /** Minimum floors / stories (backend `stories_min`). */
@@ -207,10 +215,14 @@ export interface ListingQuery {
    */
   propertySubTypes?: string[];
   /**
-   * Description keywords, OR'ed ("power of sale"). Curated pages only; not a
-   * URL param on /listings. Forces a strict (no-fallback) search.
+   * Description keywords, OR'ed ("power of sale"). URL `keywords`, comma
+   * separated. Forces a strict (no-fallback) search.
    */
   keywords?: string[];
+  /** Feed `structure_type`, e.g. "House". URL `building`. Strict search. */
+  buildingType?: string;
+  /** Feed `common_interest`, e.g. "Freehold". URL `ownership`. Strict search. */
+  ownership?: string;
   sort?: ListingSort;
   limit?: number;
   offset?: number;

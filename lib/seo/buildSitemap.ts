@@ -18,6 +18,7 @@ const STATIC_PATHS: Array<{ path: string; priority: number; changeFrequency: "da
   { path: "/listings", priority: 0.9, changeFrequency: "daily" },
   { path: "/map-search", priority: 0.8, changeFrequency: "daily" },
   { path: "/preconstruction", priority: 0.8, changeFrequency: "daily" },
+  { path: "/preconstruction/map", priority: 0.6, changeFrequency: "daily" },
   { path: "/market-trends", priority: 0.7, changeFrequency: "weekly" },
   { path: "/communities", priority: 0.7, changeFrequency: "weekly" },
   { path: "/blog", priority: 0.6, changeFrequency: "weekly" },

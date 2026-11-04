@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 import { PreconCard } from "@/components/precon/PreconCard";
 import { VipAccessForm } from "@/components/precon/VipAccessForm";
@@ -26,6 +27,12 @@ export default function PreconstructionPage() {
           <p className="mt-2 max-w-2xl text-small text-ink-muted">
             New builds across the GTA, from early registration through to final release.
           </p>
+          <Link
+            href="/preconstruction/map"
+            className="mt-4 inline-flex h-11 items-center rounded-control border border-line bg-surface px-4 text-small font-medium text-ink transition-colors hover:border-navy hover:text-navy"
+          >
+            Search on map
+          </Link>
         </div>
       </section>
 

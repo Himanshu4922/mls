@@ -81,7 +81,7 @@ function clusterIcon(count: number) {
   });
 }
 
-interface Bounds {
+export interface Bounds {
   latMin: number;
   latMax: number;
   lngMin: number;
@@ -98,7 +98,7 @@ const NO_CLUSTERS: MapCluster[] = [];
 const NO_PROPERTIES: PropertySummary[] = [];
 
 /** Reports viewport changes so the parent can refetch for the visible area. */
-function BoundsWatcher({
+export function BoundsWatcher({
   onChange,
 }: {
   onChange: (bounds: Bounds, zoom: number) => void;
@@ -133,12 +133,12 @@ function BoundsWatcher({
 }
 
 /** Clicking empty map (not a pin) dismisses the pin preview. */
-function MapClickWatcher({ onClick }: { onClick: () => void }) {
+export function MapClickWatcher({ onClick }: { onClick: () => void }) {
   useMapEvents({ click: onClick });
   return null;
 }
 
-function FlyTo({ target }: { target: [number, number] | null }) {
+export function FlyTo({ target }: { target: [number, number] | null }) {
   const map = useMap();
   useEffect(() => {
     if (target) map.flyTo(target, Math.max(map.getZoom(), 14), { duration: 0.6 });
@@ -147,7 +147,7 @@ function FlyTo({ target }: { target: [number, number] | null }) {
 }
 
 /** The committed drawn area, framed in view whenever it changes. */
-function DrawnArea({ points }: { points: LatLngPoint[] }) {
+export function DrawnArea({ points }: { points: LatLngPoint[] }) {
   const map = useMap();
   const key = serializePolygonParam(points);
   useEffect(() => {
@@ -638,7 +638,7 @@ function preferCanada(results: GeocodeResult[]): GeocodeResult | undefined {
   return results.find((result) => /canada/i.test(result.label)) ?? results[0];
 }
 
-function PlaceSearch({ onSelect }: { onSelect: (result: GeocodeResult) => void }) {
+export function PlaceSearch({ onSelect }: { onSelect: (result: GeocodeResult) => void }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const debouncedQuery = useDebouncedValue(query, 300);

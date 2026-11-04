@@ -52,28 +52,19 @@ export function SchoolsSection({ schools }: { schools: OfficialSchool[] }) {
               : null;
           return (
             <li key={school.id} className="overflow-hidden rounded-xl border border-line">
-              {school.imageUrl ? (
-                <div className="relative aspect-[16/7] bg-surface-alt sm:aspect-[16/5]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={school.imageUrl}
-                    alt={
-                      school.city
-                        ? `Map of ${school.name} in ${school.city}`
-                        : `Map of ${school.name}`
-                    }
-                    width={640}
-                    height={200}
-                    loading="lazy"
-                    decoding="async"
-                    className="h-full w-full object-cover"
-                  />
-                  <span
-                    aria-hidden="true"
-                    className="pointer-events-none absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-navy shadow"
-                  />
-                </div>
-              ) : null}
+              {/* Illustrative stock photo, not this school; see the note below the list. */}
+              <div className="relative aspect-[16/7] bg-surface-alt sm:aspect-[16/5]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={school.imageUrl}
+                  alt=""
+                  width={640}
+                  height={200}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                />
+              </div>
               <div className="p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
@@ -123,6 +114,9 @@ export function SchoolsSection({ schools }: { schools: OfficialSchool[] }) {
           {expanded ? "Show fewer schools" : "Show more schools"}
         </button>
       )}
+      <p className="mt-3 text-caption text-ink-muted">
+        Photos are illustrative stock images, not the schools listed.
+      </p>
     </section>
   );
 }

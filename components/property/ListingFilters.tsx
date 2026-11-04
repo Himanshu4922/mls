@@ -36,6 +36,10 @@ const KITCHEN_OPTIONS = [1, 2, 3];
 const DOM_OPTIONS = [7, 14, 30, 60, 90];
 const YEAR_OPTIONS = [2020, 2010, 2000, 1990, 1980];
 
+/** Exact feed values; each was checked to return listings. Many rows leave these blank. */
+const BUILDING_OPTIONS = ["House", "Row / Townhouse", "Apartment", "Duplex", "Mobile Home"];
+const OWNERSHIP_OPTIONS = ["Freehold", "Condo/Strata", "Leasehold"];
+
 const BASEMENT_OPTIONS: Array<{ value: "" | NonNullable<ListingQuery["basement"]>; label: string }> = [
   { value: "", label: "Any" },
   { value: "yes", label: "Yes" },
@@ -61,6 +65,14 @@ const PANEL_KEYS = [
   "domMax",
   "familyRoom",
   "kitchens",
+  "yearBuiltMax",
+  "floorsMax",
+  "feeMin",
+  "feeMax",
+  "listedSince",
+  "building",
+  "ownership",
+  "keywords",
   "status",
   "openHouse",
 ] as const;
@@ -96,6 +108,14 @@ const EMPTY_DRAFT: Draft = {
   domMax: "",
   familyRoom: "",
   kitchens: "",
+  yearBuiltMax: "",
+  floorsMax: "",
+  feeMin: "",
+  feeMax: "",
+  listedSince: "",
+  building: "",
+  ownership: "",
+  keywords: "",
   status: "",
   openHouse: "",
 };
@@ -121,6 +141,14 @@ function draftFromParams(params: URLSearchParams): Draft {
     domMax: params.get("domMax") ?? "",
     familyRoom: params.get("familyRoom") === "1" ? "1" : "",
     kitchens: params.get("kitchens") ?? "",
+    yearBuiltMax: params.get("yearBuiltMax") ?? "",
+    floorsMax: params.get("floorsMax") ?? "",
+    feeMin: params.get("feeMin") ?? "",
+    feeMax: params.get("feeMax") ?? "",
+    listedSince: params.get("listedSince") ?? "",
+    building: params.get("building") ?? "",
+    ownership: params.get("ownership") ?? "",
+    keywords: params.get("keywords") ?? "",
     status: params.get("status") ?? "",
     openHouse: params.get("openHouse") === "1" ? "1" : "",
   };
@@ -243,6 +271,14 @@ export function ListingFilters({ resultCount }: { resultCount: number }) {
       domMax: draft.domMax || null,
       familyRoom: draft.familyRoom || null,
       kitchens: draft.kitchens || null,
+      yearBuiltMax: draft.yearBuiltMax || null,
+      floorsMax: draft.floorsMax || null,
+      feeMin: draft.feeMin || null,
+      feeMax: draft.feeMax || null,
+      listedSince: draft.listedSince || null,
+      building: draft.building || null,
+      ownership: draft.ownership || null,
+      keywords: draft.keywords.split(",").map((word) => word.trim()).filter(Boolean).join(",") || null,
       status: draft.status || null,
       openHouse: draft.openHouse || null,
     });
@@ -646,6 +682,98 @@ function FilterFields({
         onChange={(kitchens) => setDraft((d) => ({ ...d, kitchens }))}
       />
 
+      <Field label="Built in or before" htmlFor="sheet-year-max" hint="Few listings publish a year built.">
+        <NumericInput
+          id="sheet-year-max"
+          min={1800}
+          max={2100}
+          placeholder="Any year"
+          value={draft.yearBuiltMax}
+          onChange={(event) => setDraft((d) => ({ ...d, yearBuiltMax: event.target.value }))}
+        />
+      </Field>
+
+      <ChipField
+        label="Most floors"
+        value={draft.floorsMax}
+        options={FLOOR_OPTIONS}
+        onChange={(floorsMax) => setDraft((d) => ({ ...d, floorsMax }))}
+      />
+
+      <fieldset>
+        <legend className="text-small font-medium text-ink">Maintenance fees (monthly)</legend>
+        <div className="mt-1.5 grid grid-cols-2 gap-3">
+          <NumericInput
+            aria-label="Minimum monthly maintenance fee"
+            min={0}
+            max={100000}
+            placeholder="No min"
+            value={draft.feeMin}
+            onChange={(event) => setDraft((d) => ({ ...d, feeMin: event.target.value }))}
+          />
+          <NumericInput
+            aria-label="Maximum monthly maintenance fee"
+            min={0}
+            max={100000}
+            placeholder="No max"
+            value={draft.feeMax}
+            onChange={(event) => setDraft((d) => ({ ...d, feeMax: event.target.value }))}
+          />
+        </div>
+      </fieldset>
+
+      <Field label="Listed since" htmlFor="sheet-listed-since">
+        <Input
+          id="sheet-listed-since"
+          type="date"
+          value={draft.listedSince}
+          onChange={(event) => setDraft((d) => ({ ...d, listedSince: event.target.value }))}
+        />
+      </Field>
+
+      <Field label="Building type" htmlFor="sheet-building">
+        <Select
+          id="sheet-building"
+          value={draft.building}
+          onChange={(event) => setDraft((d) => ({ ...d, building: event.target.value }))}
+        >
+          <option value="">Any</option>
+          {BUILDING_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </Select>
+      </Field>
+
+      <Field label="Ownership / title" htmlFor="sheet-ownership">
+        <Select
+          id="sheet-ownership"
+          value={draft.ownership}
+          onChange={(event) => setDraft((d) => ({ ...d, ownership: event.target.value }))}
+        >
+          <option value="">Any</option>
+          {OWNERSHIP_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </Select>
+      </Field>
+
+      <Field
+        label="Keywords"
+        htmlFor="sheet-keywords"
+        hint="Matches any of these in the listing description. Separate with commas."
+      >
+        <Input
+          id="sheet-keywords"
+          placeholder="Waterfront, Garage, Pool…"
+          value={draft.keywords}
+          onChange={(event) => setDraft((d) => ({ ...d, keywords: event.target.value }))}
+        />
+      </Field>
+
       <div className="space-y-1.5">
         <span className="block text-small font-medium text-ink">Listing status</span>
         <div className="flex flex-wrap gap-2">
@@ -761,6 +889,22 @@ function pillLabel(key: FilterKey, params: URLSearchParams): string {
       return "Family room";
     case "kitchens":
       return `${value}+ kitchens`;
+    case "yearBuiltMax":
+      return `Built ${value} or earlier`;
+    case "floorsMax":
+      return `Up to ${value} floors`;
+    case "feeMin":
+      return `Fees from ${formatPrice(Number(value))}/mo`;
+    case "feeMax":
+      return `Fees up to ${formatPrice(Number(value))}/mo`;
+    case "listedSince":
+      return `Listed since ${value}`;
+    case "building":
+      return `Building: ${value}`;
+    case "ownership":
+      return `Ownership: ${value}`;
+    case "keywords":
+      return `Keywords: ${value.split(",").join(", ")}`;
     case "sqftMin":
       return `${formatNumber(Number(value))}+ sq ft`;
     case "sqftMax":
