@@ -21,6 +21,7 @@ describe("query keys", () => {
 
   it("normalises free text", () => {
     expect(qk.geo.place("  Vaughan ")).toEqual(qk.geo.place("vaughan"));
+    expect(qk.schools.search("  Fraser ")).toEqual(qk.schools.search("fraser"));
   });
 
   it("rounds map bounds and sorts filters", () => {

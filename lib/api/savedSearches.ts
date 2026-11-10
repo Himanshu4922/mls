@@ -224,7 +224,13 @@ export function describeCriteria(query: ListingQuery): string[] {
   if (query.city) chips.push(query.city);
   if (query.transaction === "rent") chips.push("For rent");
   for (const code of query.postalCodes ?? []) chips.push(formatPostal(code));
-  if (query.polygon?.length) chips.push("Drawn area");
+  if (query.polygon?.length) {
+    chips.push(
+      query.schoolLabel
+        ? `Near ${query.schoolLabel}${query.schoolKm ? ` (${query.schoolKm} km)` : ""}`
+        : "Drawn area",
+    );
+  }
   if (query.status) {
     const group = backendStatusGroup(query.status);
     chips.push(STATUS_TABS.find((tab) => tab.group === group)?.label ?? query.status);

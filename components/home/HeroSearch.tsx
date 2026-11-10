@@ -3,8 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode, type FormEvent } from "react";
 import { AiSearchBox, SparkleIcon } from "@/components/search/AiSearchBox";
+import { SchoolSearchBox } from "@/components/search/SchoolSearchBox";
 import { Button } from "@/components/ui/Button";
 import { SearchInput } from "@/components/ui/Field";
+import { homesNearSchoolHref } from "@/lib/api/schools";
 import {
   isHeroCountValue,
   isHeroIntentValue,
@@ -79,13 +81,14 @@ const INTENT_QUERY: Record<HeroIntentValue, { status?: string; tx?: string }> = 
   sold: { status: "Sold" },
 };
 
-type HeroMode = "ai" | "filters";
+type HeroMode = "ai" | "filters" | "schools";
 
 /**
- * Hero search: AI search (a sentence → filters) or the classic filter form.
- * Both land on the same /listings URL-driven results page.
+ * Hero search: AI search (a sentence → filters), classic filters, or school
+ * proximity search. All land on the same URL-driven listings / map pages.
  */
 export function HeroSearch({ content }: { content?: Record<string, unknown> } = {}) {
+  const router = useRouter();
   const [mode, setMode] = useState<HeroMode>("ai");
   const tryPrompts = listOf<string>(content, "tryPrompts", DEFAULT_TRY_PROMPTS).filter(
     (prompt) => typeof prompt === "string" && prompt.trim().length > 0,
@@ -93,11 +96,12 @@ export function HeroSearch({ content }: { content?: Record<string, unknown> } = 
 
   return (
     <div className="w-full max-w-[540px] rounded-surface bg-surface p-6 shadow-pop sm:p-7">
-      <div role="tablist" aria-label="Search mode" className="mb-5 grid grid-cols-2 gap-1 rounded-control bg-surface-alt p-1">
+      <div role="tablist" aria-label="Search mode" className="mb-5 grid grid-cols-3 gap-1 rounded-control bg-surface-alt p-1">
         {(
           [
             { value: "ai", label: "AI Search" },
             { value: "filters", label: "Filters" },
+            { value: "schools", label: "Schools" },
           ] as const
         ).map((tab) => (
           <button
@@ -129,6 +133,26 @@ export function HeroSearch({ content }: { content?: Record<string, unknown> } = 
           <AiSearchBox
             variant="hero"
             examples={tryPrompts.length > 0 ? tryPrompts : DEFAULT_TRY_PROMPTS}
+          />
+        </div>
+      ) : mode === "schools" ? (
+        <div role="tabpanel">
+          <div className="mb-4">
+            <p className="text-small font-semibold text-ink">Search homes by school</p>
+            <p className="text-caption text-ink-muted">
+              Find listings near a school families commonly choose for
+            </p>
+          </div>
+          <SchoolSearchBox
+            variant="hero"
+            onSelect={(school, km) => {
+              router.push(
+                homesNearSchoolHref(school.latitude, school.longitude, {
+                  km,
+                  name: school.name,
+                }),
+              );
+            }}
           />
         </div>
       ) : (

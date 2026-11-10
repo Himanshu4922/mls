@@ -4,8 +4,14 @@ import { useId, useState, type FormEvent } from "react";
 import { usePendingNavigation } from "@/components/navigation/PendingNavigation";
 import { Button } from "@/components/ui/Button";
 import { AI_QUERY_MAX_CHARS, aiFiltersToQuery, queryToAiFilters } from "@/lib/api/aiSearch";
+import {
+  DEFAULT_SCHOOL_RADIUS_KM,
+  extractSchoolQuery,
+  schoolSearchArea,
+  type SchoolSearchHit,
+} from "@/lib/api/schools";
 import { saveAiSearchNotice, useAiSearch } from "@/lib/queries/aiSearch";
-import { HttpError } from "@/lib/queries/fetcher";
+import { fetchJson, HttpError } from "@/lib/queries/fetcher";
 import type { ListingQuery } from "@/lib/types/domain";
 import { buildListingQueryString, hasActiveFilters } from "@/lib/utils/searchParams";
 import { cn } from "@/lib/utils/cn";
@@ -14,10 +20,44 @@ import { cn } from "@/lib/utils/cn";
 
 const DEFAULT_EXAMPLES = [
   "3 bed condo under $900K near a subway in Toronto",
-  "Family home in Oakville with a big backyard and double garage",
+  "Family home near John Fraser Secondary School in Mississauga",
   "2 bedroom rental downtown under $3,000/month with parking",
   "Detached house in Vaughan with a basement apartment",
 ];
+
+/** Resolve a named school in the prompt into a proximity polygon when possible. */
+async function attachSchoolFromPrompt(
+  query: ListingQuery,
+  prompt: string,
+  unsupported: string[],
+): Promise<{ query: ListingQuery; unsupported: string[] }> {
+  const fromUnsupported = unsupported.map(extractSchoolQuery).find(Boolean) ?? null;
+  const schoolName = extractSchoolQuery(prompt) ?? fromUnsupported;
+  if (!schoolName) return { query, unsupported };
+
+  try {
+    const hits = await fetchJson<SchoolSearchHit[]>(
+      `/api/schools/search?q=${encodeURIComponent(schoolName)}`,
+    );
+    const hit = hits[0];
+    if (!hit) return { query, unsupported };
+    const cleaned = unsupported.filter((item) => {
+      const low = item.toLowerCase();
+      return !low.includes("school") && !low.includes(schoolName.toLowerCase());
+    });
+    return {
+      query: {
+        ...query,
+        polygon: schoolSearchArea(hit.latitude, hit.longitude, DEFAULT_SCHOOL_RADIUS_KM),
+        schoolLabel: hit.name,
+        schoolKm: DEFAULT_SCHOOL_RADIUS_KM,
+      },
+      unsupported: cleaned,
+    };
+  } catch {
+    return { query, unsupported };
+  }
+}
 
 /**
  * AI search box: a sentence becomes ordinary listing filters (backend +
@@ -63,15 +103,33 @@ export function AiSearchBox({
   const hero = variant === "hero";
   const collapsed = variant === "inline" && !open;
 
-  function go(query: ListingQuery, notice: { unsupported: string[]; fallback: boolean }, prompt: string) {
+  async function go(
+    query: ListingQuery,
+    notice: { unsupported: string[]; fallback: boolean },
+    prompt: string,
+  ) {
+    const attached = await attachSchoolFromPrompt(query, prompt, notice.unsupported);
     const next: ListingQuery = {
-      ...query,
-      polygon: current?.polygon,
+      ...attached.query,
+      // Keep a hand-drawn / school area unless this prompt just set a new one.
+      polygon: attached.query.polygon ?? current?.polygon,
+      schoolLabel: attached.query.schoolLabel ?? current?.schoolLabel,
+      schoolKm: attached.query.schoolKm ?? current?.schoolKm,
       view: current?.view,
     };
+    // Prefer map when the search is school-anchored.
+    const path =
+      basePath === "/listings" && next.schoolLabel && next.polygon?.length
+        ? "/map-search"
+        : basePath;
     const qs = buildListingQueryString(next);
-    saveAiSearchNotice({ qs, prompt, ...notice });
-    navigate(qs ? `${basePath}?${qs}` : basePath);
+    saveAiSearchNotice({
+      qs,
+      prompt,
+      unsupported: attached.unsupported,
+      fallback: notice.fallback,
+    });
+    navigate(qs ? `${path}?${qs}` : path);
     onSearched?.();
   }
 
@@ -82,12 +140,13 @@ export function AiSearchBox({
     search.mutate(
       { query: trimmed, currentFilters: refining && current ? queryToAiFilters(current) : null },
       {
-        onSuccess: (result) =>
-          go(
+        onSuccess: (result) => {
+          void go(
             aiFiltersToQuery(result.filters ?? {}),
             { unsupported: result.unsupported ?? [], fallback: Boolean(result.fallback) },
             trimmed,
-          ),
+          );
+        },
         onError: (err) => {
           if (err instanceof HttpError && (err.status === 429 || err.status === 400)) {
             setError(
@@ -98,7 +157,7 @@ export function AiSearchBox({
             return;
           }
           // AI down: the words still search, as keywords.
-          go({ search: trimmed.slice(0, 120) }, { unsupported: [], fallback: true }, trimmed);
+          void go({ search: trimmed.slice(0, 120) }, { unsupported: [], fallback: true }, trimmed);
         },
       },
     );

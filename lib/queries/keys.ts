@@ -61,6 +61,9 @@ export const qk = {
   geo: {
     place: (q: string) => ["geo", "place", normText(q)] as const,
   },
+  schools: {
+    search: (q: string) => ["schools", "search", normText(q)] as const,
+  },
   home: {
     /** Point rounded to 3 decimals (≈100 m) so nearby picks share an entry. */
     nearbyActivity: (lat: number, lng: number, radiusKm: number, limit: number) =>

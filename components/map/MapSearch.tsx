@@ -33,8 +33,14 @@ import { Button, Spinner } from "@/components/ui/Button";
 import { EMPTY, formatPriceCompact } from "@/lib/utils/format";
 import type { ListingQuery, PropertySummary } from "@/lib/types/domain";
 import type { GeocodeResult, MapCluster } from "@/lib/api/geo";
+import {
+  DEFAULT_SCHOOL_RADIUS_KM,
+  schoolSearchArea,
+  type SchoolSearchHit,
+} from "@/lib/api/schools";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { PLACE_SEARCH_MIN_CHARS, usePlaceSearch } from "@/lib/queries/geo";
+import { useSchoolSearch } from "@/lib/queries/schools";
 import {
   isClusterReply,
   mapAggregatesQuery,
@@ -289,7 +295,9 @@ export function MapSearch() {
     (listings.isFetching && !listings.isFetchingNextPage) ||
     (aggregatesEnabled && !aggregatesSettled);
 
-  const drawing = useMapDrawing(map, (points) => pushQuery({ ...query, polygon: points }));
+  const drawing = useMapDrawing(map, (points) =>
+    pushQuery({ ...query, polygon: points, schoolLabel: undefined, schoolKm: undefined }),
+  );
 
   const toggleDraw = (mode: DrawMode) => {
     if (drawing.mode === mode) drawing.cancel();
@@ -298,8 +306,22 @@ export function MapSearch() {
 
   const clearShape = () => {
     drawing.cancel();
-    pushQuery({ ...query, polygon: undefined });
+    pushQuery({ ...query, polygon: undefined, schoolLabel: undefined, schoolKm: undefined });
   };
+
+  const applySchool = useCallback(
+    (school: SchoolSearchHit, km = DEFAULT_SCHOOL_RADIUS_KM) => {
+      placeChosen.current = true;
+      setFlyTarget([school.latitude, school.longitude]);
+      pushQuery({
+        ...query,
+        polygon: schoolSearchArea(school.latitude, school.longitude, km),
+        schoolLabel: school.name,
+        schoolKm: km,
+      });
+    },
+    [pushQuery, query],
+  );
 
   const mappable = useMemo(
     () => properties.filter((p) => p.latitude !== null && p.longitude !== null),
@@ -323,15 +345,19 @@ export function MapSearch() {
     if (error) return error;
     // Without this the header read "0 homes in this area" during the first
     // load, which looked like an answer.
+    const schoolNear = query.schoolLabel
+      ? `near ${query.schoolLabel}`
+      : polygon
+        ? "in your drawn area"
+        : "in this area";
     if (loading && (properties.length === 0 || refreshing)) {
-      return polygon ? "Finding homes in your drawn area…" : "Finding homes in this area…";
+      return `Finding homes ${schoolNear}…`;
     }
     if (clustered) {
       return `${clusters.reduce((sum, cell) => sum + cell.count, 0).toLocaleString("en-CA")} homes — zoom in to see them`;
     }
     const all = total ?? properties.length;
-    const where = polygon ? "in your drawn area" : "in this area";
-    return `${all.toLocaleString("en-CA")} ${all === 1 ? "home" : "homes"} ${where}`;
+    return `${all.toLocaleString("en-CA")} ${all === 1 ? "home" : "homes"} ${schoolNear}`;
   })();
 
   return (
@@ -401,6 +427,7 @@ export function MapSearch() {
             placeChosen.current = true;
             setFlyTarget([result.latitude, result.longitude]);
           }}
+          onSelectSchool={applySchool}
         />
 
         <MapControls
@@ -492,11 +519,13 @@ export function MapSearch() {
             <li className="px-5 py-10 text-center text-small text-ink-muted">
               {clustered
                 ? "Zoom in to list individual homes."
-                : polygon
-                  ? "No listings in your drawn area. Try a bigger area or fewer filters."
-                  : filtered
-                    ? "No listings here match these filters. Try zooming out or clearing a filter."
-                    : "No listings in view. Try zooming out or panning to another area."}
+                : query.schoolLabel
+                  ? `No listings within ${query.schoolKm ?? DEFAULT_SCHOOL_RADIUS_KM} km of ${query.schoolLabel}. Try a wider radius from Schools search, or clear the school filter.`
+                  : polygon
+                    ? "No listings in your drawn area. Try a bigger area or fewer filters."
+                    : filtered
+                      ? "No listings here match these filters. Try zooming out or clearing a filter."
+                      : "No listings in view. Try zooming out or panning to another area."}
             </li>
           )}
 
@@ -631,20 +660,35 @@ function ListFoot({
 }
 
 /**
- * Place search overlaid on the map, backed by `locations/geocode/`.
- * Selecting a result flies the viewport there; the bounds watcher then reloads.
+ * Place search overlaid on the map, backed by `locations/geocode/`, with
+ * school suggestions when the query looks school-related.
+ * Selecting a place flies the viewport; selecting a school sets a proximity area.
  */
 function preferCanada(results: GeocodeResult[]): GeocodeResult | undefined {
   return results.find((result) => /canada/i.test(result.label)) ?? results[0];
 }
 
-export function PlaceSearch({ onSelect }: { onSelect: (result: GeocodeResult) => void }) {
+function wantsSchoolSuggestions(term: string): boolean {
+  return /\b(school|academy|collegiate|secondary|elementary|ss|ps)\b/i.test(term);
+}
+
+export function PlaceSearch({
+  onSelect,
+  onSelectSchool,
+}: {
+  onSelect: (result: GeocodeResult) => void;
+  onSelectSchool?: (school: SchoolSearchHit, km?: number) => void;
+}) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const debouncedQuery = useDebouncedValue(query, 300);
   const search = usePlaceSearch(debouncedQuery);
+  const schoolQuery = wantsSchoolSuggestions(debouncedQuery) ? debouncedQuery : "";
+  const schools = useSchoolSearch(schoolQuery);
   // Too short to search: no suggestions, even if an older set is cached.
   const results = search.isEnabled ? (search.data ?? NO_RESULTS) : NO_RESULTS;
+  const schoolHits =
+    onSelectSchool && schools.isEnabled ? (schools.data ?? NO_SCHOOLS) : NO_SCHOOLS;
   const term = debouncedQuery.trim();
   const settled = search.isEnabled && !search.isFetching && !search.isPlaceholderData;
   // Enter before the suggestions arrive should still move the map.
@@ -659,6 +703,14 @@ export function PlaceSearch({ onSelect }: { onSelect: (result: GeocodeResult) =>
     setOpen(false);
   }
 
+  function chooseSchool(school: SchoolSearchHit) {
+    goWhenReady.current = false;
+    flownFor.current = term;
+    onSelectSchool?.(school, DEFAULT_SCHOOL_RADIUS_KM);
+    setQuery(school.name);
+    setOpen(false);
+  }
+
   // Open the list when a fresh set of suggestions arrives (adjusting state
   // during render rather than in an effect).
   const [shownData, setShownData] = useState(search.data);
@@ -666,12 +718,19 @@ export function PlaceSearch({ onSelect }: { onSelect: (result: GeocodeResult) =>
     setShownData(search.data);
     if (!search.isPlaceholderData && search.data) setOpen(search.data.length > 0);
   }
+  const [shownSchools, setShownSchools] = useState(schools.data);
+  if (schools.data !== shownSchools) {
+    setShownSchools(schools.data);
+    if (!schools.isPlaceholderData && schools.data && schools.data.length > 0) setOpen(true);
+  }
 
   useEffect(() => {
     if (term.length < 4) {
       if (!term) flownFor.current = "";
       return;
     }
+    // Prefer an explicit school pick when the query names a school.
+    if (wantsSchoolSuggestions(term) && schoolHits.length > 0) return;
     if (!settled) return;
     const pick = preferCanada(results);
     if (!pick) return;
@@ -687,12 +746,22 @@ export function PlaceSearch({ onSelect }: { onSelect: (result: GeocodeResult) =>
     // choose() also writes the label back into the box, which would search
     // the long name again. Leaving the typed text alone avoids that loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settled, term, results, onSelect]);
+  }, [settled, term, results, onSelect, schoolHits.length]);
+
+  const showList =
+    open &&
+    query.trim().length >= PLACE_SEARCH_MIN_CHARS &&
+    (results.length > 0 ||
+      schoolHits.length > 0 ||
+      settled ||
+      schools.isFetching ||
+      search.isError ||
+      schools.isError);
 
   return (
     <div className="absolute left-4 top-4 z-[1100] w-[min(320px,calc(100%-2rem))]">
       <label htmlFor="map-place-search" className="sr-only">
-        Search for a city or neighbourhood
+        Search for a city, neighbourhood, or school
       </label>
       <input
         id="map-place-search"
@@ -709,18 +778,49 @@ export function PlaceSearch({ onSelect }: { onSelect: (result: GeocodeResult) =>
           }
           if (event.key !== "Enter") return;
           event.preventDefault();
+          if (wantsSchoolSuggestions(term) && schoolHits[0] && onSelectSchool) {
+            chooseSchool(schoolHits[0]);
+            return;
+          }
           const pick = preferCanada(results);
           if (pick && settled) choose(pick);
           else goWhenReady.current = true;
         }}
         onBlur={() => window.setTimeout(() => setOpen(false), 150)}
-        onFocus={() => results.length > 0 && setOpen(true)}
-        placeholder="Search a city or neighbourhood…"
+        onFocus={() => (results.length > 0 || schoolHits.length > 0) && setOpen(true)}
+        placeholder="City, neighbourhood, or school…"
         className="h-11 w-full rounded-control border border-line bg-surface px-4 text-small text-ink shadow-card outline-none placeholder:text-ink-subtle focus:border-navy"
       />
 
-      {open && query.trim().length >= PLACE_SEARCH_MIN_CHARS && (
-        <ul className="mt-1 max-h-60 overflow-auto rounded-control border border-line bg-surface shadow-pop">
+      {showList && (
+        <ul className="mt-1 max-h-72 overflow-auto rounded-control border border-line bg-surface shadow-pop">
+          {schoolHits.length > 0 && (
+            <>
+              <li className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+                Schools
+              </li>
+              {schoolHits.slice(0, 5).map((school) => (
+                <li key={`school-${school.id}`}>
+                  <button
+                    type="button"
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => chooseSchool(school)}
+                    className="block w-full px-4 py-2.5 text-left transition-colors hover:bg-surface-alt"
+                  >
+                    <span className="block text-caption font-medium text-ink">{school.name}</span>
+                    <span className="block text-[11px] text-ink-muted">
+                      Homes within {DEFAULT_SCHOOL_RADIUS_KM} km · proximity, not catchment
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </>
+          )}
+          {results.length > 0 && (
+            <li className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-ink-muted">
+              Places
+            </li>
+          )}
           {results.map((result, index) => (
             <li key={`${result.label}-${index}`}>
               <button
@@ -734,11 +834,13 @@ export function PlaceSearch({ onSelect }: { onSelect: (result: GeocodeResult) =>
               </button>
             </li>
           ))}
-          {settled && results.length === 0 && (
+          {settled && results.length === 0 && schoolHits.length === 0 && (
             <li className="px-4 py-2.5 text-caption text-ink-muted">No places found.</li>
           )}
-          {search.isError && (
-            <li className="px-4 py-2.5 text-caption text-ink-muted">Place search is unavailable right now.</li>
+          {(search.isError || schools.isError) && results.length === 0 && schoolHits.length === 0 && (
+            <li className="px-4 py-2.5 text-caption text-ink-muted">
+              Place search is unavailable right now.
+            </li>
           )}
         </ul>
       )}
@@ -747,3 +849,4 @@ export function PlaceSearch({ onSelect }: { onSelect: (result: GeocodeResult) =>
 }
 
 const NO_RESULTS: GeocodeResult[] = [];
+const NO_SCHOOLS: SchoolSearchHit[] = [];

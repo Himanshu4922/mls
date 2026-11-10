@@ -230,6 +230,13 @@ export interface ListingQuery {
   bounds?: { latMin: number; latMax: number; lngMin: number; lngMax: number };
   /** Drawn map area, open ring. URL `poly=lat,lng;…` (lib/map/polygon.ts). */
   polygon?: Array<{ lat: number; lng: number }>;
+  /**
+   * Display-only label when `polygon` came from a school proximity search.
+   * URL `school`. Never sent to the listings backend.
+   */
+  schoolLabel?: string;
+  /** Radius (km) used to build the school box. URL `schoolKm`. Display only. */
+  schoolKm?: number;
   /** Normalised compact codes — FSAs ("L7A") and/or full codes ("L7A3K9"). */
   postalCodes?: string[];
   /** Only listings with an upcoming open house (today onwards). */

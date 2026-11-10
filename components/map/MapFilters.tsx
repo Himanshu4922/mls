@@ -166,7 +166,13 @@ function countSheetFilters(query: ListingQuery): number {
 }
 
 function clearedQuery(query: ListingQuery): ListingQuery {
-  return { transaction: query.transaction, polygon: query.polygon, sort: query.sort };
+  return {
+    transaction: query.transaction,
+    polygon: query.polygon,
+    schoolLabel: query.schoolLabel,
+    schoolKm: query.schoolKm,
+    sort: query.sort,
+  };
 }
 
 /** Compact Filters control for the map sidebar header — sheet holds the rest. */
@@ -776,7 +782,17 @@ function appliedPills(query: ListingQuery, onChange: OnQueryChange): ReactNode[]
   if (query.kitchensMin) add("kitchens", `${query.kitchensMin}+ kitchens`, { kitchensMin: undefined });
   if (query.status) add("status", statusLabel(query.status, rent), { status: undefined });
   if (query.openHouse) add("openHouse", "Open house", { openHouse: undefined });
-  if (query.polygon?.length) add("poly", "Drawn area", { polygon: undefined });
+  if (query.polygon?.length) {
+    const km = query.schoolKm ?? 2;
+    const label = query.schoolLabel
+      ? `Near ${query.schoolLabel} (${km} km)`
+      : "Drawn area";
+    add("poly", label, {
+      polygon: undefined,
+      schoolLabel: undefined,
+      schoolKm: undefined,
+    });
+  }
   return pills;
 }
 

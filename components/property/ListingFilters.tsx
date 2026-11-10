@@ -373,7 +373,13 @@ export function ListingFilters({ resultCount }: { resultCount: number }) {
               <FilterPill
                 key={key}
                 label={pillLabel(key, params)}
-                onRemove={() => update({ [key]: null })}
+                onRemove={() =>
+                  update(
+                    key === "poly"
+                      ? { poly: null, school: null, schoolKm: null }
+                      : { [key]: null },
+                  )
+                }
               />
             ))}
           <button
@@ -919,8 +925,12 @@ function pillLabel(key: FilterKey, params: URLSearchParams): string {
       return `Max ${formatPrice(Number(value))}`;
     case "openHouse":
       return "Open house";
-    case "poly":
-      return "Drawn area";
+    case "poly": {
+      const school = params.get("school")?.trim();
+      if (!school) return "Drawn area";
+      const km = params.get("schoolKm")?.trim();
+      return km ? `Near ${school} (${km} km)` : `Near ${school}`;
+    }
     default:
       return value;
   }

@@ -48,7 +48,9 @@ export function SchoolsSection({ schools }: { schools: OfficialSchool[] }) {
           const meta = [school.level, school.kind, school.board].filter(Boolean).join(" · ");
           const homesHref =
             school.latitude !== null && school.longitude !== null
-              ? homesNearSchoolHref(school.latitude, school.longitude)
+              ? homesNearSchoolHref(school.latitude, school.longitude, {
+                  name: school.name,
+                })
               : null;
           return (
             <li key={school.id} className="overflow-hidden rounded-xl border border-line">

@@ -110,6 +110,11 @@ export function parseListingParams(params: RawParams): ListingQuery {
     postalCodes: postal.length > 0 ? postal : undefined,
     openHouse: first(params.openHouse) === "1" || undefined,
     polygon: polygon ?? undefined,
+    schoolLabel: first(params.school)?.trim().slice(0, 120) || undefined,
+    schoolKm: (() => {
+      const km = int(params.schoolKm);
+      return km && km >= 1 && km <= 10 ? km : undefined;
+    })(),
     semantic,
     view: first(params.view) === "list" ? "list" : undefined,
     sort: sort === "relevance" && !semantic ? "newest" : sort,
@@ -160,6 +165,11 @@ export function buildListingQueryString(
   if (query.openHouse) params.set("openHouse", "1");
   const poly = serializePolygonParam(query.polygon);
   if (poly) params.set("poly", poly);
+  // School label only makes sense with an area; drop orphans from hand-edited URLs.
+  if (poly && query.schoolLabel) params.set("school", query.schoolLabel);
+  if (poly && query.schoolLabel && query.schoolKm) {
+    params.set("schoolKm", String(query.schoolKm));
+  }
   if (query.semantic) params.set("ai", query.semantic);
   // Omit the default sort, which depends on whether `ai` is present.
   const defaultSort = query.semantic ? "relevance" : "newest";
@@ -211,6 +221,7 @@ export function hasActiveFilters(query: ListingQuery): boolean {
       query.postalCodes?.length ||
       query.openHouse ||
       query.semantic ||
-      query.polygon?.length,
+      query.polygon?.length ||
+      query.schoolLabel,
   );
 }
