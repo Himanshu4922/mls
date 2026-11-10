@@ -15,11 +15,12 @@ type SafeImageProps = Omit<ImageProps, "src"> & {
 /**
  * `next/image` that never renders a broken-image icon.
  *
- * Feed photos (ddfcdn.realtor.ca) often fail when run through the Next image
- * optimizer on Vercel, so MLS CDNs load `unoptimized`. If an optimized remote
- * still errors once, we retry unoptimized before falling back to the
- * placeholder. `onError` still fires for a load that failed before hydration:
- * next/image re-assigns `src` on mount when a handler is attached.
+ * Feed photos (ddfcdn.realtor.ca / trreb-image.ampre.ca) often fail when run
+ * through the Next image optimizer on Vercel, so MLS CDNs load `unoptimized`.
+ * If an optimized remote still errors once, we retry unoptimized before
+ * falling back to the placeholder. `onError` still fires for a load that
+ * failed before hydration: next/image re-assigns `src` on mount when a
+ * handler is attached.
  */
 export function SafeImage({ src, alt, unoptimized, onError, referrerPolicy, ...props }: SafeImageProps) {
   // Remembers WHICH source failed, so a new `src` gets its own attempt.

@@ -210,11 +210,16 @@ function summaryImage(raw: BackendPropertySummary): string | null {
 function mapImages(media: BackendMedia[] | undefined): PropertyImage[] {
   if (!Array.isArray(media)) return [];
   return media
-    .map((m) => ({
-      url: resolveMediaUrl(m.url || m.media_url),
-      category: m.media_category ?? null,
-      isPreferred: Boolean(m.is_preferred),
-    }))
+    .map((m) => {
+      // Prefer the feed CDN URL. media_file is only for rare Cloudinary
+      // uploads; when both exist, media_url is what DDF/AMPRE keep fresh.
+      const rawUrl = m.media_url || m.url || m.media_file;
+      return {
+        url: resolveMediaUrl(rawUrl),
+        category: m.media_category ?? null,
+        isPreferred: Boolean(m.is_preferred),
+      };
+    })
     .filter((m) => m.url.length > 0)
     // Preferred photo leads the gallery, then feed order.
     .sort((a, b) => Number(b.isPreferred) - Number(a.isPreferred));

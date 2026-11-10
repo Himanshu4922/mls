@@ -15,7 +15,10 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "ddfcdn.realtor.ca", pathname: "/**" },
       { protocol: "https", hostname: "*.realtor.ca", pathname: "/**" },
       { protocol: "https", hostname: "realtor.ca", pathname: "/**" },
+      // TRREB / AMPRE delivery CDN (explicit host — Next is strict about wildcards).
+      { protocol: "https", hostname: "trreb-image.ampre.ca", pathname: "/**" },
       { protocol: "https", hostname: "*.ampre.ca", pathname: "/**" },
+      { protocol: "https", hostname: "ampre.ca", pathname: "/**" },
       { protocol: "https", hostname: "*.crea.ca", pathname: "/**" },
       { protocol: "https", hostname: "images.unsplash.com", pathname: "/**" },
       // Pre-con renderings imported from the brokerage WordPress site.
