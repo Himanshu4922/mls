@@ -10,16 +10,9 @@
 import { ApiError, apiFetch, type RequestOptions } from "@/lib/api/client";
 import { geocodePlace } from "@/lib/api/geo";
 import { serializePolygonParam } from "@/lib/map/polygon";
+import { schoolLocationImageSrc } from "@/lib/utils/mapTile";
 
 const MLS = "/api/mls";
-
-/** Generic stock photos (Unsplash licence), hosted in /public. None shows a real listed school. */
-const SCHOOL_STOCK_IMAGES = [
-  "/images/schools/school-building.jpg",
-  "/images/schools/classroom.jpg",
-  "/images/schools/books.jpg",
-  "/images/schools/students.jpg",
-];
 
 export const SCHOOL_SEARCH_MIN_CHARS = 2;
 export const DEFAULT_SCHOOL_RADIUS_KM = 2;
@@ -39,10 +32,10 @@ export interface OfficialSchool {
   latitude: number | null;
   longitude: number | null;
   /**
-   * Illustrative stock photo. The Ministry file has no school photos, so this
-   * never depicts the named school; render it as decoration (empty alt).
+   * Map tile centred on the school. The Ministry file has coordinates but no
+   * building photos — never a stock/placeholder image of an unrelated school.
    */
-  imageUrl: string;
+  imageUrl: string | null;
 }
 
 /** A school a buyer can search homes near — Ministry record when matched. */
@@ -78,8 +71,7 @@ interface RawSchool {
   longitude?: number | null;
 }
 
-/** `index` cycles the stock photos so neighbouring cards differ. */
-function mapSchool(school: RawSchool, index: number): OfficialSchool | null {
+function mapSchool(school: RawSchool): OfficialSchool | null {
   const name = school.name?.trim() || "";
   if (!name) return null;
   const latitude = typeof school.latitude === "number" ? school.latitude : null;
@@ -97,7 +89,10 @@ function mapSchool(school: RawSchool, index: number): OfficialSchool | null {
     eqaoLabel: school.eqao_label?.trim() || "",
     latitude,
     longitude,
-    imageUrl: SCHOOL_STOCK_IMAGES[index % SCHOOL_STOCK_IMAGES.length],
+    imageUrl:
+      latitude !== null && longitude !== null
+        ? schoolLocationImageSrc(latitude, longitude)
+        : null,
   };
 }
 
@@ -180,16 +175,23 @@ export async function getSchoolsNear(
     ...rest,
     params: { lat, lon, radius: radiusKm },
   });
-  return (data.schools ?? []).map(mapSchool).filter((school): school is OfficialSchool => school !== null);
+  return (data.schools ?? [])
+    .map((school) => mapSchool(school))
+    .filter((school): school is OfficialSchool => school !== null);
 }
 
-export async function getTopSchools(options: RequestOptions = {}): Promise<OfficialSchool[]> {
+export async function getTopSchools(
+  options: RequestOptions & { limit?: number } = {},
+): Promise<OfficialSchool[]> {
+  const { limit = 4, ...rest } = options;
   const data = await apiFetch<{ schools?: RawSchool[] }>(`${MLS}/schools/top/`, {
     revalidate: 86_400,
-    ...options,
-    params: { limit: 8 },
+    ...rest,
+    params: { limit },
   });
-  return (data.schools ?? []).map(mapSchool).filter((school): school is OfficialSchool => school !== null);
+  return (data.schools ?? [])
+    .map((school) => mapSchool(school))
+    .filter((school): school is OfficialSchool => school !== null);
 }
 
 /**
@@ -213,7 +215,7 @@ export async function searchSchools(
       params: { q: term, limit },
     });
     const mapped = (data.schools ?? [])
-      .map(mapSchool)
+      .map((school) => mapSchool(school))
       .filter((school): school is OfficialSchool => school !== null)
       .filter((school) => school.latitude !== null && school.longitude !== null)
       .slice(0, limit)

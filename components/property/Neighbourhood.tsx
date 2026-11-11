@@ -54,18 +54,20 @@ export function SchoolsSection({ schools }: { schools: OfficialSchool[] }) {
               : null;
           return (
             <li key={school.id} className="overflow-hidden rounded-xl border border-line">
-              {/* Illustrative stock photo, not this school; see the note below the list. */}
+              {/* Map tile of the school location — Ministry file has no building photos. */}
               <div className="relative aspect-[16/7] bg-surface-alt sm:aspect-[16/5]">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={school.imageUrl}
-                  alt=""
-                  width={640}
-                  height={200}
-                  loading="lazy"
-                  decoding="async"
-                  className="h-full w-full object-cover"
-                />
+                {school.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={school.imageUrl}
+                    alt=""
+                    width={640}
+                    height={200}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-full w-full object-cover"
+                  />
+                ) : null}
               </div>
               <div className="p-4 sm:p-5">
                 <div className="flex items-start justify-between gap-4">
@@ -117,7 +119,7 @@ export function SchoolsSection({ schools }: { schools: OfficialSchool[] }) {
         </button>
       )}
       <p className="mt-3 text-caption text-ink-muted">
-        Photos are illustrative stock images, not the schools listed.
+        Images are map tiles of each school&apos;s published location.
       </p>
     </section>
   );

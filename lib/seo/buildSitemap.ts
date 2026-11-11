@@ -21,6 +21,7 @@ const STATIC_PATHS: Array<{ path: string; priority: number; changeFrequency: "da
   { path: "/preconstruction/map", priority: 0.6, changeFrequency: "daily" },
   { path: "/market-trends", priority: 0.7, changeFrequency: "weekly" },
   { path: "/communities", priority: 0.7, changeFrequency: "weekly" },
+  { path: "/schools", priority: 0.7, changeFrequency: "weekly" },
   { path: "/blog", priority: 0.6, changeFrequency: "weekly" },
   { path: "/sell", priority: 0.5, changeFrequency: "weekly" },
   { path: "/home-evaluation", priority: 0.5, changeFrequency: "weekly" },
