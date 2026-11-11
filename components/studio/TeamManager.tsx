@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { ConfirmDialog } from "@/components/ui/Dialogs";
+import { LinkButton } from "@/components/ui/Button";
 import { teamRoleOf, type TeamMember, type TeamRole } from "@/lib/api/studio";
 import {
-  useGrantStudioAccess,
   useRevokeStudioAccess,
   useUpdateStudioRole,
 } from "@/lib/queries/studio";
@@ -18,20 +18,21 @@ const ROLE_LABEL: Record<TeamRole, string> = {
 export function TeamManager({
   members: initialMembers,
   currentUserId,
+  justAdded = false,
 }: {
   members: TeamMember[];
   currentUserId: number;
+  justAdded?: boolean;
 }) {
-  const grantAccess = useGrantStudioAccess();
   const updateRole = useUpdateStudioRole();
   const revokeAccess = useRevokeStudioAccess();
-  const busy = grantAccess.isPending || updateRole.isPending || revokeAccess.isPending;
+  const busy = updateRole.isPending || revokeAccess.isPending;
 
   const [members, setMembers] = useState(initialMembers);
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<TeamRole>("author");
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(() =>
+    justAdded ? "Team member added. You can change their access below." : null,
+  );
   const [pendingRevoke, setPendingRevoke] = useState<TeamMember | null>(null);
   const [revokeError, setRevokeError] = useState<string | null>(null);
 
@@ -40,27 +41,6 @@ export function TeamManager({
       const without = current.filter((row) => row.id !== member.id);
       return [...without, member].sort((a, b) => Number(b.isStaff) - Number(a.isStaff) || a.email.localeCompare(b.email));
     });
-  }
-
-  async function grant(event: FormEvent) {
-    event.preventDefault();
-    const trimmed = email.trim();
-    if (!trimmed) return;
-
-    setError(null);
-    setNotice(null);
-    try {
-      const member = await grantAccess.mutateAsync({ email: trimmed, role });
-      upsertMember(member);
-      setNotice(
-        role === "admin"
-          ? `${trimmed} is now an administrator and can manage the full Studio.`
-          : `${trimmed} can now write and publish blog posts.`,
-      );
-      setEmail("");
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not grant access.");
-    }
   }
 
   async function changeRole(member: TeamMember, next: TeamRole) {
@@ -93,44 +73,14 @@ export function TeamManager({
 
   return (
     <div className="space-y-5">
-      <form
-        onSubmit={grant}
-        className="rounded-surface border border-line bg-surface p-5 shadow-card"
-      >
-        <label htmlFor="team-email" className="block text-small font-medium text-ink">
-          Add a team member
-        </label>
-        <p className="mt-1 text-caption text-ink-muted">
-          They need an account on the site first. Ask them to sign up, then enter
-          the same email here and choose their access level.
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-small text-ink-muted">
+          Change access on this page. Use Add team member when someone new needs Studio access.
         </p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <input
-            id="team-email"
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="name@example.com"
-            className="min-w-0 flex-1 rounded-control border border-line bg-surface px-3 py-2 text-small text-ink"
-          />
-          <select
-            aria-label="Access level"
-            value={role}
-            onChange={(event) => setRole(event.target.value as TeamRole)}
-            className="rounded-control border border-line bg-surface px-3 py-2 text-small text-ink"
-          >
-            <option value="author">Writer — blog only</option>
-            <option value="admin">Administrator — full Studio</option>
-          </select>
-          <button
-            type="submit"
-            disabled={busy || !email.trim()}
-            className="rounded-control bg-navy px-4 py-2 text-small font-medium text-white disabled:opacity-60"
-          >
-            {busy ? "Working…" : "Add to team"}
-          </button>
-        </div>
-      </form>
+        <LinkButton href="/studio/team/new" variant="primary" size="sm">
+          Add team member
+        </LinkButton>
+      </div>
 
       {error && (
         <p role="alert" className="rounded-control border border-negative/40 bg-surface px-4 py-2.5 text-small text-ink">
@@ -160,7 +110,10 @@ export function TeamManager({
             {members.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-ink-muted">
-                  No team members yet. Add someone above.
+                  No team members yet.{" "}
+                  <LinkButton href="/studio/team/new" variant="secondary" size="sm" className="ml-1 align-middle">
+                    Add team member
+                  </LinkButton>
                 </td>
               </tr>
             ) : (
@@ -201,11 +154,11 @@ export function TeamManager({
                       ) : (
                         <button
                           type="button"
+                          disabled={busy}
                           onClick={() => {
                             setRevokeError(null);
                             setPendingRevoke(member);
                           }}
-                          disabled={busy}
                           className="text-caption text-negative hover:underline disabled:opacity-60"
                         >
                           Remove

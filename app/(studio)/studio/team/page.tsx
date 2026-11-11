@@ -8,11 +8,14 @@ import { requireStudioAccess } from "@/lib/auth/session";
 export const metadata: Metadata = { title: "Team" };
 export const dynamic = "force-dynamic";
 
-export default async function StudioTeamPage() {
+type PageProps = { searchParams: Promise<{ added?: string }> };
+
+export default async function StudioTeamPage({ searchParams }: PageProps) {
   const session = await requireStudioAccess();
   // Team management is staff-only — a stricter bar than the rest of the Studio,
   // so a writer cannot grant access to anyone else. The API enforces this too.
   if (!session || !session.user.isStaff) notFound();
+  const params = await searchParams;
 
   let members: TeamMember[] = [];
   let error: string | null = null;
@@ -28,7 +31,15 @@ export default async function StudioTeamPage() {
       title="Team"
       description="People who can open the Studio. Writers can manage blog posts. Administrators can manage the full site, listings, and this team list."
     >
-      {error ? <StudioAlert>{error}</StudioAlert> : <TeamManager members={members} currentUserId={session.user.id} />}
+      {error ? (
+        <StudioAlert>{error}</StudioAlert>
+      ) : (
+        <TeamManager
+          members={members}
+          currentUserId={session.user.id}
+          justAdded={params.added === "1"}
+        />
+      )}
     </StudioPage>
   );
 }

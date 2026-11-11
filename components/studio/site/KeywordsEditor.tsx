@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { StudioBack } from "@/components/studio/chrome";
 import { DocumentEditor } from "@/components/studio/site/DocumentEditor";
 import { TextControl } from "@/components/studio/site/fields";
-import { Button } from "@/components/ui/Button";
+import { Button, LinkButton } from "@/components/ui/Button";
 import { ChipToggle } from "@/components/ui/Field";
 import {
   CURATED_GROUPS,
@@ -61,23 +62,32 @@ function positiveOrUndefined(value: string): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
-export function KeywordsEditor() {
+export function KeywordsEditor({ mode = "list" }: { mode?: "list" | "create" }) {
+  const creating = mode === "create";
   return (
-    <DocumentEditor
-      siteKey="curated"
-      title="Keyword searches"
-      lede="Map each public keyword chip to a search definition: the same MLS filters as /listings, and/or pinned MLS® numbers. Publish to update the homepage block, /homes pages, and the site map — no code deploy. City pages (Condos in Toronto, …) stay automatic."
-      validate={validateCurated}
-      previewOf={(draft) => ({ kind: "curated", document: draft })}
-    >
-      {(draft, update, errors) => (
-        <KeywordsForm
-          document={draft as CuratedDocument}
-          errors={errors}
-          onChange={(next) => update(next)}
-        />
-      )}
-    </DocumentEditor>
+    <div className="space-y-4">
+      {creating ? <StudioBack href="/studio/keywords">Back to keyword searches</StudioBack> : null}
+      <DocumentEditor
+        siteKey="curated"
+        title={creating ? "New keyword search" : "Keyword searches"}
+        lede={
+          creating
+            ? "Fill in this search, then Save draft (and Publish when you want it live). Editing existing searches stays on the keyword list."
+            : "Map each public keyword chip to a search definition: the same MLS filters as /listings, and/or pinned MLS® numbers. Publish to update the homepage block, /homes pages, and the site map — no code deploy. City pages (Condos in Toronto, …) stay automatic."
+        }
+        validate={validateCurated}
+        previewOf={(draft) => ({ kind: "curated", document: draft })}
+      >
+        {(draft, update, errors) => (
+          <KeywordsForm
+            document={draft as CuratedDocument}
+            errors={errors}
+            onChange={(next) => update(next)}
+            mode={mode}
+          />
+        )}
+      </DocumentEditor>
+    </div>
   );
 }
 
@@ -85,13 +95,27 @@ function KeywordsForm({
   document,
   errors,
   onChange,
+  mode = "list",
 }: {
   document: CuratedDocument;
   errors: FieldErrors;
   onChange: (next: CuratedDocument) => void;
+  mode?: "list" | "create";
 }) {
   const pages = Array.isArray(document.pages) ? document.pages : [];
+  const creating = mode === "create";
+  const seeded = useRef(false);
   const [openIndex, setOpenIndex] = useState<number | null>(pages.length ? 0 : null);
+
+  useEffect(() => {
+    if (!creating || seeded.current) return;
+    seeded.current = true;
+    const next = [...pages, emptyPage()];
+    onChange({ pages: next });
+    setOpenIndex(next.length - 1);
+    // Seed once when the create page mounts with the loaded draft.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional one-shot seed
+  }, [creating]);
 
   function setPages(next: CuratedPage[]) {
     onChange({ pages: next });
@@ -109,12 +133,6 @@ function KeywordsForm({
       if (value === undefined) delete next[key as keyof ListingQuery];
     }
     patch(index, { query: next });
-  }
-
-  function addPage() {
-    const next = [...pages, emptyPage()];
-    setPages(next);
-    setOpenIndex(next.length - 1);
   }
 
   function removePage(index: number) {
@@ -138,27 +156,44 @@ function KeywordsForm({
     setOpenIndex(target);
   }
 
+  const visibleIndexes = creating
+    ? pages.length
+      ? [pages.length - 1]
+      : []
+    : pages.map((_, index) => index);
+
   return (
     <div className="space-y-4">
       {errors.pages ? <p className="text-small text-red-700">{errors.pages}</p> : null}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {!creating ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-small text-ink-muted">
+            {pages.length} search{pages.length === 1 ? "" : "es"}. Disabled rows stay in the draft but
+            do not appear on the public site. Open a row to edit it here.
+          </p>
+          <LinkButton href="/studio/keywords/new" variant="primary" size="sm">
+            Add search
+          </LinkButton>
+        </div>
+      ) : (
         <p className="text-small text-ink-muted">
-          {pages.length} search{pages.length === 1 ? "" : "es"}. Disabled rows stay in the draft but
-          do not appear on the public site.
+          This page only creates a new search. Save draft when you are done, then publish from the keyword list when it should go live.
         </p>
-        <Button type="button" variant="secondary" onClick={addPage}>
-          Add search
-        </Button>
-      </div>
+      )}
 
       {pages.length === 0 ? (
         <p className="rounded-control border border-dashed border-line px-4 py-8 text-center text-small text-ink-muted">
-          No searches yet. Add one, or discard the draft to restore the shipped defaults.
+          No searches yet.{" "}
+          <LinkButton href="/studio/keywords/new" variant="secondary" size="sm" className="ml-1 align-middle">
+            Add search
+          </LinkButton>
         </p>
       ) : (
         <ul className="space-y-3">
-          {pages.map((page, index) => {
-            const open = openIndex === index;
+          {visibleIndexes.map((index) => {
+            const page = pages[index];
+            if (!page) return null;
+            const open = creating || openIndex === index;
             const keywordsText = (page.query.keywords ?? []).join(", ");
             const listingKeysText = (page.listingKeys ?? []).join(", ");
             const pinCount = page.listingKeys?.length ?? 0;
@@ -171,39 +206,48 @@ function KeywordsForm({
                   page.enabled === false && "opacity-70",
                 )}
               >
-                <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
-                  <button
-                    type="button"
-                    className="min-w-0 flex-1 text-left"
-                    onClick={() => setOpenIndex(open ? null : index)}
-                  >
-                    <span className="block truncate text-small font-medium text-ink">
-                      {page.label || "Untitled search"}
-                    </span>
-                    <span className="block truncate text-caption text-ink-muted">
-                      {page.group}
-                      {page.slug ? ` · /homes/${page.slug}` : ""}
-                      {pinCount > 0 ? ` · ${pinCount} MLS® pin${pinCount === 1 ? "" : "s"}` : " · filter search"}
-                      {page.enabled === false ? " · hidden" : ""}
-                    </span>
-                  </button>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Button type="button" variant="ghost" disabled={index === 0} onClick={() => move(index, -1)}>
-                      Up
-                    </Button>
-                    <Button
+                {!creating ? (
+                  <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
+                    <button
                       type="button"
-                      variant="ghost"
-                      disabled={index === pages.length - 1}
-                      onClick={() => move(index, 1)}
+                      className="min-w-0 flex-1 text-left"
+                      onClick={() => setOpenIndex(open ? null : index)}
                     >
-                      Down
-                    </Button>
-                    <Button type="button" variant="ghost" onClick={() => removePage(index)}>
-                      Remove
-                    </Button>
+                      <span className="block truncate text-small font-medium text-ink">
+                        {page.label || "Untitled search"}
+                      </span>
+                      <span className="block truncate text-caption text-ink-muted">
+                        {page.group}
+                        {page.slug ? ` · /homes/${page.slug}` : ""}
+                        {pinCount > 0 ? ` · ${pinCount} MLS® pin${pinCount === 1 ? "" : "s"}` : " · filter search"}
+                        {page.enabled === false ? " · hidden" : ""}
+                      </span>
+                    </button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button type="button" variant="ghost" disabled={index === 0} onClick={() => move(index, -1)}>
+                        Up
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={index === pages.length - 1}
+                        onClick={() => move(index, 1)}
+                      >
+                        Down
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={open ? "secondary" : "ghost"}
+                        onClick={() => setOpenIndex(open ? null : index)}
+                      >
+                        {open ? "Close" : "Edit"}
+                      </Button>
+                      <Button type="button" variant="ghost" onClick={() => removePage(index)}>
+                        Remove
+                      </Button>
+                    </div>
                   </div>
-                </div>
+                ) : null}
 
                 {open ? (
                   <div className="grid gap-4 p-4 sm:grid-cols-2">
