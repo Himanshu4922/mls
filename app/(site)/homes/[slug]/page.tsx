@@ -8,10 +8,11 @@ import { absoluteUrl, breadcrumbJsonLd, JsonLd } from "@/components/seo/JsonLd";
 import { Eyebrow } from "@/components/ui/Badge";
 import { Pagination } from "@/components/ui/Pagination";
 import { EmptyState, ErrorState, PropertyGridSkeleton } from "@/components/ui/States";
-import { searchProperties } from "@/lib/api/properties";
+import { compareProperties, searchProperties } from "@/lib/api/properties";
 import { propertyPath } from "@/lib/seo/urls";
 import { CURATED_PAGES, curatedPath, getCuratedPage, type CuratedPage } from "@/lib/seo/curatedPages";
 import { getCuratedPages } from "@/lib/site/load";
+import type { PropertySummary } from "@/lib/types/domain";
 import { buildListingHref } from "@/lib/utils/searchParams";
 
 export const revalidate = 600;
@@ -38,9 +39,10 @@ export async function generateMetadata({ params }: PageProps<"/homes/[slug]">): 
 }
 
 /**
- * A curated listing page (scope #6). `?page=` paginates; the filters are
- * fixed by the config. Keyword pages have no /listings equivalent (keywords
- * aren't a public filter), so only the others offer "refine these filters".
+ * A curated listing page (scope #6 / CR-01). `?page=` paginates; results come
+ * from pinned MLS® numbers when set, otherwise the Studio search filters.
+ * Keyword-only pages have no /listings equivalent, so only filter (non-keyword,
+ * non-pinned) pages offer "refine these filters".
  */
 export default async function CuratedListingsPage({ params, searchParams }: PageProps<"/homes/[slug]">) {
   const { slug } = await params;
@@ -49,6 +51,7 @@ export default async function CuratedListingsPage({ params, searchParams }: Page
   if (!page) notFound();
   const query = await searchParams;
   const pageNumber = Math.max(1, Number(Array.isArray(query.page) ? query.page[0] : query.page) || 1);
+  const pinned = (page.listingKeys?.length ?? 0) > 0;
 
   return (
     <>
@@ -63,7 +66,7 @@ export default async function CuratedListingsPage({ params, searchParams }: Page
           <Eyebrow>{page.group}</Eyebrow>
           <h1 className="mt-3 text-h1 text-ink">{page.h1}</h1>
           <p className="mt-2 max-w-2xl text-small text-ink-muted">{page.description}</p>
-          {!page.query.keywords && (
+          {!pinned && !page.query.keywords && (
             <Link
               href={buildListingHref(page.query)}
               className="mt-4 inline-block text-small font-medium text-navy underline underline-offset-2"
@@ -96,31 +99,46 @@ export default async function CuratedListingsPage({ params, searchParams }: Page
 }
 
 async function Results({ page, pageNumber }: { page: CuratedPage; pageNumber: number }) {
-  let result;
+  let items: PropertySummary[] = [];
+  let total = 0;
+  let approximate = false;
+
   try {
-    result = await searchProperties(
-      { ...page.query, limit: PAGE_SIZE, offset: (pageNumber - 1) * PAGE_SIZE },
-      { revalidate: 600 },
-    );
+    if (page.listingKeys?.length) {
+      const pinned = await loadPinnedListings(page.listingKeys);
+      total = pinned.length;
+      const start = (pageNumber - 1) * PAGE_SIZE;
+      items = pinned.slice(start, start + PAGE_SIZE);
+    } else {
+      const result = await searchProperties(
+        { ...page.query, limit: PAGE_SIZE, offset: (pageNumber - 1) * PAGE_SIZE },
+        { revalidate: 600 },
+      );
+      items = result.items;
+      total = result.total;
+      approximate = result.approximate;
+    }
   } catch {
     return <ErrorState title="Listings are unavailable" description="Please try again in a moment." />;
   }
 
-  if (result.items.length === 0) {
+  if (items.length === 0) {
     return (
       <EmptyState
         title="Nothing matches right now"
         description={
-          page.query.keywords
-            ? "No current listings mention this in their description. New listings arrive daily, so check back soon."
-            : "No current listings match. Try a nearby search."
+          page.listingKeys?.length
+            ? "None of the pinned MLS® numbers are available in the live feed right now."
+            : page.query.keywords
+              ? "No current listings mention this in their description. New listings arrive daily, so check back soon."
+              : "No current listings match. Try a nearby search."
         }
         action={{ label: "Browse all listings", href: "/listings" }}
       />
     );
   }
 
-  const totalPages = Math.max(1, Math.ceil(result.total / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const pageHref = (next: number) => (next > 1 ? `${curatedPath(page)}?page=${next}` : curatedPath(page));
 
   return (
@@ -130,7 +148,7 @@ async function Results({ page, pageNumber }: { page: CuratedPage; pageNumber: nu
           "@context": "https://schema.org",
           "@type": "ItemList",
           name: page.h1,
-          itemListElement: result.items.map((item, index) => ({
+          itemListElement: items.map((item, index) => ({
             "@type": "ListItem",
             position: (pageNumber - 1) * PAGE_SIZE + index + 1,
             url: absoluteUrl(propertyPath(item.id)),
@@ -138,13 +156,13 @@ async function Results({ page, pageNumber }: { page: CuratedPage; pageNumber: nu
         }}
       />
       <p className="mb-4 text-small text-ink-muted" aria-live="polite">
-        {result.approximate ? "About " : ""}
-        <span className="font-medium text-ink">{result.total.toLocaleString("en-CA")}</span>{" "}
-        {result.total === 1 ? "home" : "homes"}
+        {approximate ? "About " : ""}
+        <span className="font-medium text-ink">{total.toLocaleString("en-CA")}</span>{" "}
+        {total === 1 ? "home" : "homes"}
         {totalPages > 1 && ` · page ${pageNumber} of ${totalPages}`}
       </p>
       <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {result.items.map((property, index) => (
+        {items.map((property, index) => (
           <li key={property.id}>
             <PropertyCard property={property} priority={index < 3} />
           </li>
@@ -157,4 +175,16 @@ async function Results({ page, pageNumber }: { page: CuratedPage; pageNumber: nu
       )}
     </>
   );
+}
+
+/** Fetch pinned MLS® keys and keep the admin's order; drop missing keys quietly. */
+async function loadPinnedListings(listingKeys: string[]): Promise<PropertySummary[]> {
+  const details = await compareProperties(listingKeys, { revalidate: 600 });
+  const byId = new Map(details.map((item) => [item.id.toUpperCase(), item as PropertySummary]));
+  const ordered: PropertySummary[] = [];
+  for (const key of listingKeys) {
+    const hit = byId.get(key.toUpperCase());
+    if (hit) ordered.push(hit);
+  }
+  return ordered;
 }

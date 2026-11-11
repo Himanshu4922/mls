@@ -132,7 +132,7 @@ function HomepageForm({
           <div className="rounded-control border border-navy/20 bg-navy-tint px-4 py-4">
             <p className="text-small font-medium text-ink">Edit the search chips and filters</p>
             <p className="mt-1 text-small text-ink-muted">
-              Labels, URL slugs, keywords, price, and property type are managed on a dedicated
+              Labels, URL slugs, MLS filters, description keywords, and pinned MLS® numbers are managed on a dedicated
               page under Listings — not in these heading fields.
             </p>
             <div className="mt-3">

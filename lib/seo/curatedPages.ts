@@ -11,7 +11,9 @@
  */
 
 import { COMMUNITY_CITIES } from "@/lib/constants/cities";
+import { BASEMENT_VALUES } from "@/lib/search/listingFilterOptions";
 import type { ListingQuery } from "@/lib/types/domain";
+import { formatPostal, parsePostalList } from "@/lib/utils/postal";
 
 export type CuratedGroup = "Deals" | "By price" | "By type" | "Rentals" | "By city";
 
@@ -24,8 +26,38 @@ export interface CuratedPage {
   description: string;
   group: CuratedGroup;
   query: Partial<ListingQuery>;
+  /**
+   * Optional pinned MLS® / listing keys. When non-empty, the public /homes
+   * page shows these listings (in this order) instead of running `query`.
+   * Filters still edit/publish with the chip for later use when pins are cleared.
+   */
+  listingKeys?: string[];
   /** Studio-only: false hides the search without deleting it. */
   enabled?: boolean;
+}
+
+/** Max MLS® numbers an admin can pin on one keyword search. */
+export const CURATED_LISTING_KEYS_MAX = 50;
+
+/** Split comma / whitespace / newline pasted MLS® numbers into unique keys. */
+export function normalizeListingKeys(raw: unknown): string[] {
+  const parts: string[] = [];
+  if (Array.isArray(raw)) {
+    for (const entry of raw) {
+      if (typeof entry === "string") parts.push(...entry.split(/[\s,;]+/));
+    }
+  } else if (typeof raw === "string") {
+    parts.push(...raw.split(/[\s,;]+/));
+  }
+  const seen = new Set<string>();
+  const keys: string[] = [];
+  for (const part of parts) {
+    const key = part.trim().toUpperCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    keys.push(key);
+  }
+  return keys;
 }
 
 /** Studio / SiteContent document for keyword searches. */
@@ -250,6 +282,93 @@ function isCuratedGroup(value: unknown): value is CuratedGroup {
   return typeof value === "string" && (CURATED_GROUPS as readonly string[]).includes(value);
 }
 
+function positiveInt(value: unknown): number | undefined {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  return Math.round(n);
+}
+
+/** Listing filters that Studio may attach to a keyword chip. */
+export function parseCuratedQuery(queryRaw: Record<string, unknown>): Partial<ListingQuery> {
+  const query: Partial<ListingQuery> = {};
+  if (typeof queryRaw.status === "string" && queryRaw.status.trim()) query.status = queryRaw.status.trim();
+  if (queryRaw.transaction === "sale" || queryRaw.transaction === "rent") query.transaction = queryRaw.transaction;
+  if (typeof queryRaw.type === "string" && queryRaw.type.trim()) query.type = queryRaw.type.trim();
+  if (typeof queryRaw.city === "string" && queryRaw.city.trim()) query.city = queryRaw.city.trim();
+  if (typeof queryRaw.search === "string" && queryRaw.search.trim()) query.search = queryRaw.search.trim();
+  if (typeof queryRaw.buildingType === "string" && queryRaw.buildingType.trim()) {
+    query.buildingType = queryRaw.buildingType.trim();
+  }
+  if (typeof queryRaw.ownership === "string" && queryRaw.ownership.trim()) {
+    query.ownership = queryRaw.ownership.trim();
+  }
+  if (typeof queryRaw.basement === "string" && BASEMENT_VALUES.has(queryRaw.basement)) {
+    query.basement = queryRaw.basement as NonNullable<ListingQuery["basement"]>;
+  }
+  if (typeof queryRaw.listedSince === "string" && /^\d{4}-\d{2}-\d{2}$/.test(queryRaw.listedSince)) {
+    query.listedSince = queryRaw.listedSince;
+  }
+
+  const priceMin = positiveInt(queryRaw.priceMin);
+  const priceMax = positiveInt(queryRaw.priceMax);
+  const bedsMin = positiveInt(queryRaw.bedsMin);
+  const bathsMin = positiveInt(queryRaw.bathsMin);
+  const sqftMin = positiveInt(queryRaw.sqftMin);
+  const sqftMax = positiveInt(queryRaw.sqftMax);
+  const yearBuiltMin = positiveInt(queryRaw.yearBuiltMin);
+  const yearBuiltMax = positiveInt(queryRaw.yearBuiltMax);
+  const garagesMin = positiveInt(queryRaw.garagesMin);
+  const storiesMin = positiveInt(queryRaw.storiesMin);
+  const storiesMax = positiveInt(queryRaw.storiesMax);
+  const domMax = positiveInt(queryRaw.domMax);
+  const kitchensMin = positiveInt(queryRaw.kitchensMin);
+  const feeMin = positiveInt(queryRaw.feeMin);
+  const feeMax = positiveInt(queryRaw.feeMax);
+  if (priceMin) query.priceMin = priceMin;
+  if (priceMax) query.priceMax = priceMax;
+  if (bedsMin) query.bedsMin = bedsMin;
+  if (bathsMin) query.bathsMin = bathsMin;
+  if (sqftMin) query.sqftMin = sqftMin;
+  if (sqftMax) query.sqftMax = sqftMax;
+  if (yearBuiltMin) query.yearBuiltMin = yearBuiltMin;
+  if (yearBuiltMax) query.yearBuiltMax = yearBuiltMax;
+  if (garagesMin) query.garagesMin = garagesMin;
+  if (storiesMin) query.storiesMin = storiesMin;
+  if (storiesMax) query.storiesMax = storiesMax;
+  if (domMax) query.domMax = domMax;
+  if (kitchensMin) query.kitchensMin = kitchensMin;
+  if (feeMin) query.feeMin = feeMin;
+  if (feeMax) query.feeMax = feeMax;
+  if (queryRaw.openHouse === true) query.openHouse = true;
+  if (queryRaw.familyRoom === true) query.familyRoom = true;
+
+  if (Array.isArray(queryRaw.keywords)) {
+    const keywords = queryRaw.keywords
+      .filter((word): word is string => typeof word === "string")
+      .map((word) => word.trim())
+      .filter(Boolean);
+    if (keywords.length) query.keywords = keywords;
+  }
+
+  if (Array.isArray(queryRaw.postalCodes)) {
+    const joined = queryRaw.postalCodes
+      .filter((code): code is string => typeof code === "string")
+      .join(",");
+    const { codes } = parsePostalList(joined);
+    if (codes.length) query.postalCodes = codes;
+  } else if (typeof queryRaw.postalCodes === "string") {
+    const { codes } = parsePostalList(queryRaw.postalCodes);
+    if (codes.length) query.postalCodes = codes;
+  }
+
+  return query;
+}
+
+/** Display helper for Studio postal field. */
+export function formatCuratedPostal(codes: string[] | undefined): string {
+  return (codes ?? []).map(formatPostal).join(", ");
+}
+
 /** Parse a Studio/API curated document into typed pages (skips invalid rows). */
 export function parseCuratedDocument(raw: unknown): CuratedDocument {
   if (!isRecord(raw) || !Array.isArray(raw.pages)) return { pages: [] };
@@ -261,26 +380,8 @@ export function parseCuratedDocument(raw: unknown): CuratedDocument {
     const h1 = typeof item.h1 === "string" ? item.h1.trim() : "";
     const description = typeof item.description === "string" ? item.description.trim() : "";
     if (!slug || !label || !h1 || !isCuratedGroup(item.group)) continue;
-    const queryRaw = isRecord(item.query) ? item.query : {};
-    const query: Partial<ListingQuery> = {};
-    if (typeof queryRaw.status === "string" && queryRaw.status.trim()) query.status = queryRaw.status.trim();
-    if (queryRaw.transaction === "sale" || queryRaw.transaction === "rent") query.transaction = queryRaw.transaction;
-    if (typeof queryRaw.type === "string" && queryRaw.type.trim()) query.type = queryRaw.type.trim();
-    if (typeof queryRaw.city === "string" && queryRaw.city.trim()) query.city = queryRaw.city.trim();
-    const priceMin = Number(queryRaw.priceMin);
-    const priceMax = Number(queryRaw.priceMax);
-    const bedsMin = Number(queryRaw.bedsMin);
-    if (Number.isFinite(priceMin) && priceMin > 0) query.priceMin = Math.round(priceMin);
-    if (Number.isFinite(priceMax) && priceMax > 0) query.priceMax = Math.round(priceMax);
-    if (Number.isFinite(bedsMin) && bedsMin > 0) query.bedsMin = Math.round(bedsMin);
-    if (queryRaw.openHouse === true) query.openHouse = true;
-    if (Array.isArray(queryRaw.keywords)) {
-      const keywords = queryRaw.keywords
-        .filter((word): word is string => typeof word === "string")
-        .map((word) => word.trim())
-        .filter(Boolean);
-      if (keywords.length) query.keywords = keywords;
-    }
+    const query = parseCuratedQuery(isRecord(item.query) ? item.query : {});
+    const listingKeys = normalizeListingKeys(item.listingKeys ?? item.listing_keys);
     pages.push({
       slug,
       label,
@@ -288,6 +389,7 @@ export function parseCuratedDocument(raw: unknown): CuratedDocument {
       description,
       group: item.group,
       query,
+      listingKeys: listingKeys.length ? listingKeys : undefined,
       enabled: item.enabled !== false,
     });
   }

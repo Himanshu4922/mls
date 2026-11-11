@@ -4,16 +4,34 @@ import { useState } from "react";
 import { DocumentEditor } from "@/components/studio/site/DocumentEditor";
 import { TextControl } from "@/components/studio/site/fields";
 import { Button } from "@/components/ui/Button";
+import { ChipToggle } from "@/components/ui/Field";
 import {
   CURATED_GROUPS,
+  CURATED_LISTING_KEYS_MAX,
   curatedPath,
+  formatCuratedPostal,
+  normalizeListingKeys,
   type CuratedDocument,
   type CuratedGroup,
   type CuratedPage,
 } from "@/lib/seo/curatedPages";
-import { SEARCH_PROPERTY_TYPES } from "@/lib/types/domain";
+import {
+  BASEMENT_OPTIONS,
+  BATH_OPTIONS,
+  BED_OPTIONS,
+  BUILDING_OPTIONS,
+  DOM_OPTIONS,
+  FLOOR_OPTIONS,
+  GARAGE_OPTIONS,
+  KITCHEN_OPTIONS,
+  OWNERSHIP_OPTIONS,
+  YEAR_BUILT_MIN_OPTIONS,
+} from "@/lib/search/listingFilterOptions";
+import { SEARCH_PROPERTY_TYPES, type ListingQuery } from "@/lib/types/domain";
 import { validateCurated, type FieldErrors } from "@/lib/site/validate";
 import { cn } from "@/lib/utils/cn";
+import { parsePostalList } from "@/lib/utils/postal";
+import { STATUS_TABS } from "@/lib/utils/status";
 
 function emptyPage(): CuratedPage {
   return {
@@ -23,6 +41,7 @@ function emptyPage(): CuratedPage {
     description: "",
     group: "Deals",
     query: { status: "Active" },
+    listingKeys: undefined,
     enabled: true,
   };
 }
@@ -35,12 +54,19 @@ function slugify(value: string): string {
     .slice(0, 80);
 }
 
+function positiveOrUndefined(value: string): number | undefined {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return undefined;
+  const n = Number(digits);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
 export function KeywordsEditor() {
   return (
     <DocumentEditor
       siteKey="curated"
       title="Keyword searches"
-      lede="These chips power the homepage “Search by keywords” block, /homes pages, and the site map. Edit the label, URL slug, and search filters, then publish. City pages (Condos in Toronto, …) stay automatic."
+      lede="Map each public keyword chip to a search definition: the same MLS filters as /listings, and/or pinned MLS® numbers. Publish to update the homepage block, /homes pages, and the site map — no code deploy. City pages (Condos in Toronto, …) stay automatic."
       validate={validateCurated}
       previewOf={(draft) => ({ kind: "curated", document: draft })}
     >
@@ -71,14 +97,18 @@ function KeywordsForm({
     onChange({ pages: next });
   }
 
-  function patch(index: number, patch: Partial<CuratedPage>) {
-    setPages(pages.map((page, i) => (i === index ? { ...page, ...patch } : page)));
+  function patch(index: number, pagePatch: Partial<CuratedPage>) {
+    setPages(pages.map((page, i) => (i === index ? { ...page, ...pagePatch } : page)));
   }
 
-  function patchQuery(index: number, queryPatch: CuratedPage["query"]) {
+  function patchQuery(index: number, queryPatch: Partial<ListingQuery>) {
     const page = pages[index];
     if (!page) return;
-    patch(index, { query: { ...page.query, ...queryPatch } });
+    const next: Partial<ListingQuery> = { ...page.query, ...queryPatch };
+    for (const [key, value] of Object.entries(queryPatch)) {
+      if (value === undefined) delete next[key as keyof ListingQuery];
+    }
+    patch(index, { query: next });
   }
 
   function addPage() {
@@ -130,6 +160,9 @@ function KeywordsForm({
           {pages.map((page, index) => {
             const open = openIndex === index;
             const keywordsText = (page.query.keywords ?? []).join(", ");
+            const listingKeysText = (page.listingKeys ?? []).join(", ");
+            const pinCount = page.listingKeys?.length ?? 0;
+            const isRent = page.query.transaction === "rent";
             return (
               <li
                 key={`${page.slug || "new"}-${index}`}
@@ -150,6 +183,7 @@ function KeywordsForm({
                     <span className="block truncate text-caption text-ink-muted">
                       {page.group}
                       {page.slug ? ` · /homes/${page.slug}` : ""}
+                      {pinCount > 0 ? ` · ${pinCount} MLS® pin${pinCount === 1 ? "" : "s"}` : " · filter search"}
                       {page.enabled === false ? " · hidden" : ""}
                     </span>
                   </button>
@@ -228,6 +262,31 @@ function KeywordsForm({
                       />
                     </div>
 
+                    <div className="sm:col-span-2 border-t border-line pt-4">
+                      <p className="text-small font-medium text-ink">Search definition</p>
+                      <p className="mt-1 text-caption text-ink-muted">
+                        Pin specific MLS® numbers, or leave pins empty and use the same filters as the
+                        listings page. When pins are set, the public page shows those listings only.
+                      </p>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <TextControl
+                        label="Pinned MLS® numbers"
+                        value={listingKeysText}
+                        max={800}
+                        multiline
+                        hint={`Comma or newline separated, up to ${CURATED_LISTING_KEYS_MAX}. Empty = run the filter search.`}
+                        error={errors[`pages.${index}.listingKeys`]}
+                        onChange={(value) => {
+                          const listingKeys = normalizeListingKeys(value);
+                          patch(index, {
+                            listingKeys: listingKeys.length ? listingKeys : undefined,
+                          });
+                        }}
+                      />
+                    </div>
+
                     <label className="block text-caption text-ink-muted">
                       Transaction
                       <select
@@ -235,7 +294,7 @@ function KeywordsForm({
                         value={page.query.transaction ?? ""}
                         onChange={(event) =>
                           patchQuery(index, {
-                            transaction: (event.target.value || undefined) as CuratedPage["query"]["transaction"],
+                            transaction: (event.target.value || undefined) as ListingQuery["transaction"],
                           })
                         }
                       >
@@ -261,64 +320,328 @@ function KeywordsForm({
                         ))}
                       </select>
                     </label>
+
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <span className="block text-caption text-ink-muted">Listing status</span>
+                      <div className="flex flex-wrap gap-2">
+                        <ChipToggle
+                          active={!page.query.status}
+                          onClick={() => patchQuery(index, { status: undefined })}
+                        >
+                          All
+                        </ChipToggle>
+                        {STATUS_TABS.map((tab) => (
+                          <ChipToggle
+                            key={tab.param}
+                            active={(page.query.status ?? "").toLowerCase() === tab.param.toLowerCase()}
+                            onClick={() =>
+                              patchQuery(index, {
+                                status:
+                                  (page.query.status ?? "").toLowerCase() === tab.param.toLowerCase()
+                                    ? undefined
+                                    : tab.param,
+                              })
+                            }
+                          >
+                            {isRent && tab.group === "active"
+                              ? "For Lease"
+                              : isRent && tab.group === "sold"
+                                ? "Leased"
+                                : tab.label}
+                          </ChipToggle>
+                        ))}
+                      </div>
+                    </div>
+
                     <TextControl
-                      label="Status"
-                      value={page.query.status ?? ""}
-                      max={40}
-                      hint="Usually Active. Leave blank for any."
-                      error={errors[`pages.${index}.query.status`]}
-                      onChange={(status) => patchQuery(index, { status: status || undefined })}
+                      label={isRent ? "Min rent / month" : "Min price"}
+                      value={page.query.priceMin != null ? String(page.query.priceMin) : ""}
+                      max={12}
+                      error={errors[`pages.${index}.query.priceMin`]}
+                      onChange={(value) => patchQuery(index, { priceMin: positiveOrUndefined(value) })}
+                    />
+                    <TextControl
+                      label={isRent ? "Max rent / month" : "Max price"}
+                      value={page.query.priceMax != null ? String(page.query.priceMax) : ""}
+                      max={12}
+                      error={errors[`pages.${index}.query.priceMax`]}
+                      onChange={(value) => patchQuery(index, { priceMax: positiveOrUndefined(value) })}
                     />
                     <TextControl
                       label="City"
                       value={page.query.city ?? ""}
                       max={80}
                       error={errors[`pages.${index}.query.city`]}
-                      onChange={(city) => patchQuery(index, { city: city || undefined })}
+                      onChange={(city) => patchQuery(index, { city: city.trim() || undefined })}
                     />
                     <TextControl
-                      label="Min price"
-                      value={page.query.priceMin != null ? String(page.query.priceMin) : ""}
-                      max={12}
-                      error={errors[`pages.${index}.query.priceMin`]}
-                      onChange={(value) =>
-                        patchQuery(index, {
-                          priceMin: value.trim() ? Number(value.replace(/\D/g, "")) || undefined : undefined,
-                        })
-                      }
+                      label="Postal code"
+                      value={formatCuratedPostal(page.query.postalCodes)}
+                      max={120}
+                      hint="L7A or L7A 3K9 — separate several with commas"
+                      error={errors[`pages.${index}.query.postalCodes`]}
+                      onChange={(value) => {
+                        const { codes } = parsePostalList(value);
+                        patchQuery(index, { postalCodes: codes.length ? codes : undefined });
+                      }}
                     />
-                    <TextControl
-                      label="Max price"
-                      value={page.query.priceMax != null ? String(page.query.priceMax) : ""}
-                      max={12}
-                      error={errors[`pages.${index}.query.priceMax`]}
-                      onChange={(value) =>
-                        patchQuery(index, {
-                          priceMax: value.trim() ? Number(value.replace(/\D/g, "")) || undefined : undefined,
-                        })
-                      }
-                    />
-                    <TextControl
-                      label="Min bedrooms"
+
+                    <ChipField
+                      label="Bedrooms"
                       value={page.query.bedsMin != null ? String(page.query.bedsMin) : ""}
-                      max={2}
-                      error={errors[`pages.${index}.query.bedsMin`]}
-                      onChange={(value) =>
-                        patchQuery(index, {
-                          bedsMin: value.trim() ? Number(value.replace(/\D/g, "")) || undefined : undefined,
-                        })
+                      options={BED_OPTIONS}
+                      suffix="+"
+                      onChange={(beds) =>
+                        patchQuery(index, { bedsMin: beds ? Number(beds) : undefined })
                       }
                     />
-                    <label className="flex items-center gap-2 pt-6 text-small text-ink">
+                    <ChipField
+                      label="Bathrooms"
+                      value={page.query.bathsMin != null ? String(page.query.bathsMin) : ""}
+                      options={BATH_OPTIONS}
+                      suffix="+"
+                      onChange={(baths) =>
+                        patchQuery(index, { bathsMin: baths ? Number(baths) : undefined })
+                      }
+                    />
+
+                    <TextControl
+                      label="Min sq ft"
+                      value={page.query.sqftMin != null ? String(page.query.sqftMin) : ""}
+                      max={8}
+                      error={errors[`pages.${index}.query.sqftMin`]}
+                      onChange={(value) => patchQuery(index, { sqftMin: positiveOrUndefined(value) })}
+                    />
+                    <TextControl
+                      label="Max sq ft"
+                      value={page.query.sqftMax != null ? String(page.query.sqftMax) : ""}
+                      max={8}
+                      error={errors[`pages.${index}.query.sqftMax`]}
+                      onChange={(value) => patchQuery(index, { sqftMax: positiveOrUndefined(value) })}
+                    />
+
+                    <ChipField
+                      label="Garages"
+                      value={page.query.garagesMin != null ? String(page.query.garagesMin) : ""}
+                      options={GARAGE_OPTIONS}
+                      suffix="+"
+                      onChange={(garages) =>
+                        patchQuery(index, { garagesMin: garages ? Number(garages) : undefined })
+                      }
+                    />
+                    <ChipField
+                      label="Floors (min)"
+                      value={page.query.storiesMin != null ? String(page.query.storiesMin) : ""}
+                      options={FLOOR_OPTIONS}
+                      suffix="+"
+                      onChange={(floors) =>
+                        patchQuery(index, { storiesMin: floors ? Number(floors) : undefined })
+                      }
+                    />
+
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <span className="block text-caption text-ink-muted">Basement</span>
+                      <div className="flex flex-wrap gap-2">
+                        {BASEMENT_OPTIONS.map((option) => (
+                          <ChipToggle
+                            key={option.value || "any"}
+                            active={(page.query.basement ?? "") === option.value}
+                            onClick={() =>
+                              patchQuery(index, {
+                                basement: option.value
+                                  ? (option.value as NonNullable<ListingQuery["basement"]>)
+                                  : undefined,
+                              })
+                            }
+                          >
+                            {option.label}
+                          </ChipToggle>
+                        ))}
+                      </div>
+                      {errors[`pages.${index}.query.basement`] ? (
+                        <span className="block text-red-700">{errors[`pages.${index}.query.basement`]}</span>
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <span className="block text-caption text-ink-muted">Property age</span>
+                      <div className="flex flex-wrap gap-2">
+                        <ChipToggle
+                          active={!page.query.yearBuiltMin}
+                          onClick={() => patchQuery(index, { yearBuiltMin: undefined })}
+                        >
+                          Any
+                        </ChipToggle>
+                        {YEAR_BUILT_MIN_OPTIONS.map((year) => (
+                          <ChipToggle
+                            key={year}
+                            active={page.query.yearBuiltMin === year}
+                            onClick={() =>
+                              patchQuery(index, {
+                                yearBuiltMin: page.query.yearBuiltMin === year ? undefined : year,
+                              })
+                            }
+                          >
+                            {year}+
+                          </ChipToggle>
+                        ))}
+                      </div>
+                    </div>
+
+                    <ChipField
+                      label="Days on market"
+                      value={page.query.domMax != null ? String(page.query.domMax) : ""}
+                      options={DOM_OPTIONS}
+                      suffix=" or fewer"
+                      onChange={(domMax) =>
+                        patchQuery(index, { domMax: domMax ? Number(domMax) : undefined })
+                      }
+                    />
+                    <div className="space-y-1.5">
+                      <span className="block text-caption text-ink-muted">Family room</span>
+                      <div className="flex flex-wrap gap-2">
+                        <ChipToggle
+                          active={!page.query.familyRoom}
+                          onClick={() => patchQuery(index, { familyRoom: undefined })}
+                        >
+                          Any
+                        </ChipToggle>
+                        <ChipToggle
+                          active={page.query.familyRoom === true}
+                          onClick={() =>
+                            patchQuery(index, {
+                              familyRoom: page.query.familyRoom ? undefined : true,
+                            })
+                          }
+                        >
+                          Has family room
+                        </ChipToggle>
+                      </div>
+                    </div>
+
+                    <ChipField
+                      label="Number of kitchens"
+                      value={page.query.kitchensMin != null ? String(page.query.kitchensMin) : ""}
+                      options={KITCHEN_OPTIONS}
+                      suffix="+"
+                      onChange={(kitchens) =>
+                        patchQuery(index, { kitchensMin: kitchens ? Number(kitchens) : undefined })
+                      }
+                    />
+                    <ChipField
+                      label="Most floors"
+                      value={page.query.storiesMax != null ? String(page.query.storiesMax) : ""}
+                      options={FLOOR_OPTIONS}
+                      onChange={(floorsMax) =>
+                        patchQuery(index, { storiesMax: floorsMax ? Number(floorsMax) : undefined })
+                      }
+                    />
+
+                    <TextControl
+                      label="Built in or before"
+                      value={page.query.yearBuiltMax != null ? String(page.query.yearBuiltMax) : ""}
+                      max={4}
+                      hint="Few listings publish a year built."
+                      error={errors[`pages.${index}.query.yearBuiltMax`]}
+                      onChange={(value) =>
+                        patchQuery(index, { yearBuiltMax: positiveOrUndefined(value) })
+                      }
+                    />
+                    <label className="block text-caption text-ink-muted">
+                      Listed since
                       <input
-                        type="checkbox"
-                        checked={page.query.openHouse === true}
+                        type="date"
+                        className="mt-1 block h-10 w-full rounded-control border border-line bg-surface px-3 text-small text-ink"
+                        value={page.query.listedSince ?? ""}
                         onChange={(event) =>
-                          patchQuery(index, { openHouse: event.target.checked ? true : undefined })
+                          patchQuery(index, {
+                            listedSince: event.target.value || undefined,
+                          })
                         }
                       />
-                      Open house only
+                      {errors[`pages.${index}.query.listedSince`] ? (
+                        <span className="mt-1 block text-red-700">
+                          {errors[`pages.${index}.query.listedSince`]}
+                        </span>
+                      ) : null}
                     </label>
+
+                    <TextControl
+                      label="Min maintenance fee / month"
+                      value={page.query.feeMin != null ? String(page.query.feeMin) : ""}
+                      max={8}
+                      error={errors[`pages.${index}.query.feeMin`]}
+                      onChange={(value) => patchQuery(index, { feeMin: positiveOrUndefined(value) })}
+                    />
+                    <TextControl
+                      label="Max maintenance fee / month"
+                      value={page.query.feeMax != null ? String(page.query.feeMax) : ""}
+                      max={8}
+                      error={errors[`pages.${index}.query.feeMax`]}
+                      onChange={(value) => patchQuery(index, { feeMax: positiveOrUndefined(value) })}
+                    />
+
+                    <label className="block text-caption text-ink-muted">
+                      Building type
+                      <select
+                        className="mt-1 block h-10 w-full rounded-control border border-line bg-surface px-3 text-small text-ink"
+                        value={page.query.buildingType ?? ""}
+                        onChange={(event) =>
+                          patchQuery(index, { buildingType: event.target.value || undefined })
+                        }
+                      >
+                        <option value="">Any</option>
+                        {BUILDING_OPTIONS.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                      {errors[`pages.${index}.query.buildingType`] ? (
+                        <span className="mt-1 block text-red-700">
+                          {errors[`pages.${index}.query.buildingType`]}
+                        </span>
+                      ) : null}
+                    </label>
+                    <label className="block text-caption text-ink-muted">
+                      Ownership / title
+                      <select
+                        className="mt-1 block h-10 w-full rounded-control border border-line bg-surface px-3 text-small text-ink"
+                        value={page.query.ownership ?? ""}
+                        onChange={(event) =>
+                          patchQuery(index, { ownership: event.target.value || undefined })
+                        }
+                      >
+                        <option value="">Any</option>
+                        {OWNERSHIP_OPTIONS.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                      {errors[`pages.${index}.query.ownership`] ? (
+                        <span className="mt-1 block text-red-700">
+                          {errors[`pages.${index}.query.ownership`]}
+                        </span>
+                      ) : null}
+                    </label>
+
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <span className="block text-caption text-ink-muted">Open house</span>
+                      <div className="flex flex-wrap gap-2">
+                        <ChipToggle
+                          active={page.query.openHouse === true}
+                          onClick={() =>
+                            patchQuery(index, {
+                              openHouse: page.query.openHouse ? undefined : true,
+                            })
+                          }
+                        >
+                          Has an upcoming open house
+                        </ChipToggle>
+                      </div>
+                    </div>
+
                     <div className="sm:col-span-2">
                       <TextControl
                         label="Description keywords"
@@ -336,6 +659,7 @@ function KeywordsForm({
                         }}
                       />
                     </div>
+
                     <label className="flex items-center gap-2 text-small text-ink sm:col-span-2">
                       <input
                         type="checkbox"
@@ -359,6 +683,41 @@ function KeywordsForm({
           })}
         </ul>
       )}
+    </div>
+  );
+}
+
+function ChipField({
+  label,
+  value,
+  options,
+  suffix = "",
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: readonly number[];
+  suffix?: string;
+  onChange: (next: string) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <span className="block text-caption text-ink-muted">{label}</span>
+      <div className="flex flex-wrap gap-2">
+        <ChipToggle active={!value} onClick={() => onChange("")}>
+          Any
+        </ChipToggle>
+        {options.map((option) => (
+          <ChipToggle
+            key={option}
+            active={value === String(option)}
+            onClick={() => onChange(value === String(option) ? "" : String(option))}
+          >
+            {option}
+            {suffix}
+          </ChipToggle>
+        ))}
+      </div>
     </div>
   );
 }

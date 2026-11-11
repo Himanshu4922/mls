@@ -4,12 +4,22 @@
  */
 
 import {
+  CURATED_LISTING_KEYS_MAX,
+  normalizeListingKeys,
+} from "@/lib/seo/curatedPages";
+import {
+  BASEMENT_VALUES,
+  BUILDING_OPTIONS,
+  OWNERSHIP_OPTIONS,
+} from "@/lib/search/listingFilterOptions";
+import {
   isHeroCountValue,
   isHeroIntentValue,
   isHeroPriceValue,
   isHeroPropertyTypeValue,
 } from "@/lib/site/heroFilters";
 import { SECTION_IDS, type HomepageDocument, type SectionId } from "@/lib/site/types";
+import { parsePostalList } from "@/lib/utils/postal";
 
 export type FieldErrors = Record<string, string>;
 
@@ -486,6 +496,7 @@ export function validateSeo(document: unknown): FieldErrors {
 const CURATED_GROUP_SET = new Set(["Deals", "By price", "By type", "Rentals", "By city"]);
 const CURATED_TYPE_SET = new Set(["Detached", "Semi-Detached", "Townhome", "Condo", "Luxury"]);
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const MLS_KEY_RE = /^[A-Z0-9][A-Z0-9._-]{2,39}$/i;
 
 export function validateCurated(document: unknown): FieldErrors {
   const errors: FieldErrors = {};
@@ -520,12 +531,64 @@ export function validateCurated(document: unknown): FieldErrors {
     if (query.type != null && query.type !== "" && !CURATED_TYPE_SET.has(String(query.type))) {
       errors[`${path}.query.type`] = "Pick a property type.";
     }
-    for (const key of ["priceMin", "priceMax", "bedsMin"] as const) {
+    for (const key of [
+      "priceMin",
+      "priceMax",
+      "bedsMin",
+      "bathsMin",
+      "sqftMin",
+      "sqftMax",
+      "yearBuiltMin",
+      "yearBuiltMax",
+      "garagesMin",
+      "storiesMin",
+      "storiesMax",
+      "domMax",
+      "kitchensMin",
+      "feeMin",
+      "feeMax",
+    ] as const) {
       const value = query[key];
       if (value == null || value === "") continue;
       const n = Number(value);
       if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
         errors[`${path}.query.${key}`] = "Enter a whole number.";
+      }
+    }
+    if (
+      query.basement != null &&
+      query.basement !== "" &&
+      !BASEMENT_VALUES.has(String(query.basement))
+    ) {
+      errors[`${path}.query.basement`] = "Pick a basement option.";
+    }
+    if (
+      query.buildingType != null &&
+      query.buildingType !== "" &&
+      !(BUILDING_OPTIONS as readonly string[]).includes(String(query.buildingType))
+    ) {
+      errors[`${path}.query.buildingType`] = "Pick a building type.";
+    }
+    if (
+      query.ownership != null &&
+      query.ownership !== "" &&
+      !(OWNERSHIP_OPTIONS as readonly string[]).includes(String(query.ownership))
+    ) {
+      errors[`${path}.query.ownership`] = "Pick an ownership type.";
+    }
+    if (query.listedSince != null && query.listedSince !== "") {
+      if (typeof query.listedSince !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(query.listedSince)) {
+        errors[`${path}.query.listedSince`] = "Use a YYYY-MM-DD date.";
+      }
+    }
+    if (query.postalCodes != null && query.postalCodes !== "") {
+      const raw =
+        Array.isArray(query.postalCodes)
+          ? query.postalCodes.filter((code): code is string => typeof code === "string").join(",")
+          : String(query.postalCodes);
+      const { invalid } = parsePostalList(raw);
+      if (invalid.length) {
+        errors[`${path}.query.postalCodes`] = `Invalid postal code: ${invalid[0]}`;
       }
     }
     if (Array.isArray(query.keywords)) {
@@ -538,6 +601,20 @@ export function validateCurated(document: unknown): FieldErrors {
       });
     } else if (query.keywords != null && query.keywords !== "") {
       errors[`${path}.query.keywords`] = "Keywords must be a list.";
+    }
+
+    const listingKeysRaw = row.listingKeys ?? row.listing_keys;
+    if (listingKeysRaw != null && listingKeysRaw !== "") {
+      const keys = normalizeListingKeys(listingKeysRaw);
+      if (keys.length > CURATED_LISTING_KEYS_MAX) {
+        errors[`${path}.listingKeys`] = `Pin at most ${CURATED_LISTING_KEYS_MAX} MLS® numbers.`;
+      }
+      for (const key of keys) {
+        if (!MLS_KEY_RE.test(key)) {
+          errors[`${path}.listingKeys`] = `"${key}" does not look like an MLS® number.`;
+          break;
+        }
+      }
     }
   });
   return errors;

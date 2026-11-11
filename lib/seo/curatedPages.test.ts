@@ -85,4 +85,79 @@ describe("curated pages", () => {
     expect(doc.pages[0]?.query.keywords).toEqual(["power of sale", "bank sale"]);
     expect(DEFAULT_FIXED_PAGES.length).toBeGreaterThan(5);
   });
+
+  it("parses pinned MLS® numbers and keeps order", () => {
+    const doc = parseCuratedDocument({
+      pages: [
+        {
+          slug: "staff-picks",
+          label: "Staff picks",
+          h1: "Staff picks",
+          description: "Pinned homes.",
+          group: "Deals",
+          query: { status: "Active" },
+          listingKeys: ["w1234567", "C7654321", "w1234567", ""],
+        },
+      ],
+    });
+    expect(doc.pages[0]?.listingKeys).toEqual(["W1234567", "C7654321"]);
+  });
+
+  it("parses the full listing filter set", () => {
+    const doc = parseCuratedDocument({
+      pages: [
+        {
+          slug: "full-filters",
+          label: "Full filters",
+          h1: "Full filters",
+          description: "All criteria.",
+          group: "By type",
+          query: {
+            status: "Active",
+            transaction: "sale",
+            type: "Condo",
+            city: "Toronto",
+            priceMin: 400000,
+            priceMax: 800000,
+            bedsMin: 2,
+            bathsMin: 2,
+            sqftMin: 700,
+            sqftMax: 1200,
+            yearBuiltMin: 2000,
+            yearBuiltMax: 2020,
+            garagesMin: 1,
+            storiesMin: 1,
+            storiesMax: 2,
+            basement: "finished",
+            domMax: 30,
+            familyRoom: true,
+            kitchensMin: 1,
+            feeMin: 200,
+            feeMax: 800,
+            listedSince: "2026-01-01",
+            buildingType: "Apartment",
+            ownership: "Condo/Strata",
+            openHouse: true,
+            postalCodes: ["l7a", "L6P 2K1"],
+            keywords: ["waterfront"],
+          },
+        },
+      ],
+    });
+    expect(doc.pages[0]?.query).toMatchObject({
+      type: "Condo",
+      city: "Toronto",
+      bedsMin: 2,
+      bathsMin: 2,
+      sqftMin: 700,
+      garagesMin: 1,
+      basement: "finished",
+      familyRoom: true,
+      buildingType: "Apartment",
+      ownership: "Condo/Strata",
+      openHouse: true,
+      postalCodes: ["L7A", "L6P2K1"],
+      keywords: ["waterfront"],
+    });
+  });
 });

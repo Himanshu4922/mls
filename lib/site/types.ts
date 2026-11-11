@@ -126,7 +126,7 @@ export const SECTION_META: Record<SectionId, { label: string; summary: string; c
   keywords: {
     label: "Keyword searches",
     summary:
-      "Heading copy for this homepage block. Use Open Keyword searches editor (or Listings → Keyword searches) to add chips, MLS filters, and /homes pages.",
+      "Heading copy for this homepage block. Use Open Keyword searches editor (or Listings → Keyword searches) to map chips to search filters and/or pinned MLS® numbers on /homes pages.",
     canHide: true,
   },
 };

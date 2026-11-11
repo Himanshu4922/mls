@@ -30,6 +30,8 @@ const loadPublished = cache(async (key: SiteKey): Promise<unknown | null> => {
   try {
     const body = await apiFetch<PublicBody>(`/api/home/content/${key}/`, {
       revalidate: 600,
+      // Bust on Studio publish (app/api/studio/site/_shared.ts HOME_CONTENT_TAG).
+      tags: ["home-content"],
       timeoutMs: 2000,
     });
     return body.document ?? null;

@@ -21,32 +21,24 @@ import { usePendingNavigation, usePendingSearchParams } from "@/components/navig
 import { AiSearchBox } from "@/components/search/AiSearchBox";
 import { SaveSearchButton } from "@/components/search/SaveSearchButton";
 import { SideSheet } from "@/components/ui/SideSheet";
+import {
+  BASEMENT_OPTIONS,
+  BATH_OPTIONS,
+  BED_OPTIONS,
+  BUILDING_OPTIONS,
+  DOM_OPTIONS,
+  FLOOR_OPTIONS,
+  GARAGE_OPTIONS,
+  KITCHEN_OPTIONS,
+  OWNERSHIP_OPTIONS,
+  YEAR_BUILT_MIN_OPTIONS,
+} from "@/lib/search/listingFilterOptions";
 import { SEARCH_PROPERTY_TYPES, LISTING_SORTS, RELEVANCE_SORT } from "@/lib/types/domain";
 import type { ListingQuery } from "@/lib/types/domain";
 import { formatNumber, formatPrice } from "@/lib/utils/format";
 import { formatPostal, looksLikePostal, parsePostalList } from "@/lib/utils/postal";
 import { parseListingSearch } from "@/lib/utils/searchParams";
 import { STATUS_TABS } from "@/lib/utils/status";
-
-const BED_OPTIONS = [1, 2, 3, 4, 5];
-const BATH_OPTIONS = [1, 2, 3, 4];
-const GARAGE_OPTIONS = [1, 2, 3];
-const FLOOR_OPTIONS = [1, 2, 3];
-const KITCHEN_OPTIONS = [1, 2, 3];
-const DOM_OPTIONS = [7, 14, 30, 60, 90];
-const YEAR_OPTIONS = [2020, 2010, 2000, 1990, 1980];
-
-/** Exact feed values; each was checked to return listings. Many rows leave these blank. */
-const BUILDING_OPTIONS = ["House", "Row / Townhouse", "Apartment", "Duplex", "Mobile Home"];
-const OWNERSHIP_OPTIONS = ["Freehold", "Condo/Strata", "Leasehold"];
-
-const BASEMENT_OPTIONS: Array<{ value: "" | NonNullable<ListingQuery["basement"]>; label: string }> = [
-  { value: "", label: "Any" },
-  { value: "yes", label: "Yes" },
-  { value: "finished", label: "Finished" },
-  { value: "unfinished", label: "Unfinished" },
-  { value: "apartment", label: "Apartment / walk-out" },
-];
 
 /** Filters drafted in the sheet and applied as one batch. */
 const PANEL_KEYS = [
@@ -635,7 +627,7 @@ function FilterFields({
           >
             Any
           </ChipToggle>
-          {YEAR_OPTIONS.map((year) => (
+          {YEAR_BUILT_MIN_OPTIONS.map((year) => (
             <ChipToggle
               key={year}
               active={draft.yearBuiltMin === String(year)}
