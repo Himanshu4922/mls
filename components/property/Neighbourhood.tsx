@@ -53,57 +53,40 @@ export function SchoolsSection({ schools }: { schools: OfficialSchool[] }) {
                 })
               : null;
           return (
-            <li key={school.id} className="overflow-hidden rounded-xl border border-line">
-              {/* Map tile of the school location — Ministry file has no building photos. */}
-              <div className="relative aspect-[16/7] bg-surface-alt sm:aspect-[16/5]">
-                {school.imageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={school.imageUrl}
-                    alt=""
-                    width={640}
-                    height={200}
-                    loading="lazy"
-                    decoding="async"
-                    className="h-full w-full object-cover"
-                  />
-                ) : null}
+            <li key={school.id} className="rounded-xl border border-line p-4 sm:p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[15px] font-semibold text-ink">{school.name}</p>
+                  <p className="mt-0.5 text-[12px] text-ink-muted">{meta || school.city || "School"}</p>
+                  {school.city ? <p className="mt-0.5 text-[12px] text-ink-muted">{school.city}</p> : null}
+                </div>
+                <div className="shrink-0 text-right">
+                  {school.eqaoPercent === null ? (
+                    <p className="text-[12px] text-ink-muted">No EQAO result published</p>
+                  ) : (
+                    <>
+                      <div className="mb-1">
+                        <span className="text-[20px] font-bold text-ink">{school.eqaoPercent}%</span>
+                      </div>
+                      <p className="max-w-[12rem] text-[12px] text-ink-muted">{school.eqaoLabel}</p>
+                    </>
+                  )}
+                  <p className="mt-0.5 text-[12px] text-ink-muted">
+                    {school.distanceKm === null ? EMPTY : `${school.distanceKm.toFixed(1)} km away`}
+                  </p>
+                </div>
               </div>
-              <div className="p-4 sm:p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-[15px] font-semibold text-ink">{school.name}</p>
-                    <p className="mt-0.5 text-[12px] text-ink-muted">{meta || school.city || "School"}</p>
-                    {school.city ? <p className="mt-0.5 text-[12px] text-ink-muted">{school.city}</p> : null}
-                  </div>
-                  <div className="shrink-0 text-right">
-                    {school.eqaoPercent === null ? (
-                      <p className="text-[12px] text-ink-muted">No EQAO result published</p>
-                    ) : (
-                      <>
-                        <div className="mb-1">
-                          <span className="text-[20px] font-bold text-ink">{school.eqaoPercent}%</span>
-                        </div>
-                        <p className="max-w-[12rem] text-[12px] text-ink-muted">{school.eqaoLabel}</p>
-                      </>
-                    )}
-                    <p className="mt-0.5 text-[12px] text-ink-muted">
-                      {school.distanceKm === null ? EMPTY : `${school.distanceKm.toFixed(1)} km away`}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-4">
-                  {homesHref ? (
-                    <Link href={homesHref} className="text-[12px] font-medium text-navy hover:underline">
-                      Homes within 2 km →
-                    </Link>
-                  ) : null}
-                  {school.website ? (
-                    <a href={school.website} target="_blank" rel="noopener noreferrer" className="text-[12px] font-medium text-navy hover:underline">
-                      School website
-                    </a>
-                  ) : null}
-                </div>
+              <div className="mt-3 flex flex-wrap items-center gap-4">
+                {homesHref ? (
+                  <Link href={homesHref} className="text-[12px] font-medium text-navy hover:underline">
+                    Homes within 2 km →
+                  </Link>
+                ) : null}
+                {school.website ? (
+                  <a href={school.website} target="_blank" rel="noopener noreferrer" className="text-[12px] font-medium text-navy hover:underline">
+                    School website
+                  </a>
+                ) : null}
               </div>
             </li>
           );
@@ -118,9 +101,6 @@ export function SchoolsSection({ schools }: { schools: OfficialSchool[] }) {
           {expanded ? "Show fewer schools" : "Show more schools"}
         </button>
       )}
-      <p className="mt-3 text-caption text-ink-muted">
-        Images are map tiles of each school&apos;s published location.
-      </p>
     </section>
   );
 }

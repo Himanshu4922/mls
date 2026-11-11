@@ -10,7 +10,6 @@
 import { ApiError, apiFetch, type RequestOptions } from "@/lib/api/client";
 import { geocodePlace } from "@/lib/api/geo";
 import { serializePolygonParam } from "@/lib/map/polygon";
-import { schoolLocationImageSrc } from "@/lib/utils/mapTile";
 
 const MLS = "/api/mls";
 
@@ -31,10 +30,7 @@ export interface OfficialSchool {
   eqaoLabel: string;
   latitude: number | null;
   longitude: number | null;
-  /**
-   * Map tile centred on the school. The Ministry file has coordinates but no
-   * building photos — never a stock/placeholder image of an unrelated school.
-   */
+  /** Always null — Ministry file has no school photos; UI stays text-first. */
   imageUrl: string | null;
 }
 
@@ -89,10 +85,7 @@ function mapSchool(school: RawSchool): OfficialSchool | null {
     eqaoLabel: school.eqao_label?.trim() || "",
     latitude,
     longitude,
-    imageUrl:
-      latitude !== null && longitude !== null
-        ? schoolLocationImageSrc(latitude, longitude)
-        : null,
+    imageUrl: null,
   };
 }
 

@@ -20,10 +20,10 @@ export default async function SchoolsPage() {
       <header className="border-b border-line bg-surface-alt py-8 sm:py-12">
         <div className="container-page">
           <Eyebrow>Schools &amp; families</Eyebrow>
-          <h1 className="mt-3 text-h1 text-ink">Find homes by school</h1>
+          <h1 className="mt-3 text-h1 text-ink">Search homes by school</h1>
           <p className="mt-2 max-w-2xl text-small text-ink-muted">
-            Search the Ministry school list, then open listings near a school location.
-            Attendance boundaries are set by each board and are not in this file.
+            Pick a school, choose how far to look, and open live listings nearby.
+            Use this the way buyers shortlist neighbourhoods around a preferred school.
           </p>
         </div>
       </header>

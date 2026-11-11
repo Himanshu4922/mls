@@ -10,9 +10,6 @@ const LIVE_DESCRIPTION =
 /**
  * Homepage school cards. Live pages pass Ministry results. The studio preview
  * has no school list, so it does not show the sample ratings stored on the section.
- *
- * Cards show a map tile of the school location — the Ministry file has coordinates
- * but no building photos.
  */
 export function TopRatedSchools({
   content,
@@ -65,47 +62,34 @@ export function TopRatedSchools({
               return (
                 <article
                   key={school.id}
-                  className="overflow-hidden rounded-surface border border-line bg-surface"
+                  className="rounded-surface border border-line bg-surface p-3.5"
                 >
-                  <div className="relative h-28 bg-surface-alt">
-                    {school.imageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={school.imageUrl}
-                        alt=""
-                        width={640}
-                        height={224}
-                        loading="lazy"
-                        decoding="async"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : null}
-                  </div>
-                  <div className="space-y-2 p-3.5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <h3 className="text-small font-semibold leading-snug text-ink">{school.name}</h3>
-                        {place ? (
-                          <p className="mt-0.5 truncate text-caption text-ink-muted">{place}</p>
-                        ) : null}
-                      </div>
-                      <p
-                        className="shrink-0 text-[22px] font-bold leading-none text-ink"
-                        title={
-                          school.eqaoPercent === null
-                            ? "No EQAO result published"
-                            : school.eqaoLabel
-                        }
-                      >
-                        {score}
-                      </p>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="text-small font-semibold leading-snug text-ink">{school.name}</h3>
+                      {place ? (
+                        <p className="mt-0.5 truncate text-caption text-ink-muted">{place}</p>
+                      ) : null}
                     </div>
-                    {homesHref ? (
-                      <Link href={homesHref} className="inline-block text-caption font-medium text-navy hover:underline">
-                        Homes within 2 km →
-                      </Link>
-                    ) : null}
+                    <p
+                      className="shrink-0 text-[22px] font-bold leading-none text-ink"
+                      title={
+                        school.eqaoPercent === null
+                          ? "No EQAO result published"
+                          : school.eqaoLabel
+                      }
+                    >
+                      {score}
+                    </p>
                   </div>
+                  {homesHref ? (
+                    <Link
+                      href={homesHref}
+                      className="mt-3 inline-block text-caption font-medium text-navy hover:underline"
+                    >
+                      Homes within 2 km →
+                    </Link>
+                  ) : null}
                 </article>
               );
             })}
@@ -116,7 +100,7 @@ export function TopRatedSchools({
               <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer" className="underline">
                 Open Government Licence – Ontario
               </a>
-              . Map tiles show each school&apos;s location.
+              .
             </p>
             <Link
               href="/schools"
