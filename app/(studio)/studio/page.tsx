@@ -26,12 +26,11 @@ export default async function StudioPostsPage() {
 
   return (
     <StudioPage
-      kicker="Editorial"
       title="Blog posts"
-      description="Write an article, save it as a draft, then publish when it should appear on the public blog."
-      actions={
+      description="Drafts stay private until you publish."
+      toolbar={
         <LinkButton href="/studio/new" size="sm">
-          New post
+          + New post
         </LinkButton>
       }
     >

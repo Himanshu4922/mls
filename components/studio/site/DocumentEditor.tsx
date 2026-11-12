@@ -143,10 +143,9 @@ export function DocumentEditor({
   return (
     <div className="space-y-6">
       <StudioPage
-        kicker="Public site"
         title={title}
         description={lede}
-        actions={
+        toolbar={
           <>
             <Button type="button" variant="secondary" size="sm" aria-haspopup="dialog" aria-expanded={previewOpen} onClick={() => setPreviewOpen(true)}>
               Open preview
@@ -185,7 +184,7 @@ export function DocumentEditor({
       <div className="min-w-0">{children(draft, setDraft, errors, setPreviewExtra, () => setPreviewOpen(true))}</div>
       <PreviewFrame payload={previewOf(draft, previewExtra)} open={previewOpen} onClose={() => setPreviewOpen(false)} />
       {revisions.length > 0 && (
-        <section className="rounded-surface border border-line bg-surface p-5 sm:p-6">
+        <section className="border border-line bg-surface p-5 sm:p-6">
           <h2 className="text-h3 text-ink">Bring back an older version</h2>
           <p className="mt-1 text-small text-ink-muted">This copies that version into your draft. Visitors do not see it until you publish.</p>
           <ul className="mt-4 divide-y divide-line">

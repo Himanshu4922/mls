@@ -2,10 +2,17 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { StudioEmpty, StudioSegment, segmentItem, studioTableWrap } from "@/components/studio/chrome";
+import {
+  StudioEmpty,
+  studioFilter,
+  studioSearch,
+  studioTable,
+  studioTableWrap,
+  studioTd,
+  studioTh,
+} from "@/components/studio/chrome";
 import { LinkButton } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialogs";
-import { SearchInput } from "@/components/ui/Field";
 import type { StudioPost } from "@/lib/api/studio";
 import { useDeletePost } from "@/lib/queries/studio";
 import { cn } from "@/lib/utils/cn";
@@ -77,28 +84,26 @@ export function PostListTable({ posts }: { posts: StudioPost[] }) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-3">
-        <StudioSegment label="Filter posts">
-          {(["all", "published", "scheduled", "draft"] as StatusFilter[]).map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setFilter(value)}
-              aria-pressed={filter === value}
-              className={cn(segmentItem(filter === value), "capitalize")}
-            >
-              {value} {counts[value]}
-            </button>
-          ))}
-        </StudioSegment>
-
-        <SearchInput
-          label="Search posts by title"
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <select
+          aria-label="Filter by status"
+          value={filter}
+          onChange={(event) => setFilter(event.target.value as StatusFilter)}
+          className={studioFilter}
+        >
+          <option value="all">All statuses ({counts.all})</option>
+          <option value="published">Published ({counts.published})</option>
+          <option value="scheduled">Scheduled ({counts.scheduled})</option>
+          <option value="draft">Draft ({counts.draft})</option>
+        </select>
+        <input
+          type="search"
           value={search}
-          onValueChange={setSearch}
+          onChange={(event) => setSearch(event.target.value)}
           placeholder="Search titles…"
-          className="ml-auto flex-1 sm:max-w-xs"
+          aria-label="Search posts by title"
+          className={studioSearch}
         />
       </div>
 
@@ -106,38 +111,46 @@ export function PostListTable({ posts }: { posts: StudioPost[] }) {
         <StudioEmpty title="No posts match">Try another status, or clear the search.</StudioEmpty>
       ) : (
         <div className={studioTableWrap}>
-          <table className="w-full min-w-[46rem] border-collapse text-small">
+          <table className={cn(studioTable, "min-w-[46rem]")}>
             <thead>
-              <tr className="border-b border-line text-left text-caption text-ink-muted">
-                <th scope="col" className="px-4 py-3 font-medium">Title</th>
-                <th scope="col" className="px-4 py-3 font-medium">Status</th>
-                <th scope="col" className="px-4 py-3 font-medium">Category</th>
-                <th scope="col" className="px-4 py-3 font-medium">Updated</th>
-                <th scope="col" className="px-4 py-3 font-medium">
+              <tr>
+                <th scope="col" className={studioTh}>
+                  Title
+                </th>
+                <th scope="col" className={studioTh}>
+                  Status
+                </th>
+                <th scope="col" className={studioTh}>
+                  Category
+                </th>
+                <th scope="col" className={studioTh}>
+                  Updated
+                </th>
+                <th scope="col" className={studioTh}>
                   <span className="sr-only">Actions</span>
                 </th>
               </tr>
             </thead>
             <tbody>
               {visible.map((post) => (
-                <tr key={post.id} className="border-b border-line/60 last:border-0">
-                  <td className="px-4 py-3">
+                <tr key={post.id}>
+                  <td className={studioTd}>
                     <Link
                       href={`/studio/${encodeURIComponent(post.slug)}`}
-                      className="font-medium text-ink hover:text-navy"
+                      className="studio-cell-title hover:text-navy"
                     >
                       {post.title || "(untitled)"}
                     </Link>
-                    <p className="mt-0.5 text-caption text-ink-subtle">/{post.slug}</p>
+                    <p className="studio-cell-meta">/{post.slug}</p>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className={studioTd}>
                     <StatusPill post={post} />
                   </td>
-                  <td className="px-4 py-3 text-ink-muted">{post.categoryName ?? "—"}</td>
-                  <td className="px-4 py-3 text-ink-muted">
+                  <td className={cn(studioTd, "text-ink-muted")}>{post.categoryName ?? "—"}</td>
+                  <td className={cn(studioTd, "text-ink-muted")}>
                     {post.updatedAt ? formatDate(post.updatedAt) : "—"}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className={studioTd}>
                     <div className="flex justify-end gap-3 text-caption">
                       <Link
                         href={`/studio/${encodeURIComponent(post.slug)}/preview`}
@@ -203,10 +216,10 @@ function StatusPill({ post }: { post: StudioPost }) {
   return (
     <span
       className={cn(
-        "inline-block rounded-full px-2.5 py-0.5 text-caption font-medium",
-        scheduled && "bg-gold-soft text-ink",
-        !scheduled && post.status === "published" && "bg-positive/15 text-positive",
-        post.status === "draft" && "bg-surface-alt text-ink-muted",
+        "inline-block text-caption font-medium",
+        scheduled && "text-gold-deep",
+        !scheduled && post.status === "published" && "text-positive",
+        post.status === "draft" && "text-ink-muted",
       )}
     >
       {label}

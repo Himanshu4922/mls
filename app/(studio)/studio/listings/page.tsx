@@ -5,10 +5,12 @@ import {
   StudioAlert,
   StudioEmpty,
   StudioPage,
-  StudioSegment,
-  segmentItem,
+  studioFilter,
   studioSearch,
+  studioTable,
   studioTableWrap,
+  studioTd,
+  studioTh,
 } from "@/components/studio/chrome";
 import { ListingStatusPill } from "@/components/studio/StudioPills";
 import { LinkButton } from "@/components/ui/Button";
@@ -20,6 +22,7 @@ import {
 } from "@/lib/api/estateListings";
 import { requireStudioAccess } from "@/lib/auth/session";
 import { estateListingPath } from "@/lib/seo/urls";
+import { cn } from "@/lib/utils/cn";
 import { formatPrice } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "Brokerage listings" };
@@ -70,47 +73,45 @@ export default async function StudioListingsPage({
 
   return (
     <StudioPage
-      kicker="Listings"
       title="Brokerage listings"
-      description="Add and edit homes your team lists yourself — exclusive inventory outside the MLS® feed. Pre-construction projects stay under Pre-construction."
-      actions={
-        <LinkButton href="/studio/listings/new" size="sm">
-          New listing
-        </LinkButton>
+      description="Exclusive inventory outside the MLS® feed."
+      toolbar={
+        <>
+          <form action="/studio/listings" className="flex flex-wrap items-center gap-2">
+            <select
+              name="status"
+              defaultValue={status}
+              aria-label="Filter by visibility"
+              className={studioFilter}
+            >
+              <option value="">All statuses</option>
+              {LISTING_PUBLISH_STATUSES.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <input
+              type="search"
+              name="q"
+              defaultValue={q}
+              placeholder="Address, title, city, or key"
+              aria-label="Search listings"
+              className={studioSearch}
+            />
+            <button
+              type="submit"
+              className="h-9 rounded-control border border-line bg-surface px-3 text-caption font-medium text-ink hover:border-navy"
+            >
+              Search
+            </button>
+          </form>
+          <LinkButton href="/studio/listings/new" size="sm">
+            + New listing
+          </LinkButton>
+        </>
       }
     >
-      <div className="flex flex-wrap items-center gap-3">
-        <StudioSegment label="Filter by visibility">
-          {[{ value: "", label: "All" }, ...LISTING_PUBLISH_STATUSES].map((option) => (
-            <Link
-              key={option.value || "all"}
-              href={listHref({ q, status: option.value })}
-              aria-current={status === option.value ? "page" : undefined}
-              className={segmentItem(status === option.value)}
-            >
-              {option.label}
-            </Link>
-          ))}
-        </StudioSegment>
-        <form action="/studio/listings" className="ml-auto flex w-full gap-2 sm:w-auto">
-          {status && <input type="hidden" name="status" value={status} />}
-          <input
-            type="search"
-            name="q"
-            defaultValue={q}
-            placeholder="Address, title, city, or key"
-            aria-label="Search listings"
-            className={studioSearch}
-          />
-          <button
-            type="submit"
-            className="h-10 rounded-control border border-line bg-surface px-3 text-small font-medium text-ink shadow-card hover:border-navy"
-          >
-            Search
-          </button>
-        </form>
-      </div>
-
       {error ? (
         <StudioAlert>{error}</StudioAlert>
       ) : listings.length === 0 ? (
@@ -131,62 +132,60 @@ export default async function StudioListingsPage({
       ) : (
         <>
           <div className={studioTableWrap}>
-            <table className="w-full min-w-[720px] text-left text-small">
-              <thead className="border-b border-line bg-surface-alt text-caption font-medium text-ink-muted">
+            <table className={cn(studioTable, "min-w-[720px]")}>
+              <thead>
                 <tr>
-                  <th scope="col" className="px-4 py-3 font-medium">
+                  <th scope="col" className={studioTh}>
                     Listing
                   </th>
-                  <th scope="col" className="px-4 py-3 font-medium">
+                  <th scope="col" className={studioTh}>
                     Price
                   </th>
-                  <th scope="col" className="px-4 py-3 font-medium">
+                  <th scope="col" className={studioTh}>
                     Status
                   </th>
-                  <th scope="col" className="px-4 py-3 font-medium">
+                  <th scope="col" className={studioTh}>
                     Visibility
                   </th>
-                  <th scope="col" className="px-4 py-3 font-medium">
+                  <th scope="col" className={studioTh}>
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-line">
+              <tbody>
                 {listings.map((row) => (
-                  <tr key={row.id} className="align-top">
-                    <td className="px-4 py-3">
+                  <tr key={row.id}>
+                    <td className={studioTd}>
                       <div className="flex gap-3">
-                        <div className="h-14 w-20 shrink-0 overflow-hidden rounded-control bg-surface-alt">
+                        <div className="h-10 w-14 shrink-0 overflow-hidden rounded-md bg-surface-alt">
                           {row.image ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={row.image} alt="" className="h-full w-full object-cover" />
                           ) : null}
                         </div>
                         <div className="min-w-0">
-                          <Link href={`/studio/listings/${row.id}`} className="font-medium text-ink hover:text-navy">
+                          <Link href={`/studio/listings/${row.id}`} className="studio-cell-title hover:text-navy">
                             {row.title}
                           </Link>
-                          <p className="mt-0.5 text-caption text-ink-muted">
+                          <p className="studio-cell-meta">
                             {[row.address, row.city].filter(Boolean).join(", ") || row.listingKey}
+                            {row.propertyType ? ` · ${row.propertyType}` : ""}
                           </p>
-                          {row.propertyType ? (
-                            <p className="mt-0.5 text-caption text-ink-subtle">{row.propertyType}</p>
-                          ) : null}
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-ink">
+                    <td className={cn(studioTd, "whitespace-nowrap text-ink")}>
                       {row.listPrice !== null ? formatPrice(row.listPrice) : "—"}
                     </td>
-                    <td className="px-4 py-3 text-ink-muted">{row.standardStatus || "—"}</td>
-                    <td className="px-4 py-3">
+                    <td className={cn(studioTd, "text-ink-muted")}>{row.standardStatus || "—"}</td>
+                    <td className={studioTd}>
                       <ListingStatusPill status={row.publishStatus} />
                       {row.isFeatured ? (
-                        <span className="mt-1 block text-caption text-navy">Featured</span>
+                        <span className="mt-0.5 block text-caption text-navy">Featured</span>
                       ) : null}
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex flex-wrap justify-end gap-3">
+                    <td className={studioTd}>
+                      <div className="flex flex-wrap justify-end gap-3 text-caption">
                         <Link href={`/studio/listings/${row.id}`} className="text-ink-muted hover:text-navy">
                           Edit
                         </Link>

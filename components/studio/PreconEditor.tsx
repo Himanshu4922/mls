@@ -598,7 +598,7 @@ export function PreconEditor({ project }: { project: StudioPrecon | null }) {
 
 function Panel({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (
-    <section className="space-y-4 rounded-surface border border-line bg-surface p-5">
+    <section className="space-y-4 border border-line bg-surface p-5">
       <div>
         <h2 className="text-h3 text-ink">{title}</h2>
         {description && <p className="mt-1 text-caption text-ink-muted">{description}</p>}

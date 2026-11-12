@@ -157,7 +157,7 @@ export function ConnectionsEditor({ initial }: { initial: ConnectionDocument }) 
 
   return (
     <form
-      className="overflow-hidden rounded-surface border border-line bg-surface shadow-card"
+      className="overflow-hidden border border-line bg-surface"
       onSubmit={(event) => {
         event.preventDefault();
         void persist(draft);

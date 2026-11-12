@@ -1,6 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import {
+  studioFilter,
+  studioTable,
+  studioTableWrap,
+  studioTd,
+  studioTh,
+} from "@/components/studio/chrome";
 import { ConfirmDialog } from "@/components/ui/Dialogs";
 import { LinkButton } from "@/components/ui/Button";
 import { teamRoleOf, type TeamMember, type TeamRole } from "@/lib/api/studio";
@@ -8,6 +15,7 @@ import {
   useRevokeStudioAccess,
   useUpdateStudioRole,
 } from "@/lib/queries/studio";
+import { cn } from "@/lib/utils/cn";
 import { formatDate } from "@/lib/utils/format";
 
 const ROLE_LABEL: Record<TeamRole, string> = {
@@ -72,36 +80,35 @@ export function TeamManager({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-small text-ink-muted">
-          Change access on this page. Use Add team member when someone new needs Studio access.
-        </p>
-        <LinkButton href="/studio/team/new" variant="primary" size="sm">
-          Add team member
-        </LinkButton>
-      </div>
-
+    <div className="space-y-3">
       {error && (
-        <p role="alert" className="rounded-control border border-negative/40 bg-surface px-4 py-2.5 text-small text-ink">
+        <p role="alert" className="rounded-control border border-negative/40 bg-surface px-3.5 py-2.5 text-small text-ink">
           {error}
         </p>
       )}
       {notice && (
-        <p role="status" className="rounded-control border border-positive/40 bg-surface px-4 py-2.5 text-small text-ink">
+        <p role="status" className="rounded-control border border-positive/40 bg-surface px-3.5 py-2.5 text-small text-ink">
           {notice}
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-surface border border-line bg-surface shadow-card">
-        <table className="w-full min-w-[40rem] border-collapse text-small">
+      <div className={studioTableWrap}>
+        <table className={cn(studioTable, "min-w-[40rem]")}>
           <thead>
-            <tr className="border-b border-line text-left text-caption text-ink-muted">
-              <th scope="col" className="px-4 py-3 font-medium">Name</th>
-              <th scope="col" className="px-4 py-3 font-medium">Email</th>
-              <th scope="col" className="px-4 py-3 font-medium">Access</th>
-              <th scope="col" className="px-4 py-3 font-medium">Joined</th>
-              <th scope="col" className="px-4 py-3 font-medium">
+            <tr>
+              <th scope="col" className={studioTh}>
+                Name
+              </th>
+              <th scope="col" className={studioTh}>
+                Email
+              </th>
+              <th scope="col" className={studioTh}>
+                Access
+              </th>
+              <th scope="col" className={studioTh}>
+                Joined
+              </th>
+              <th scope="col" className={studioTh}>
                 <span className="sr-only">Actions</span>
               </th>
             </tr>
@@ -109,7 +116,7 @@ export function TeamManager({
           <tbody>
             {members.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-ink-muted">
+                <td colSpan={5} className={cn(studioTd, "py-8 text-center text-ink-muted")}>
                   No team members yet.{" "}
                   <LinkButton href="/studio/team/new" variant="secondary" size="sm" className="ml-1 align-middle">
                     Add team member
@@ -121,15 +128,13 @@ export function TeamManager({
                 const self = member.id === currentUserId;
                 const currentRole = teamRoleOf(member);
                 return (
-                  <tr key={member.id} className="border-b border-line/60 last:border-0">
-                    <td className="px-4 py-3 text-ink">
-                      {member.name}
-                      {self && (
-                        <span className="ml-2 text-caption text-ink-subtle">(you)</span>
-                      )}
+                  <tr key={member.id}>
+                    <td className={studioTd}>
+                      <span className="studio-cell-title">{member.name}</span>
+                      {self ? <span className="studio-cell-meta">(you)</span> : null}
                     </td>
-                    <td className="px-4 py-3 text-ink-muted">{member.email}</td>
-                    <td className="px-4 py-3">
+                    <td className={cn(studioTd, "text-ink-muted")}>{member.email}</td>
+                    <td className={studioTd}>
                       {self ? (
                         <span className="text-ink-muted">{ROLE_LABEL[currentRole]}</span>
                       ) : (
@@ -138,32 +143,34 @@ export function TeamManager({
                           value={currentRole}
                           disabled={busy}
                           onChange={(event) => void changeRole(member, event.target.value as TeamRole)}
-                          className="rounded-control border border-line bg-surface px-2 py-1.5 text-small text-ink disabled:opacity-60"
+                          className={cn(studioFilter, "disabled:opacity-60")}
                         >
                           <option value="author">Writer — blog only</option>
                           <option value="admin">Administrator — full Studio</option>
                         </select>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-ink-muted">
+                    <td className={cn(studioTd, "text-ink-muted")}>
                       {member.dateJoined ? formatDate(member.dateJoined) : "—"}
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      {self ? (
-                        <span className="text-caption text-ink-subtle">—</span>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => {
-                            setRevokeError(null);
-                            setPendingRevoke(member);
-                          }}
-                          className="text-caption text-negative hover:underline disabled:opacity-60"
-                        >
-                          Remove
-                        </button>
-                      )}
+                    <td className={studioTd}>
+                      <div className="text-right">
+                        {self ? (
+                          <span className="text-caption text-ink-subtle">—</span>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => {
+                              setRevokeError(null);
+                              setPendingRevoke(member);
+                            }}
+                            className="text-caption text-negative hover:underline disabled:opacity-60"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

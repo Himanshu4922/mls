@@ -32,12 +32,11 @@ export function TeamInviteForm() {
     <div className="space-y-4">
       <StudioBack href="/studio/team">Back to team</StudioBack>
       <StudioPage
-        kicker="Workspace"
         title="Add team member"
         description="They need an account on the site first. Ask them to sign up, then enter the same email here and choose their access level."
       >
         {error ? <StudioAlert>{error}</StudioAlert> : null}
-        <form onSubmit={grant} className="max-w-xl space-y-4 rounded-surface border border-line bg-surface p-5 shadow-card">
+        <form onSubmit={grant} className="max-w-xl space-y-4 border border-line bg-surface p-5">
           <label htmlFor="team-email" className="block text-small font-medium text-ink">
             Email
             <input

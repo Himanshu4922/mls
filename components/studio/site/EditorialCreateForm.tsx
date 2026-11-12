@@ -103,17 +103,16 @@ export function EditorialCreateForm({ resource }: { resource: EditorialResource 
     <div className="space-y-4">
       <StudioBack href={config.listHref}>Back to {config.title.toLowerCase()}</StudioBack>
       <StudioPage
-        kicker="Editorial"
         title={config.createTitle}
         description={config.createLede}
-        actions={
+        toolbar={
           <Button type="button" variant="primary" size="sm" disabled={busy || uploading} onClick={() => void submit()}>
             {busy ? "Creating…" : "Create"}
           </Button>
         }
       >
         {error ? <StudioAlert>{error}</StudioAlert> : null}
-        <div className="rounded-surface border border-line bg-surface p-5 shadow-card sm:p-6">
+        <div className="border border-line bg-surface p-5 sm:p-6">
           <EditorialFields
             resource={resource}
             fields={config.fields}

@@ -1,7 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { StudioAlert, StudioEmpty, StudioPage, StudioSegment, segmentItem, studioSearch, studioTableWrap } from "@/components/studio/chrome";
+import {
+  StudioAlert,
+  StudioEmpty,
+  StudioPage,
+  studioFilter,
+  studioSearch,
+  studioTable,
+  studioTableWrap,
+  studioTd,
+  studioTh,
+} from "@/components/studio/chrome";
 import { PreconBulkUpload } from "@/components/studio/PreconBulkUpload";
 import { PreconStatusPill } from "@/components/studio/StudioPills";
 import { LinkButton } from "@/components/ui/Button";
@@ -10,6 +20,7 @@ import { salesStageLabel } from "@/lib/api/preconstruction";
 import { listStudioPrecon, PRECON_STATUSES, type StudioPreconSummary } from "@/lib/api/studioAdmin";
 import { requireStudioAccess } from "@/lib/auth/session";
 import { preconPath } from "@/lib/seo/urls";
+import { cn } from "@/lib/utils/cn";
 import { formatDate, formatPrice } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "Pre-con projects" };
@@ -51,46 +62,41 @@ export default async function StudioPreconPage({ searchParams }: PageProps<"/stu
 
   return (
     <StudioPage
-      kicker="Listings"
       title="Pre-construction"
-      description="Create and edit projects, their photos, documents, and sales stage. Import a spreadsheet when you have a batch."
-      actions={
-        <LinkButton href="/studio/precon/new" size="sm">
-          New project
-        </LinkButton>
+      description="Projects, photos, documents, and sales stage."
+      toolbar={
+        <>
+          <form action="/studio/precon" className="flex flex-wrap items-center gap-2">
+            <select name="status" defaultValue={status} aria-label="Filter by status" className={studioFilter}>
+              <option value="">All statuses</option>
+              {PRECON_STATUSES.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <input
+              type="search"
+              name="q"
+              defaultValue={q}
+              placeholder="Name, address, developer, or ID"
+              aria-label="Search projects"
+              className={studioSearch}
+            />
+            <button
+              type="submit"
+              className="h-9 rounded-control border border-line bg-surface px-3 text-caption font-medium text-ink hover:border-navy"
+            >
+              Search
+            </button>
+          </form>
+          <LinkButton href="/studio/precon/new" size="sm">
+            + New project
+          </LinkButton>
+        </>
       }
     >
       <PreconBulkUpload />
-
-      <div className="flex flex-wrap items-center gap-3">
-        <StudioSegment label="Filter by status">
-          {[{ value: "", label: "All" }, ...PRECON_STATUSES].map((option) => (
-            <Link
-              key={option.value || "all"}
-              href={listHref({ q, status: option.value })}
-              aria-current={status === option.value ? "page" : undefined}
-              className={segmentItem(status === option.value)}
-            >
-              {option.label}
-            </Link>
-          ))}
-        </StudioSegment>
-        {/* A plain GET form: search works before hydration and stays in the URL. */}
-        <form action="/studio/precon" className="ml-auto flex w-full gap-2 sm:w-auto">
-          {status && <input type="hidden" name="status" value={status} />}
-          <input
-            type="search"
-            name="q"
-            defaultValue={q}
-            placeholder="Name, address, developer, or ID"
-            aria-label="Search projects"
-            className={studioSearch}
-          />
-          <button type="submit" className="h-10 rounded-control border border-line bg-surface px-3 text-small font-medium text-ink shadow-card hover:border-navy">
-            Search
-          </button>
-        </form>
-      </div>
 
       {error ? (
         <StudioAlert>{error}</StudioAlert>
@@ -104,58 +110,86 @@ export default async function StudioPreconPage({ searchParams }: PageProps<"/stu
             {count.toLocaleString("en-CA")} {count === 1 ? "project" : "projects"}
           </p>
           <div className={studioTableWrap}>
-            <table className="w-full min-w-[52rem] border-collapse text-small">
+            <table className={cn(studioTable, "min-w-[52rem]")}>
               <thead>
-                <tr className="border-b border-line text-left text-caption text-ink-muted">
-                  <th scope="col" className="px-4 py-3 font-medium">Project</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Status</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Sales stage</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Price</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Assignments</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Published</th>
-                  <th scope="col" className="px-4 py-3 font-medium">
+                <tr>
+                  <th scope="col" className={studioTh}>
+                    Project
+                  </th>
+                  <th scope="col" className={studioTh}>
+                    Status
+                  </th>
+                  <th scope="col" className={studioTh}>
+                    Sales stage
+                  </th>
+                  <th scope="col" className={studioTh}>
+                    Price
+                  </th>
+                  <th scope="col" className={studioTh}>
+                    Assignments
+                  </th>
+                  <th scope="col" className={studioTh}>
+                    Published
+                  </th>
+                  <th scope="col" className={studioTh}>
                     <span className="sr-only">Actions</span>
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {projects.map((project) => (
-                  <tr key={project.id} className="border-b border-line/60 last:border-0">
-                    <td className="px-4 py-3">
+                  <tr key={project.id}>
+                    <td className={studioTd}>
                       <div className="flex items-center gap-3">
                         {project.image ? (
                           // Studio thumbnails: plain img, no optimizer config needed for CMS hosts.
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={project.image} alt="" className="h-10 w-14 shrink-0 rounded-control object-cover" loading="lazy" />
+                          <img
+                            src={project.image}
+                            alt=""
+                            className="h-10 w-14 shrink-0 rounded-md object-cover"
+                            loading="lazy"
+                          />
                         ) : (
-                          <span className="h-10 w-14 shrink-0 rounded-control bg-surface-alt" aria-hidden="true" />
+                          <span className="h-10 w-14 shrink-0 rounded-md bg-surface-alt" aria-hidden="true" />
                         )}
                         <div className="min-w-0">
-                          <Link href={`/studio/precon/${project.id}`} className="font-medium text-ink hover:text-navy">
+                          <Link href={`/studio/precon/${project.id}`} className="studio-cell-title hover:text-navy">
                             {project.title}
                           </Link>
-                          <p className="mt-0.5 truncate text-caption text-ink-subtle">
+                          <p className="studio-cell-meta">
                             #{project.id}
                             {project.developer ? ` · ${project.developer}` : ""}
-                            {project.isFeatured ? ` · Featured${project.featuredOrder ? ` #${project.featuredOrder}` : ""}` : ""}
+                            {project.isFeatured
+                              ? ` · Featured${project.featuredOrder ? ` #${project.featuredOrder}` : ""}`
+                              : ""}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className={studioTd}>
                       <PreconStatusPill status={project.status} />
                     </td>
-                    <td className="px-4 py-3 text-ink-muted">{salesStageLabel(project.salesStage) ?? "—"}</td>
-                    <td className="px-4 py-3 text-ink-muted">{project.price ? formatPrice(project.price) : "—"}</td>
-                    <td className="px-4 py-3 text-ink-muted">{project.assignmentCount || "—"}</td>
-                    <td className="px-4 py-3 text-ink-muted">{project.publishedAt ? formatDate(project.publishedAt) : "—"}</td>
-                    <td className="px-4 py-3">
+                    <td className={cn(studioTd, "text-ink-muted")}>
+                      {salesStageLabel(project.salesStage) ?? "—"}
+                    </td>
+                    <td className={cn(studioTd, "text-ink-muted")}>
+                      {project.price ? formatPrice(project.price) : "—"}
+                    </td>
+                    <td className={cn(studioTd, "text-ink-muted")}>{project.assignmentCount || "—"}</td>
+                    <td className={cn(studioTd, "text-ink-muted")}>
+                      {project.publishedAt ? formatDate(project.publishedAt) : "—"}
+                    </td>
+                    <td className={studioTd}>
                       <div className="flex justify-end gap-3 text-caption">
                         <Link href={`/studio/precon/${project.id}`} className="text-ink-muted hover:text-navy">
                           Edit
                         </Link>
                         {project.status === "publish" && (
-                          <Link href={preconPath(project.id, project.slug || project.title)} className="text-ink-muted hover:text-navy">
+                          <Link
+                            href={preconPath(project.id, project.slug || project.title)}
+                            className="text-ink-muted hover:text-navy"
+                          >
                             View
                           </Link>
                         )}

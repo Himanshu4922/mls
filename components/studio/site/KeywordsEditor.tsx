@@ -166,13 +166,12 @@ function KeywordsForm({
     <div className="space-y-4">
       {errors.pages ? <p className="text-small text-red-700">{errors.pages}</p> : null}
       {!creating ? (
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-small text-ink-muted">
-            {pages.length} search{pages.length === 1 ? "" : "es"}. Disabled rows stay in the draft but
-            do not appear on the public site. Open a row to edit it here.
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <p className="mr-auto text-caption text-ink-muted">
+            {pages.length} search{pages.length === 1 ? "" : "es"}. Disabled rows stay in the draft.
           </p>
           <LinkButton href="/studio/keywords/new" variant="primary" size="sm">
-            Add search
+            + Add search
           </LinkButton>
         </div>
       ) : (
@@ -182,14 +181,14 @@ function KeywordsForm({
       )}
 
       {pages.length === 0 ? (
-        <p className="rounded-control border border-dashed border-line px-4 py-8 text-center text-small text-ink-muted">
+        <p className="border border-dashed border-line px-4 py-8 text-center text-small text-ink-muted">
           No searches yet.{" "}
           <LinkButton href="/studio/keywords/new" variant="secondary" size="sm" className="ml-1 align-middle">
             Add search
           </LinkButton>
         </p>
       ) : (
-        <ul className="space-y-3">
+        <ul className="divide-y divide-line border border-line bg-surface">
           {visibleIndexes.map((index) => {
             const page = pages[index];
             if (!page) return null;
@@ -201,22 +200,17 @@ function KeywordsForm({
             return (
               <li
                 key={`${page.slug || "new"}-${index}`}
-                className={cn(
-                  "overflow-hidden rounded-surface border border-line bg-surface shadow-card",
-                  page.enabled === false && "opacity-70",
-                )}
+                className={cn(page.enabled === false && "opacity-70")}
               >
                 {!creating ? (
-                  <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-2 px-3.5 py-2.5">
                     <button
                       type="button"
                       className="min-w-0 flex-1 text-left"
                       onClick={() => setOpenIndex(open ? null : index)}
                     >
-                      <span className="block truncate text-small font-medium text-ink">
-                        {page.label || "Untitled search"}
-                      </span>
-                      <span className="block truncate text-caption text-ink-muted">
+                      <span className="studio-cell-title">{page.label || "Untitled search"}</span>
+                      <span className="studio-cell-meta">
                         {page.group}
                         {page.slug ? ` · /homes/${page.slug}` : ""}
                         {pinCount > 0 ? ` · ${pinCount} MLS® pin${pinCount === 1 ? "" : "s"}` : " · filter search"}
@@ -224,12 +218,13 @@ function KeywordsForm({
                       </span>
                     </button>
                     <div className="flex shrink-0 items-center gap-1">
-                      <Button type="button" variant="ghost" disabled={index === 0} onClick={() => move(index, -1)}>
+                      <Button type="button" variant="ghost" size="sm" disabled={index === 0} onClick={() => move(index, -1)}>
                         Up
                       </Button>
                       <Button
                         type="button"
                         variant="ghost"
+                        size="sm"
                         disabled={index === pages.length - 1}
                         onClick={() => move(index, 1)}
                       >
@@ -238,11 +233,12 @@ function KeywordsForm({
                       <Button
                         type="button"
                         variant={open ? "secondary" : "ghost"}
+                        size="sm"
                         onClick={() => setOpenIndex(open ? null : index)}
                       >
                         {open ? "Close" : "Edit"}
                       </Button>
-                      <Button type="button" variant="ghost" onClick={() => removePage(index)}>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => removePage(index)}>
                         Remove
                       </Button>
                     </div>
@@ -250,7 +246,7 @@ function KeywordsForm({
                 ) : null}
 
                 {open ? (
-                  <div className="grid gap-4 p-4 sm:grid-cols-2">
+                  <div className={cn("grid gap-4 p-4 sm:grid-cols-2", !creating && "border-t border-line bg-surface-alt/40")}>
                     <TextControl
                       label="Chip label"
                       value={page.label}

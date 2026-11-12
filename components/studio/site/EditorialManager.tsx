@@ -1,9 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { StudioAlert, StudioEmpty, StudioPage } from "@/components/studio/chrome";
+import {
+  StudioAlert,
+  StudioEmpty,
+  StudioPage,
+  studioTable,
+  studioTableWrap,
+  studioTd,
+  studioTh,
+} from "@/components/studio/chrome";
 import { EditorialFields } from "@/components/studio/site/EditorialFields";
 import {
   buildSaveBody,
@@ -16,6 +24,7 @@ import { EditorialListSkeleton } from "@/components/studio/StudioSkeletons";
 import { useUserKeys } from "@/components/providers/AuthProvider";
 import { fetchJson, HttpError } from "@/lib/queries/fetcher";
 import { useEditorialList, type EditorialBody } from "@/lib/queries/siteStudio";
+import { cn } from "@/lib/utils/cn";
 
 type EditorialRow = {
   /** Stable id used in PATCH/DELETE URLs — never changes while editing. */
@@ -101,7 +110,7 @@ export function EditorialManager({
     if (!createHref) return null;
     return (
       <LinkButton href={createHref} variant="primary" size="sm">
-        Add new
+        + Add new
       </LinkButton>
     );
   }, [createHref]);
@@ -232,10 +241,10 @@ export function EditorialManager({
   if (list.isPending && !list.data) return <EditorialListSkeleton />;
 
   return (
-    <StudioPage kicker="Editorial" title={title} description={lede} actions={createAction}>
+    <StudioPage title={title} description={lede} toolbar={createAction}>
       {error && <StudioAlert>{error}</StudioAlert>}
       {notice && (
-        <p role="status" className="rounded-control border border-positive/40 bg-surface px-4 py-2.5 text-small text-ink">
+        <p role="status" className="rounded-control border border-positive/40 bg-surface px-3.5 py-2.5 text-small text-ink">
           {notice}
         </p>
       )}
@@ -253,79 +262,102 @@ export function EditorialManager({
           Create the first item on its own page, then come back here to edit anytime.
         </StudioEmpty>
       ) : (
-        <ul className="space-y-3">
-          {items.map((item) => {
-            const row = item.data;
-            const heading = editorialHeading(row);
-            const dirty = dirtyIds.has(item.saveId);
-            const open = openId === item.saveId;
-            return (
-              <li key={item.saveId || heading} className="overflow-hidden rounded-surface border border-line bg-surface shadow-card">
-                <div className="flex flex-wrap items-center gap-3 border-b border-line bg-navy-tint/40 px-4 py-3 sm:px-5">
-                  <button
-                    type="button"
-                    className="min-w-0 flex-1 text-left"
-                    aria-expanded={open}
-                    onClick={() => setOpenId(open ? null : item.saveId)}
-                  >
-                    <span className="block truncate text-h3 text-ink">{heading}</span>
-                    <span className="mt-0.5 block truncate text-caption text-ink-muted">
-                      {summaryLine(resource, row)}
-                      {dirty ? " · Unsaved changes" : ""}
-                    </span>
-                  </button>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Button
-                      type="button"
-                      variant={open ? "secondary" : "ghost"}
-                      size="sm"
-                      onClick={() => setOpenId(open ? null : item.saveId)}
-                    >
-                      {open ? "Close" : "Edit"}
-                    </Button>
-                  </div>
-                </div>
-                {open ? (
-                  <div className="space-y-4 p-5">
-                    <EditorialFields
-                      resource={resource}
-                      fields={fields}
-                      values={row}
-                      disabled={busy}
-                      uploading={uploadingId === item.saveId}
-                      onChange={(field, value) => patchItem(item.saveId, field, value)}
-                      onUpload={(field, file) => void uploadImage(item, field, file)}
-                    />
-                    <div className="flex flex-wrap gap-2 border-t border-line pt-4">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        disabled={busy || uploadingId === item.saveId}
-                        onClick={() => void save(item)}
-                      >
-                        Save
-                      </Button>
-                      {resource !== "news" ? (
-                        <Button
+        <div className={studioTableWrap}>
+          <table className={cn(studioTable, "min-w-[36rem]")}>
+            <thead>
+              <tr>
+                <th scope="col" className={studioTh}>
+                  Item
+                </th>
+                <th scope="col" className={studioTh}>
+                  Details
+                </th>
+                <th scope="col" className={studioTh}>
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => {
+                const row = item.data;
+                const heading = editorialHeading(row);
+                const dirty = dirtyIds.has(item.saveId);
+                const open = openId === item.saveId;
+                return (
+                  <Fragment key={item.saveId || heading}>
+                    <tr>
+                      <td className={studioTd}>
+                        <button
                           type="button"
-                          variant="ghost"
-                          disabled={busy}
-                          onClick={() => {
-                            if (window.confirm(`Remove “${heading}”? It will leave the public page.`)) {
-                              void remove(item);
-                            }
-                          }}
+                          className="min-w-0 text-left"
+                          aria-expanded={open}
+                          onClick={() => setOpenId(open ? null : item.saveId)}
                         >
-                          Remove
-                        </Button>
-                      ) : null}
-                    </div>
-                  </div>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
+                          <span className="studio-cell-title hover:text-navy">{heading}</span>
+                          {dirty ? <span className="studio-cell-meta">Unsaved changes</span> : null}
+                        </button>
+                      </td>
+                      <td className={cn(studioTd, "text-ink-muted")}>{summaryLine(resource, row)}</td>
+                      <td className={studioTd}>
+                        <div className="flex justify-end">
+                          <Button
+                            type="button"
+                            variant={open ? "secondary" : "ghost"}
+                            size="sm"
+                            onClick={() => setOpenId(open ? null : item.saveId)}
+                          >
+                            {open ? "Close" : "Edit"}
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                    {open ? (
+                      <tr>
+                        <td colSpan={3} className="border-b border-line/70 bg-surface-alt/40 px-3.5 py-4">
+                          <div className="space-y-4">
+                            <EditorialFields
+                              resource={resource}
+                              fields={fields}
+                              values={row}
+                              disabled={busy}
+                              uploading={uploadingId === item.saveId}
+                              onChange={(field, value) => patchItem(item.saveId, field, value)}
+                              onUpload={(field, file) => void uploadImage(item, field, file)}
+                            />
+                            <div className="flex flex-wrap gap-2 border-t border-line pt-3">
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                disabled={busy || uploadingId === item.saveId}
+                                onClick={() => void save(item)}
+                              >
+                                Save
+                              </Button>
+                              {resource !== "news" ? (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  disabled={busy}
+                                  onClick={() => {
+                                    if (window.confirm(`Remove “${heading}”? It will leave the public page.`)) {
+                                      void remove(item);
+                                    }
+                                  }}
+                                >
+                                  Remove
+                                </Button>
+                              ) : null}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
       {createHref && items.length > 0 ? (
         <p className="text-center text-caption text-ink-muted">

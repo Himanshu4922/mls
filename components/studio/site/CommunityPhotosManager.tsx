@@ -240,88 +240,107 @@ export function CommunityPhotosManager({
 
   return (
     <StudioPage
-      kicker="Editorial"
       title="Community photos"
-      description="Every community tile on the home page and /communities. Change the photo, then Save. Cities without a saved photo currently use the default image shown in the preview."
+      description="Photos for community tiles on the homepage and /communities."
     >
       {error && <StudioAlert>{error}</StudioAlert>}
       {notice && (
-        <p role="status" className="rounded-control border border-positive/40 bg-surface px-4 py-2.5 text-small text-ink">
+        <p role="status" className="rounded-control border border-positive/40 bg-surface px-3.5 py-2.5 text-small text-ink">
           {notice}
         </p>
       )}
-      <ul className="space-y-4">
-        {items.map((row) => {
-          const busy = busyKey === row.cityKey;
-          const uploading = uploadingKey === row.cityKey;
-          return (
-            <li key={row.cityKey} className="overflow-hidden rounded-surface border border-line bg-surface">
-              <div className="border-b border-line bg-navy-tint/60 px-5 py-3">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 className="text-h3 text-ink">{row.cityLabel}</h2>
-                  <span className="text-caption text-ink-muted">
-                    {row.dirty ? "Unsaved changes" : row.exists ? "Saved photo" : "Using default photo"}
-                  </span>
-                </div>
-                <p className="mt-0.5 text-caption text-ink-muted">City key: {row.cityKey}</p>
-              </div>
-              <div className="grid gap-5 p-5 lg:grid-cols-[12rem_1fr]">
-                <div className="overflow-hidden rounded-control bg-surface-alt">
-                  {row.imageUrl || row.fallbackUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- admin preview of arbitrary CMS / sample URLs
-                    <img
-                      src={row.imageUrl || row.fallbackUrl}
-                      alt=""
-                      className="h-40 w-full object-cover lg:h-full lg:min-h-40"
-                    />
-                  ) : (
-                    <div className="grid h-40 place-items-center text-caption text-ink-muted lg:min-h-40">No photo</div>
-                  )}
-                </div>
-                <div className="space-y-4">
-                  <label className="block text-small font-medium text-ink">
-                    Photo link
-                    <Input
-                      className="mt-1.5 font-normal"
-                      value={row.imageUrl}
-                      placeholder="https://…"
-                      onChange={(event) => patch(row.cityKey, { imageUrl: event.target.value })}
-                    />
-                  </label>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="block text-caption text-ink-muted"
-                    disabled={busy || uploading}
-                    onChange={(event) => {
-                      const file = event.target.files?.[0];
-                      event.target.value = "";
-                      if (file) void upload(row, file);
-                    }}
-                  />
-                  {uploading && <p className="text-caption text-ink-muted">Uploading…</p>}
-                  <label className="block text-small font-medium text-ink">
-                    Photo credit
-                    <Input
-                      className="mt-1.5 font-normal"
-                      value={row.credit}
-                      onChange={(event) => patch(row.cityKey, { credit: event.target.value })}
-                    />
-                  </label>
-                  <div className="flex flex-wrap gap-2 border-t border-line pt-4">
-                    <Button type="button" variant="secondary" disabled={busy || uploading} onClick={() => void save(row)}>
-                      Save
-                    </Button>
-                    <Button type="button" variant="ghost" disabled={busy || uploading} onClick={() => void remove(row)}>
-                      {row.exists ? "Remove curated photo" : "Reset preview"}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      <div className="overflow-x-auto border border-line bg-surface">
+        <table className="w-full min-w-[48rem] border-collapse text-left text-small">
+          <thead>
+            <tr>
+              <th scope="col" className="border-b border-line px-3.5 py-2.5 text-caption font-medium text-ink-muted">
+                Community
+              </th>
+              <th scope="col" className="border-b border-line px-3.5 py-2.5 text-caption font-medium text-ink-muted">
+                Photo
+              </th>
+              <th scope="col" className="border-b border-line px-3.5 py-2.5 text-caption font-medium text-ink-muted">
+                Details
+              </th>
+              <th scope="col" className="border-b border-line px-3.5 py-2.5 text-caption font-medium text-ink-muted">
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((row) => {
+              const busy = busyKey === row.cityKey;
+              const uploading = uploadingKey === row.cityKey;
+              return (
+                <tr key={row.cityKey}>
+                  <td className="border-b border-line/70 px-3.5 py-3 align-top">
+                    <span className="studio-cell-title">{row.cityLabel}</span>
+                    <span className="studio-cell-meta">
+                      {row.cityKey}
+                      {" · "}
+                      {row.dirty ? "Unsaved" : row.exists ? "Saved" : "Default"}
+                    </span>
+                  </td>
+                  <td className="border-b border-line/70 px-3.5 py-3 align-top">
+                    <div className="h-16 w-24 overflow-hidden rounded-md bg-surface-alt">
+                      {row.imageUrl || row.fallbackUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- admin preview of arbitrary CMS / sample URLs
+                        <img
+                          src={row.imageUrl || row.fallbackUrl}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="grid h-full place-items-center text-caption text-ink-muted">—</div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="border-b border-line/70 px-3.5 py-3 align-top">
+                    <div className="space-y-2">
+                      <Input
+                        className="h-9 font-normal"
+                        value={row.imageUrl}
+                        placeholder="Photo URL"
+                        aria-label={`Photo link for ${row.cityLabel}`}
+                        onChange={(event) => patch(row.cityKey, { imageUrl: event.target.value })}
+                      />
+                      <Input
+                        className="h-9 font-normal"
+                        value={row.credit}
+                        placeholder="Photo credit"
+                        aria-label={`Photo credit for ${row.cityLabel}`}
+                        onChange={(event) => patch(row.cityKey, { credit: event.target.value })}
+                      />
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="block text-caption text-ink-muted"
+                        disabled={busy || uploading}
+                        onChange={(event) => {
+                          const file = event.target.files?.[0];
+                          event.target.value = "";
+                          if (file) void upload(row, file);
+                        }}
+                      />
+                      {uploading ? <p className="text-caption text-ink-muted">Uploading…</p> : null}
+                    </div>
+                  </td>
+                  <td className="border-b border-line/70 px-3.5 py-3 align-top">
+                    <div className="flex flex-col items-end gap-2">
+                      <Button type="button" variant="secondary" size="sm" disabled={busy || uploading} onClick={() => void save(row)}>
+                        Save
+                      </Button>
+                      <Button type="button" variant="ghost" size="sm" disabled={busy || uploading} onClick={() => void remove(row)}>
+                        {row.exists ? "Remove" : "Reset"}
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </StudioPage>
   );
 }

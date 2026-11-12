@@ -13,6 +13,7 @@ export function StudioPage({
   description,
   meta,
   actions,
+  toolbar,
   note,
   children,
   className,
@@ -22,27 +23,45 @@ export function StudioPage({
   description?: string;
   meta?: ReactNode;
   actions?: ReactNode;
+  /** Filters / search / CTAs aligned with the title (screenshot toolbar). */
+  toolbar?: ReactNode;
   /** Status line that stays with the title, above the page content. */
   note?: ReactNode;
   children?: ReactNode;
   className?: string;
 }) {
+  const showDescription = Boolean(description) && !toolbar;
+
   return (
-    <div className={cn("space-y-6", className)}>
-      <header className="border-b border-line pb-5">
-        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+    <div className={cn("space-y-4", className)}>
+      <header className="border-b border-line pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
           <div className="min-w-0">
-            {kicker ? <p className="text-caption font-medium text-ink-muted">{kicker}</p> : null}
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+            {kicker ? <p className="text-[0.6875rem] font-medium uppercase tracking-wide text-ink-muted">{kicker}</p> : null}
+            <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-1", kicker && "mt-0.5")}>
               <h1 className="text-h1 text-ink">{title}</h1>
               {meta}
             </div>
-            {description ? <p className="mt-1.5 max-w-3xl text-small text-ink-muted">{description}</p> : null}
+            {showDescription ? <p className="mt-1 max-w-3xl text-small text-ink-muted">{description}</p> : null}
           </div>
-          {actions ? <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div> : null}
+          {toolbar ? (
+            <StudioToolbar>{toolbar}</StudioToolbar>
+          ) : actions ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
+          ) : null}
         </div>
-        {note ? <div className="mt-4">{note}</div> : null}
+        {/* When both toolbar and description exist, keep lede under the row. */}
+        {toolbar && description ? <p className="mt-2 max-w-3xl text-caption text-ink-muted">{description}</p> : null}
+        {note ? <div className="mt-3">{note}</div> : null}
       </header>
+      {children}
+    </div>
+  );
+}
+
+export function StudioToolbar({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cn("flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 sm:flex-nowrap", className)}>
       {children}
     </div>
   );
@@ -59,7 +78,7 @@ export function StudioBack({ href, children }: { href: string; children: ReactNo
 
 export function StudioAlert({ children }: { children: ReactNode }) {
   return (
-    <p role="alert" className="rounded-surface border border-negative/25 bg-negative-soft px-4 py-3 text-small text-ink">
+    <p role="alert" className="rounded-control border border-negative/25 bg-negative-soft px-3.5 py-2.5 text-small text-ink">
       {children}
     </p>
   );
@@ -75,10 +94,10 @@ export function StudioEmpty({
   action?: ReactNode;
 }) {
   return (
-    <div className="rounded-surface border border-line bg-surface px-6 py-12 text-center shadow-card">
+    <div className="border border-dashed border-line bg-surface px-6 py-10 text-center">
       <h2 className="text-h3 text-ink">{title}</h2>
-      {children ? <p className="mx-auto mt-2 max-w-md text-small text-ink-muted">{children}</p> : null}
-      {action ? <div className="mt-5">{action}</div> : null}
+      {children ? <p className="mx-auto mt-1.5 max-w-md text-small text-ink-muted">{children}</p> : null}
+      {action ? <div className="mt-4">{action}</div> : null}
     </div>
   );
 }
@@ -97,7 +116,7 @@ export function StudioPanel({
   className?: string;
 }) {
   return (
-    <section className={cn("rounded-surface border border-line bg-surface p-5 shadow-card sm:p-6", className)}>
+    <section className={cn("border border-line bg-surface p-4 sm:p-5", className)}>
       {title || action ? (
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -107,14 +126,14 @@ export function StudioPanel({
           {action}
         </div>
       ) : null}
-      <div className={title || action ? "mt-4" : undefined}>{children}</div>
+      <div className={title || action ? "mt-3" : undefined}>{children}</div>
     </section>
   );
 }
 
 export function StudioSegment({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <nav aria-label={label} className="flex flex-wrap gap-1 rounded-control bg-surface p-1 shadow-card ring-1 ring-line">
+    <nav aria-label={label} className="flex flex-wrap gap-0.5 rounded-control border border-line bg-surface p-0.5">
       {children}
     </nav>
   );
@@ -122,18 +141,29 @@ export function StudioSegment({ label, children }: { label: string; children: Re
 
 export function segmentItem(active: boolean) {
   return cn(
-    "rounded-[0.6rem] px-3 py-1.5 text-caption font-medium transition-colors",
+    "rounded-[0.45rem] px-2.5 py-1.5 text-caption font-medium transition-colors",
     active ? "bg-navy text-white" : "text-ink-muted hover:bg-surface-alt hover:text-ink",
   );
 }
 
-export const studioSearch =
-  "h-10 w-full rounded-control border border-line bg-surface px-3 text-small text-ink shadow-card placeholder:text-ink-subtle focus:border-navy focus:outline-none focus:ring-1 focus:ring-navy sm:w-72";
+/** Compact select used in page toolbars. */
+export const studioFilter =
+  "h-9 shrink-0 rounded-control border border-line bg-surface px-2.5 text-caption text-ink focus:border-navy focus:outline-none focus:ring-1 focus:ring-navy";
 
-export const studioTableWrap = "overflow-x-auto rounded-surface border border-line bg-surface shadow-card";
+export const studioSearch =
+  "h-9 w-full rounded-control border border-line bg-surface px-3 text-caption text-ink placeholder:text-ink-subtle focus:border-navy focus:outline-none focus:ring-1 focus:ring-navy sm:w-56";
+
+export const studioTableWrap = "overflow-x-auto border border-line bg-surface";
+
+export const studioTable = "w-full border-collapse text-left text-small";
+
+export const studioTh =
+  "border-b border-line px-3.5 py-2.5 text-caption font-medium text-ink-muted";
+
+export const studioTd = "border-b border-line/70 px-3.5 py-2.5 align-middle";
 
 /** Horizontal bleed that matches the shell's main padding. */
-export const studioCanvasBleed = "-mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8";
+export const studioCanvasBleed = "-mx-3 px-3 sm:-mx-4 sm:px-4 lg:-mx-5 lg:px-5";
 
 /** Pulls a bar flush with the scrolling canvas. */
-export const studioStickyTop = `sticky top-0 z-20 -mt-6 border-b border-line bg-surface-alt/95 backdrop-blur-md sm:-mt-7 lg:-mt-8 ${studioCanvasBleed}`;
+export const studioStickyTop = `sticky top-0 z-20 -mt-5 border-b border-line bg-surface-alt/95 backdrop-blur-md sm:-mt-6 lg:-mt-6 ${studioCanvasBleed}`;

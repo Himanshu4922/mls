@@ -304,7 +304,7 @@ export function SeoEditor() {
 
 function EditorCard({ title, lede, children }: { title: string; lede: string; children: ReactNode }) {
   return (
-    <section className="rounded-surface border border-line bg-surface p-5 sm:p-6">
+    <section className="border border-line bg-surface p-5 sm:p-6">
       <h2 className="text-h3 text-ink">{title}</h2>
       <p className="mb-5 mt-1 text-small text-ink-muted">{lede}</p>
       {children}

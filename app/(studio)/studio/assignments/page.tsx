@@ -1,7 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { StudioAlert, StudioEmpty, StudioPage, StudioSegment, segmentItem, studioSearch, studioTableWrap } from "@/components/studio/chrome";
+import {
+  StudioAlert,
+  StudioEmpty,
+  StudioPage,
+  StudioSegment,
+  segmentItem,
+  studioSearch,
+  studioTable,
+  studioTableWrap,
+  studioTd,
+  studioTh,
+} from "@/components/studio/chrome";
 import { SubmissionStatusPill } from "@/components/studio/StudioPills";
 import { Pagination } from "@/components/ui/Pagination";
 import {
@@ -12,6 +23,7 @@ import {
   type ReviewSubmissionSummary,
 } from "@/lib/api/studioAdmin";
 import { requireStudioAccess } from "@/lib/auth/session";
+import { cn } from "@/lib/utils/cn";
 import { formatDate, formatPrice } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "Assignment review" };
@@ -65,53 +77,56 @@ export default async function StudioAssignmentsPage({ searchParams }: PageProps<
 
   return (
     <StudioPage
-      kicker="Listings"
       title="Review queue"
-      description="Check submitted listings, link assignments to their project, then approve, reject, or request changes. The submitter is emailed each decision."
+      description="Approve, reject, or request changes. Submitters are emailed each decision."
+      toolbar={
+        <>
+          <StudioSegment label="Review queues">
+            {REVIEW_QUEUES.map((entry) => (
+              <Link
+                key={entry.key}
+                href={queueHref({ queue: entry.key, purpose, q })}
+                aria-current={queue === entry.key ? "page" : undefined}
+                className={segmentItem(queue === entry.key)}
+              >
+                {entry.label}
+                {counts ? ` ${counts[entry.key]}` : ""}
+              </Link>
+            ))}
+          </StudioSegment>
+          <StudioSegment label="Listing type">
+            {PURPOSES.map((option) => (
+              <Link
+                key={option.label}
+                href={queueHref({ queue, purpose: option.value, q })}
+                aria-current={purpose === option.value ? "page" : undefined}
+                className={segmentItem(purpose === option.value)}
+              >
+                {option.label}
+              </Link>
+            ))}
+          </StudioSegment>
+          <form action="/studio/assignments" className="flex items-center gap-2">
+            {queue !== "open" && <input type="hidden" name="queue" value={queue} />}
+            <input type="hidden" name="purpose" value={purpose || "all"} />
+            <input
+              type="search"
+              name="q"
+              defaultValue={q}
+              placeholder="Address, project, name, or email"
+              aria-label="Search submissions"
+              className={studioSearch}
+            />
+            <button
+              type="submit"
+              className="h-9 rounded-control border border-line bg-surface px-3 text-caption font-medium text-ink hover:border-navy"
+            >
+              Search
+            </button>
+          </form>
+        </>
+      }
     >
-      <div className="flex flex-wrap items-center gap-3">
-        <StudioSegment label="Review queues">
-          {REVIEW_QUEUES.map((entry) => (
-            <Link
-              key={entry.key}
-              href={queueHref({ queue: entry.key, purpose, q })}
-              aria-current={queue === entry.key ? "page" : undefined}
-              className={segmentItem(queue === entry.key)}
-            >
-              {entry.label}
-              {counts ? ` ${counts[entry.key]}` : ""}
-            </Link>
-          ))}
-        </StudioSegment>
-        <StudioSegment label="Listing type">
-          {PURPOSES.map((option) => (
-            <Link
-              key={option.label}
-              href={queueHref({ queue, purpose: option.value, q })}
-              aria-current={purpose === option.value ? "page" : undefined}
-              className={segmentItem(purpose === option.value)}
-            >
-              {option.label}
-            </Link>
-          ))}
-        </StudioSegment>
-        <form action="/studio/assignments" className="ml-auto flex w-full gap-2 sm:w-auto">
-          {queue !== "open" && <input type="hidden" name="queue" value={queue} />}
-          <input type="hidden" name="purpose" value={purpose || "all"} />
-          <input
-            type="search"
-            name="q"
-            defaultValue={q}
-            placeholder="Address, project, name, or email"
-            aria-label="Search submissions"
-            className={studioSearch}
-          />
-          <button type="submit" className="h-10 rounded-control border border-line bg-surface px-3 text-small font-medium text-ink shadow-card hover:border-navy">
-            Search
-          </button>
-        </form>
-      </div>
-
       {error ? (
         <StudioAlert>{error}</StudioAlert>
       ) : items.length === 0 ? (
@@ -121,51 +136,78 @@ export default async function StudioAssignmentsPage({ searchParams }: PageProps<
       ) : (
         <>
           <div className={studioTableWrap}>
-            <table className="w-full min-w-[52rem] border-collapse text-small">
+            <table className={cn(studioTable, "min-w-[52rem]")}>
               <thead>
-                <tr className="border-b border-line text-left text-caption text-ink-muted">
-                  <th scope="col" className="px-4 py-3 font-medium">Listing</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Status</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Price</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Submitted by</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Project link</th>
-                  <th scope="col" className="px-4 py-3 font-medium">Submitted</th>
+                <tr>
+                  <th scope="col" className={studioTh}>
+                    Listing
+                  </th>
+                  <th scope="col" className={studioTh}>
+                    Status
+                  </th>
+                  <th scope="col" className={studioTh}>
+                    Price
+                  </th>
+                  <th scope="col" className={studioTh}>
+                    Submitted by
+                  </th>
+                  <th scope="col" className={studioTh}>
+                    Project link
+                  </th>
+                  <th scope="col" className={studioTh}>
+                    Submitted
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((item) => (
-                  <tr key={item.id} className="border-b border-line/60 last:border-0">
-                    <td className="px-4 py-3">
+                  <tr key={item.id}>
+                    <td className={studioTd}>
                       <div className="flex items-center gap-3">
                         {item.coverUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={item.coverUrl} alt="" className="h-10 w-14 shrink-0 rounded-control object-cover" loading="lazy" />
+                          <img
+                            src={item.coverUrl}
+                            alt=""
+                            className="h-10 w-14 shrink-0 rounded-md object-cover"
+                            loading="lazy"
+                          />
                         ) : (
-                          <span className="h-10 w-14 shrink-0 rounded-control bg-surface-alt" aria-hidden="true" />
+                          <span className="h-10 w-14 shrink-0 rounded-md bg-surface-alt" aria-hidden="true" />
                         )}
                         <div className="min-w-0">
-                          <Link href={`/studio/assignments/${item.id}`} className="font-medium text-ink hover:text-navy">
+                          <Link href={`/studio/assignments/${item.id}`} className="studio-cell-title hover:text-navy">
                             {item.title}
                           </Link>
-                          <p className="mt-0.5 truncate text-caption text-ink-subtle">
+                          <p className="studio-cell-meta">
                             #{item.id} · {item.purposeLabel} · {item.address}, {item.city} · {item.photoCount} photo
                             {item.photoCount === 1 ? "" : "s"}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className={studioTd}>
                       <SubmissionStatusPill status={item.status} label={item.statusLabel} />
                     </td>
-                    <td className="px-4 py-3 text-ink-muted">{item.askingPrice ? formatPrice(item.askingPrice) : "—"}</td>
-                    <td className="px-4 py-3 text-ink-muted">
-                      <span className="block text-ink">{item.contactName || "—"}</span>
-                      <span className="text-caption">{item.submitterTypeLabel}</span>
+                    <td className={cn(studioTd, "text-ink-muted")}>
+                      {item.askingPrice ? formatPrice(item.askingPrice) : "—"}
                     </td>
-                    <td className="px-4 py-3 text-ink-muted">
-                      {item.purpose !== "assignment" ? "—" : item.preconTitle ?? <span className="text-gold-deep">Not linked</span>}
+                    <td className={cn(studioTd, "text-ink-muted")}>
+                      <span className="studio-cell-title">{item.contactName || "—"}</span>
+                      <span className="studio-cell-meta">{item.submitterTypeLabel}</span>
                     </td>
-                    <td className="px-4 py-3 text-ink-muted">{item.submittedAt ? formatDate(item.submittedAt) : "—"}</td>
+                    <td className={cn(studioTd, "text-ink-muted")}>
+                      {item.purpose !== "assignment" ? (
+                        "—"
+                      ) : item.preconTitle ? (
+                        item.preconTitle
+                      ) : (
+                        <span className="text-gold-deep">Not linked</span>
+                      )}
+                    </td>
+                    <td className={cn(studioTd, "text-ink-muted")}>
+                      {item.submittedAt ? formatDate(item.submittedAt) : "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>

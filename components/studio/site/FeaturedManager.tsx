@@ -2,9 +2,18 @@
 
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { StudioAlert, StudioEmpty, StudioPage, StudioPanel } from "@/components/studio/chrome";
+import {
+  StudioAlert,
+  StudioEmpty,
+  StudioPage,
+  StudioPanel,
+  studioSearch,
+  studioTable,
+  studioTableWrap,
+  studioTd,
+  studioTh,
+} from "@/components/studio/chrome";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Field";
 import { FeaturedBoardSkeleton } from "@/components/studio/StudioSkeletons";
 import { useUserKeys } from "@/components/providers/AuthProvider";
 import { fetchJson } from "@/lib/queries/fetcher";
@@ -159,25 +168,21 @@ export function FeaturedManager({ initial }: { initial: FeaturedBody }) {
 
   return (
     <StudioPage
-      kicker="Listings"
       title="Featured homes"
-      description="Choose which active MLS® listings lead the homepage rail. Position 1 shows first. If nothing is pinned, the site fills the rail with exclusive listings, then the newest."
-      note={
-        <ol className="flex flex-wrap gap-2 text-caption text-ink-muted">
-          {[
-            "Search for an active MLS® listing",
-            "Add it to the homepage rail",
-            "Reorder with the arrows",
-          ].map((step, index) => (
-            <li
-              key={step}
-              className="inline-flex items-center gap-2 rounded-control bg-surface-alt px-3 py-1.5"
-            >
-              <span className="font-semibold text-navy">{index + 1}</span>
-              {step}
-            </li>
-          ))}
-        </ol>
+      description="Pinned MLS® listings lead the homepage rail. Position 1 shows first."
+      toolbar={
+        <form onSubmit={search} className="flex flex-wrap items-center gap-2">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Address, city, or MLS® number"
+            aria-label="Search listings"
+            className={cn(studioSearch, "sm:w-72")}
+          />
+          <Button type="submit" variant="primary" size="sm" disabled={busy || searching}>
+            {searching ? "Searching…" : "Search"}
+          </Button>
+        </form>
       }
     >
       {(error || list.isError) && (
@@ -186,69 +191,63 @@ export function FeaturedManager({ initial }: { initial: FeaturedBody }) {
         </StudioAlert>
       )}
 
-      <div className="space-y-6">
-        <StudioPanel
-          title="Add a home"
-          description="Search the live MLS® feed by address, city, or MLS® number, then add it to the rail."
-        >
-          <form onSubmit={search} className="flex flex-col gap-2 sm:flex-row">
-            <div className="min-w-0 flex-1">
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="e.g. King St, Mississauga, or W12345678"
-                aria-label="Search listings"
-              />
+      <div className="space-y-4">
+        <StudioPanel title="Search results" description="Add an active MLS® listing to the homepage rail.">
+          {!submitted ? (
+            <p className="text-small text-ink-muted">Search above to find a listing.</p>
+          ) : results.length === 0 && !searching ? (
+            <p className="text-small text-ink-muted">
+              No active listings matched “{submitted}”. Try a shorter address or the MLS® number.
+            </p>
+          ) : (
+            <div className={studioTableWrap}>
+              <table className={cn(studioTable, "min-w-[36rem]")}>
+                <thead>
+                  <tr>
+                    <th scope="col" className={studioTh}>
+                      Listing
+                    </th>
+                    <th scope="col" className={studioTh}>
+                      <span className="sr-only">Actions</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {results.map((listing) => {
+                    const onRail = pinnedKeys.has(listing.listing_key) || listing.is_featured;
+                    const isBusy = busyKey === listing.listing_key;
+                    return (
+                      <tr key={listing.listing_key}>
+                        <td className={studioTd}>
+                          <span className="studio-cell-title">{listingLabel(listing)}</span>
+                          <span className="studio-cell-meta">{listingMeta(listing)}</span>
+                        </td>
+                        <td className={studioTd}>
+                          <div className="flex justify-end">
+                            <Button
+                              type="button"
+                              variant={onRail ? "secondary" : "primary"}
+                              size="sm"
+                              disabled={busy || onRail}
+                              loading={isBusy}
+                              onClick={() => void addToRail(listing)}
+                            >
+                              {onRail ? "Already on rail" : "Add to rail"}
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-            <Button type="submit" variant="primary" disabled={busy || searching}>
-              {searching ? "Searching…" : "Search"}
-            </Button>
-          </form>
-
-          <div className="mt-4">
-            {!submitted ? (
-              <p className="rounded-control bg-surface-alt px-4 py-3 text-small text-ink-muted">
-                Type an address, city, or MLS® number above to find a listing.
-              </p>
-            ) : results.length === 0 && !searching ? (
-              <p className="rounded-control bg-surface-alt px-4 py-3 text-small text-ink-muted">
-                No active listings matched “{submitted}”. Try a shorter address or the MLS® number.
-              </p>
-            ) : (
-              <ul className="divide-y divide-line rounded-control border border-line">
-                {results.map((listing) => {
-                  const onRail = pinnedKeys.has(listing.listing_key) || listing.is_featured;
-                  const isBusy = busyKey === listing.listing_key;
-                  return (
-                    <li
-                      key={listing.listing_key}
-                      className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-small font-medium text-ink">{listingLabel(listing)}</p>
-                        <p className="mt-0.5 text-caption text-ink-muted">{listingMeta(listing)}</p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant={onRail ? "secondary" : "primary"}
-                        size="sm"
-                        disabled={busy || onRail}
-                        loading={isBusy}
-                        onClick={() => void addToRail(listing)}
-                      >
-                        {onRail ? "Already on rail" : "Add to rail"}
-                      </Button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
+          )}
         </StudioPanel>
 
         <StudioPanel
           title="Homepage rail"
-          description="These homes show in the Featured section, in this order. Use the arrows to change position."
+          description="Order on the public Featured section."
           action={
             pins.length > 0 ? (
               <span className="rounded-control bg-surface-alt px-2.5 py-1 text-caption font-medium text-ink-muted">
@@ -262,59 +261,65 @@ export function FeaturedManager({ initial }: { initial: FeaturedBody }) {
               Search above and choose Add to rail. Until then, the public homepage fills this section automatically.
             </StudioEmpty>
           ) : (
-            <ol className="space-y-3">
-              {pins.map((listing, index) => {
-                const isBusy = busyKey === listing.listing_key;
-                return (
-                  <li
-                    key={listing.listing_key}
-                    className={cn(
-                      "flex flex-col gap-3 rounded-control border border-line bg-surface px-4 py-3 sm:flex-row sm:items-center",
-                      isBusy && "opacity-70",
-                    )}
-                  >
-                    <div className="flex min-w-0 flex-1 items-start gap-3">
-                      <span
-                        aria-label={`Position ${index + 1}`}
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-navy text-caption font-semibold text-white"
-                      >
-                        {index + 1}
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-small font-medium text-ink">{listingLabel(listing)}</p>
-                        <p className="mt-0.5 text-caption text-ink-muted">{listingMeta(listing)}</p>
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1 self-end sm:self-center">
-                      <IconAction
-                        label={`Move ${listingLabel(listing)} up`}
-                        onClick={() => void move(index, -1)}
-                        disabled={busy || index === 0}
-                      >
-                        ↑
-                      </IconAction>
-                      <IconAction
-                        label={`Move ${listingLabel(listing)} down`}
-                        onClick={() => void move(index, 1)}
-                        disabled={busy || index === pins.length - 1}
-                      >
-                        ↓
-                      </IconAction>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        disabled={busy}
-                        loading={isBusy}
-                        onClick={() => void removeFromRail(listing)}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ol>
+            <div className={studioTableWrap}>
+              <table className={cn(studioTable, "min-w-[40rem]")}>
+                <thead>
+                  <tr>
+                    <th scope="col" className={studioTh}>
+                      #
+                    </th>
+                    <th scope="col" className={studioTh}>
+                      Listing
+                    </th>
+                    <th scope="col" className={studioTh}>
+                      <span className="sr-only">Actions</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pins.map((listing, index) => {
+                    const isBusy = busyKey === listing.listing_key;
+                    return (
+                      <tr key={listing.listing_key} className={cn(isBusy && "opacity-70")}>
+                        <td className={cn(studioTd, "w-12 tabular-nums text-ink-muted")}>{index + 1}</td>
+                        <td className={studioTd}>
+                          <span className="studio-cell-title">{listingLabel(listing)}</span>
+                          <span className="studio-cell-meta">{listingMeta(listing)}</span>
+                        </td>
+                        <td className={studioTd}>
+                          <div className="flex justify-end gap-1">
+                            <IconAction
+                              label={`Move ${listingLabel(listing)} up`}
+                              onClick={() => void move(index, -1)}
+                              disabled={busy || index === 0}
+                            >
+                              ↑
+                            </IconAction>
+                            <IconAction
+                              label={`Move ${listingLabel(listing)} down`}
+                              onClick={() => void move(index, 1)}
+                              disabled={busy || index === pins.length - 1}
+                            >
+                              ↓
+                            </IconAction>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={busy}
+                              loading={isBusy}
+                              onClick={() => void removeFromRail(listing)}
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </StudioPanel>
       </div>

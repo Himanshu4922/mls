@@ -74,7 +74,7 @@ function HomepageForm({
 
   return (
     <div className="grid items-start gap-6 lg:grid-cols-[16.5rem_minmax(0,1fr)]">
-      <div className="rounded-surface border border-line bg-surface lg:sticky lg:top-0 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto">
+      <div className="border border-line bg-surface lg:sticky lg:top-0 lg:max-h-[calc(100dvh-5.5rem)] lg:overflow-y-auto">
         <p className="border-b border-line px-4 py-3 text-caption font-medium text-ink-muted">Sections</p>
         <ol>
           {draft.sections.map((item, itemIndex) => {
@@ -102,7 +102,7 @@ function HomepageForm({
           })}
         </ol>
       </div>
-      <div className="space-y-4 rounded-surface border border-line bg-surface p-5 sm:p-6">
+      <div className="space-y-4 border border-line bg-surface p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-xl">
             <h2 className="text-h2 text-ink">{meta.label}</h2>

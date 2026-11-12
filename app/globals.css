@@ -602,7 +602,7 @@
 }
 
 .studio-console main table thead tr {
-  background-color: color-mix(in srgb, var(--color-navy) 4%, white);
+  background-color: transparent;
 }
 
 .studio-console main table th,
@@ -618,6 +618,19 @@
   background-color: var(--color-navy-tint);
 }
 
-.studio-console main .rounded-surface.border-line.bg-surface {
-  box-shadow: var(--shadow-card);
+.studio-console main table tbody tr:last-child td {
+  border-bottom-color: transparent;
+}
+
+.studio-console .studio-cell-title {
+  font-weight: 500;
+  color: var(--color-ink);
+  line-height: 1.35;
+}
+
+.studio-console .studio-cell-meta {
+  margin-top: 0.15rem;
+  font-size: var(--text-caption);
+  line-height: var(--text-caption--line-height);
+  color: var(--color-ink-subtle);
 }

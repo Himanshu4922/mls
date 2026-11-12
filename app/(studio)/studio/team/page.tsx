@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { StudioAlert, StudioPage } from "@/components/studio/chrome";
 import { TeamManager } from "@/components/studio/TeamManager";
+import { LinkButton } from "@/components/ui/Button";
 import { listTeam, type TeamMember } from "@/lib/api/studio";
 import { requireStudioAccess } from "@/lib/auth/session";
 
@@ -27,9 +28,13 @@ export default async function StudioTeamPage({ searchParams }: PageProps) {
 
   return (
     <StudioPage
-      kicker="Workspace"
       title="Team"
-      description="People who can open the Studio. Writers can manage blog posts. Administrators can manage the full site, listings, and this team list."
+      description="Writers manage blog posts. Administrators manage the full console."
+      toolbar={
+        <LinkButton href="/studio/team/new" size="sm">
+          + Add team member
+        </LinkButton>
+      }
     >
       {error ? (
         <StudioAlert>{error}</StudioAlert>

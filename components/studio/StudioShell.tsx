@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   Activity,
   BadgePercent,
   Building2,
+  ChevronDown,
   ClipboardCheck,
   ExternalLink,
   Handshake,
@@ -19,6 +20,7 @@ import {
   PanelLeft,
   PanelTop,
   PenLine,
+  Plus,
   Search,
   Share2,
   Star,
@@ -84,6 +86,17 @@ const GROUPS: Array<{
   },
 ];
 
+const CREATE_LINKS: Array<{ href: string; label: string; staff?: boolean }> = [
+  { href: "/studio/new", label: "New blog post" },
+  { href: "/studio/news/new", label: "New headline", staff: true },
+  { href: "/studio/incentives/new", label: "New incentive", staff: true },
+  { href: "/studio/partners/new", label: "New partner", staff: true },
+  { href: "/studio/listings/new", label: "New listing", staff: true },
+  { href: "/studio/precon/new", label: "New pre-con project", staff: true },
+  { href: "/studio/keywords/new", label: "New keyword search", staff: true },
+  { href: "/studio/team/new", label: "Invite teammate", staff: true },
+];
+
 const RESERVED = new Set([
   "site",
   "connections",
@@ -99,6 +112,21 @@ const RESERVED = new Set([
   "activity",
   "team",
 ]);
+
+function readSidebarCollapsed() {
+  if (typeof window === "undefined") return true;
+  return window.localStorage.getItem("studio-sidebar") !== "open";
+}
+
+function subscribeNarrow(onStoreChange: () => void) {
+  const query = window.matchMedia("(min-width: 1024px)");
+  query.addEventListener("change", onStoreChange);
+  return () => query.removeEventListener("change", onStoreChange);
+}
+
+function getNarrowSnapshot() {
+  return !window.matchMedia("(min-width: 1024px)").matches;
+}
 
 function isPostPath(path: string) {
   if (path === "/studio") return true;
@@ -131,22 +159,26 @@ export function StudioShell({
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [rail, setRail] = useState(false);
-  const [narrow, setNarrow] = useState(false);
+  // Default to icon rail; "open" in localStorage expands labeled sidebar.
+  const [rail, setRail] = useState(readSidebarCollapsed);
+  const narrow = useSyncExternalStore(subscribeNarrow, getNarrowSnapshot, () => false);
+  const [navQuery, setNavQuery] = useState("");
+  const [navOpen, setNavOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [pathSeen, setPathSeen] = useState(pathname);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const createRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  // Close overlays when the route changes (derive during render).
+  if (pathname !== pathSeen) {
+    setPathSeen(pathname);
     setOpen(false);
-  }, [pathname]);
-
-  useEffect(() => {
-    if (window.localStorage.getItem("studio-sidebar") === "collapsed") setRail(true);
-    const query = window.matchMedia("(min-width: 1024px)");
-    const sync = () => setNarrow(!query.matches);
-    sync();
-    query.addEventListener("change", sync);
-    return () => query.removeEventListener("change", sync);
-  }, []);
+    setNavOpen(false);
+    setCreateOpen(false);
+    setNavQuery("");
+  }
 
   // Lock the document: only the main pane scrolls, not the browser window.
   useEffect(() => {
@@ -162,14 +194,35 @@ export function StudioShell({
     };
   }, []);
 
-  useEffect(() => {
-    if (!open) return;
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+  const onShortcut = useEffectEvent((event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      setOpen(false);
+      setNavOpen(false);
+      setCreateOpen(false);
+      return;
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      setNavOpen(true);
+      searchRef.current?.focus();
+    }
+  });
+
+  useEffect(() => {
+    window.addEventListener("keydown", onShortcut);
+    return () => window.removeEventListener("keydown", onShortcut);
+  }, []);
+
+  useEffect(() => {
+    if (!createOpen) return;
+    function onPointer(event: MouseEvent) {
+      if (createRef.current && !createRef.current.contains(event.target as Node)) {
+        setCreateOpen(false);
+      }
+    }
+    window.addEventListener("mousedown", onPointer);
+    return () => window.removeEventListener("mousedown", onPointer);
+  }, [createOpen]);
 
   function toggleNav() {
     if (window.matchMedia("(min-width: 1024px)").matches) {
@@ -196,6 +249,24 @@ export function StudioShell({
     .sort((a, b) => b.href.length - a.href.length)[0];
   const initial = (email.trim()[0] || "A").toUpperCase();
 
+  const createLinks = CREATE_LINKS.filter((link) => isStaff || !link.staff);
+
+  const term = navQuery.trim().toLowerCase();
+  const navHits = !term
+    ? links.slice(0, 8)
+    : links.filter(
+        (link) =>
+          link.label.toLowerCase().includes(term) ||
+          link.group.toLowerCase().includes(term) ||
+          link.href.toLowerCase().includes(term),
+      );
+
+  function goTo(href: string) {
+    setNavOpen(false);
+    setNavQuery("");
+    router.push(href);
+  }
+
   return (
     <div className="studio-console fixed inset-0 z-10 flex overflow-hidden text-ink">
       {open && (
@@ -209,22 +280,22 @@ export function StudioShell({
       <aside
         inert={narrow && !open ? true : undefined}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[17rem] flex-col bg-navy-deep text-white transition-[width,transform] duration-200",
+          "fixed inset-y-0 left-0 z-50 flex w-[16.5rem] flex-col bg-navy-deep text-white transition-[width,transform] duration-200",
           open ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-          rail ? "lg:w-[4.75rem]" : "lg:w-[17rem]",
+          rail ? "lg:w-[4.5rem]" : "lg:w-[16.5rem]",
         )}
       >
-        <div className={cn("flex items-center gap-3 px-4 py-4", rail && "lg:justify-center lg:px-2")}>
-          <Link href="/studio" className="flex min-w-0 items-center gap-3" aria-label="Admin home">
-            <Mark className="h-9 w-9 shrink-0 text-gold" />
+        <div className={cn("flex h-14 items-center gap-2.5 px-3", rail && "lg:justify-center lg:px-0")}>
+          <Link href="/studio" className="flex min-w-0 items-center gap-2.5" aria-label="Admin home">
+            <Mark className="h-8 w-8 shrink-0 text-gold" />
             <span className={cn("min-w-0", rail && "lg:sr-only")}>
-              <span className="block text-[0.95rem] font-semibold leading-none tracking-tight">HomeAtlas</span>
+              <span className="block text-[0.9rem] font-semibold leading-none tracking-tight">HomeAtlas</span>
               <span className="mt-1 block text-[0.6875rem] text-white/55">Admin</span>
             </span>
           </Link>
           <button
             type="button"
-            className="ml-auto grid h-9 w-9 place-items-center rounded-control text-white/80 hover:bg-white/10 hover:text-white lg:hidden"
+            className="ml-auto grid h-8 w-8 place-items-center rounded-control text-white/80 hover:bg-white/10 hover:text-white lg:hidden"
             aria-label="Close menu"
             onClick={() => setOpen(false)}
           >
@@ -232,13 +303,13 @@ export function StudioShell({
           </button>
         </div>
 
-        <nav aria-label="Admin console" className="studio-nav min-h-0 flex-1 overflow-y-auto px-2 pb-4">
+        <nav aria-label="Admin console" className="studio-nav min-h-0 flex-1 overflow-y-auto px-2 pb-3">
           {groups.map((group) => (
-            <div key={group.id} className="pt-3">
-              <p className={cn("px-3 pb-1.5 text-[0.6875rem] font-medium text-white/45", rail && "lg:sr-only")}>
+            <div key={group.id} className="pt-2.5">
+              <p className={cn("px-2.5 pb-1 text-[0.65rem] font-medium uppercase tracking-wide text-white/40", rail && "lg:sr-only")}>
                 {group.label}
               </p>
-              {rail ? <div className="mx-3 mb-1 hidden h-px bg-white/10 lg:block" aria-hidden="true" /> : null}
+              {rail ? <div className="mx-2.5 mb-1 hidden h-px bg-white/10 lg:block" aria-hidden="true" /> : null}
               <ul className="space-y-0.5">
                 {group.links.map((link) => {
                   const active = current?.href === link.href;
@@ -250,9 +321,9 @@ export function StudioShell({
                         aria-current={active ? "page" : undefined}
                         title={link.label}
                         className={cn(
-                          "flex items-center gap-3 rounded-control px-3 py-2 text-small leading-snug text-white/75 transition-colors hover:bg-white/8 hover:text-white",
-                          active && "bg-white/10 font-medium text-white shadow-[inset_3px_0_0_0_var(--color-gold)]",
-                          rail && "lg:justify-center lg:px-0",
+                          "flex items-center gap-2.5 rounded-control px-2.5 py-2 text-small leading-snug text-white/70 transition-colors hover:bg-white/8 hover:text-white",
+                          active && "bg-white/12 font-medium text-white shadow-[inset_3px_0_0_0_var(--color-gold)]",
+                          rail && "lg:justify-center lg:px-0 lg:py-2.5",
                         )}
                       >
                         <Icon className="h-4 w-4 shrink-0" aria-hidden />
@@ -266,12 +337,13 @@ export function StudioShell({
           ))}
         </nav>
 
-        <div className={cn("border-t border-white/10 p-3", rail && "lg:px-2")}>
-          <div className={cn("flex items-center gap-3 rounded-control px-1 py-1", rail && "lg:justify-center")}>
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gold text-caption font-semibold text-navy-deep">
+        {/* User chip stays in the expanded sidebar; rail mode shows it in the top bar. */}
+        <div className={cn("border-t border-white/10 p-3", rail && "lg:hidden")}>
+          <div className="flex items-center gap-2.5 px-1 py-1">
+            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-gold text-caption font-semibold text-navy-deep">
               {initial}
             </span>
-            <span className={cn("min-w-0", rail && "lg:sr-only")}>
+            <span className="min-w-0">
               <span className="block truncate text-caption font-medium text-white" title={email}>
                 {email}
               </span>
@@ -284,10 +356,10 @@ export function StudioShell({
       <div
         className={cn(
           "flex h-full min-h-0 min-w-0 flex-1 flex-col transition-[padding] duration-200",
-          rail ? "lg:pl-[4.75rem]" : "lg:pl-[17rem]",
+          rail ? "lg:pl-[4.5rem]" : "lg:pl-[16.5rem]",
         )}
       >
-        <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface px-3 sm:px-5">
+        <header className="relative z-30 flex h-14 shrink-0 items-center gap-2.5 border-b border-line bg-surface px-3 sm:px-4">
           <button
             type="button"
             className="grid h-9 w-9 shrink-0 place-items-center rounded-control border border-line text-ink hover:border-navy hover:text-navy"
@@ -297,29 +369,118 @@ export function StudioShell({
           >
             <PanelLeft className="h-4 w-4" aria-hidden="true" />
           </button>
-          <p className="min-w-0 flex-1 truncate text-small">
-            {current ? (
-              <>
-                <span className="text-ink-muted">{current.group}</span>
-                <span className="mx-1.5 text-ink-subtle" aria-hidden="true">
-                  /
-                </span>
-                <span className="font-medium text-ink">{current.label}</span>
-              </>
-            ) : (
-              <span className="font-medium text-ink">Admin console</span>
-            )}
-          </p>
-          <Link
-            href="/"
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-control border border-line px-3 text-caption font-medium text-ink hover:border-navy hover:text-navy"
-          >
-            View site
-            <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-          </Link>
+
+          <div className="relative min-w-0 flex-1 max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-subtle" aria-hidden />
+            <input
+              ref={searchRef}
+              type="search"
+              value={navQuery}
+              onChange={(event) => {
+                setNavQuery(event.target.value);
+                setNavOpen(true);
+              }}
+              onFocus={() => setNavOpen(true)}
+              onBlur={() => {
+                // Allow click on results before closing.
+                window.setTimeout(() => setNavOpen(false), 120);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && navHits[0]) {
+                  event.preventDefault();
+                  goTo(navHits[0].href);
+                }
+              }}
+              placeholder="Search console…"
+              aria-label="Search admin console"
+              aria-autocomplete="list"
+              aria-controls="studio-nav-results"
+              className="h-9 w-full rounded-control border border-line bg-surface-alt/70 pl-9 pr-14 text-small text-ink placeholder:text-ink-subtle focus:border-navy focus:bg-surface focus:outline-none focus:ring-1 focus:ring-navy"
+            />
+            <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded border border-line bg-surface px-1.5 py-0.5 text-[0.65rem] font-medium text-ink-subtle sm:inline">
+              ⌘K
+            </kbd>
+            {navOpen && navHits.length > 0 ? (
+              <ul
+                id="studio-nav-results"
+                className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 max-h-72 overflow-y-auto rounded-control border border-line bg-surface py-1 shadow-pop"
+              >
+                {navHits.map((link) => {
+                  const Icon = link.icon;
+                  return (
+                    <li key={link.href}>
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-small hover:bg-navy-tint"
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => goTo(link.href)}
+                      >
+                        <Icon className="h-3.5 w-3.5 shrink-0 text-ink-muted" aria-hidden />
+                        <span className="min-w-0 flex-1 truncate font-medium text-ink">{link.label}</span>
+                        <span className="shrink-0 text-caption text-ink-subtle">{link.group}</span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : null}
+          </div>
+
+          <div className="ml-auto flex shrink-0 items-center gap-2">
+            <div className="relative" ref={createRef}>
+              <button
+                type="button"
+                className="inline-flex h-9 items-center gap-1.5 rounded-control bg-navy px-3 text-caption font-medium text-white hover:bg-navy-deep"
+                aria-expanded={createOpen}
+                aria-haspopup="menu"
+                onClick={() => setCreateOpen((value) => !value)}
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden />
+                Create
+                <ChevronDown className="h-3.5 w-3.5 opacity-80" aria-hidden />
+              </button>
+              {createOpen ? (
+                <ul
+                  role="menu"
+                  className="absolute right-0 top-[calc(100%+0.35rem)] z-40 min-w-[12.5rem] rounded-control border border-line bg-surface py-1 shadow-pop"
+                >
+                  {createLinks.map((link) => (
+                    <li key={link.href} role="none">
+                      <Link
+                        role="menuitem"
+                        href={link.href}
+                        className="block px-3 py-2 text-small text-ink hover:bg-navy-tint"
+                        onClick={() => setCreateOpen(false)}
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+
+            <Link
+              href="/"
+              className="hidden h-9 items-center gap-1.5 rounded-control border border-line px-3 text-caption font-medium text-ink hover:border-navy hover:text-navy sm:inline-flex"
+            >
+              View site
+              <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+            </Link>
+
+            <div
+              className="hidden items-center gap-2 rounded-control border border-line py-1 pl-1 pr-2.5 lg:flex"
+              title={`${email} · ${isStaff ? "Staff" : "Writer"}`}
+            >
+              <span className="grid h-7 w-7 place-items-center rounded-md bg-navy text-[0.7rem] font-semibold text-white">
+                {initial}
+              </span>
+              <span className="max-w-[9rem] truncate text-caption font-medium text-ink">{email.split("@")[0] || "Account"}</span>
+            </div>
+          </div>
         </header>
         <main id="main" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <div className="mx-auto w-full max-w-[1440px] px-4 py-6 sm:px-6 sm:py-7 lg:px-8 lg:py-8">{children}</div>
+          <div className="mx-auto w-full max-w-[1440px] px-3 py-5 sm:px-4 sm:py-6 lg:px-5 lg:py-6">{children}</div>
         </main>
       </div>
     </div>

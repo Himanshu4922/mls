@@ -22,9 +22,8 @@ export default async function StudioConnectionsPage() {
 
   return (
     <StudioPage
-      kicker="Workspace"
       title="Connections"
-      description="The value in use for each setting. Save stores it in this console and the site starts using it. Remove clears only that saved value."
+      description="Saved values are used by the live site. Remove clears only that setting."
     >
       {error || !initial ? <StudioAlert>{error || "Could not load connections."}</StudioAlert> : <ConnectionsEditor initial={initial} />}
     </StudioPage>

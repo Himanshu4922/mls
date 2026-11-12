@@ -54,7 +54,7 @@ export function SubmissionReviewPanel({ submission }: { submission: ReviewSubmis
     <div className="space-y-6">
       {submission.purpose === "assignment" && <PreconLink submission={submission} />}
 
-      <section className="space-y-4 rounded-surface border border-line bg-surface p-5">
+      <section className="space-y-4 border border-line bg-surface p-5">
         <h2 className="text-h3 text-ink">Decision</h2>
         {decisions.length === 0 ? (
           <p className="text-small text-ink-muted">No review actions are available for a {submission.statusLabel.toLowerCase()} submission.</p>
@@ -137,7 +137,7 @@ function PreconLink({ submission }: { submission: ReviewSubmission }) {
   const visible = query.trim().length >= 2 ? options : [];
 
   return (
-    <section className="space-y-3 rounded-surface border border-line bg-surface p-5">
+    <section className="space-y-3 border border-line bg-surface p-5">
       <div>
         <h2 className="text-h3 text-ink">Pre-con project</h2>
         <p className="mt-1 text-caption text-ink-muted">
