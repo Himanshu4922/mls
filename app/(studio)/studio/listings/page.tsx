@@ -4,15 +4,17 @@ import { notFound } from "next/navigation";
 import {
   StudioAlert,
   StudioEmpty,
+  StudioFilterChip,
   StudioPage,
-  studioFilter,
   studioSearch,
   studioTable,
   studioTableWrap,
   studioTd,
   studioTh,
 } from "@/components/studio/chrome";
+import { StudioNavSelect } from "@/components/studio/StudioNavSelect";
 import { ListingStatusPill } from "@/components/studio/StudioPills";
+import { StudioMetaTag, StudioRowMenu } from "@/components/studio/StudioRowMenu";
 import { LinkButton } from "@/components/ui/Button";
 import { Pagination } from "@/components/ui/Pagination";
 import {
@@ -53,6 +55,7 @@ export default async function StudioListingsPage({
   const q = first(params.q)?.trim().slice(0, 120) ?? "";
   const status = LISTING_PUBLISH_STATUSES.find((s) => s.value === first(params.status))?.value ?? "";
   const page = Math.max(1, Number(first(params.page)) || 1);
+  const statusLabel = LISTING_PUBLISH_STATUSES.find((s) => s.value === status)?.label;
 
   let listings: StudioListingSummary[] = [];
   let count = 0;
@@ -76,21 +79,35 @@ export default async function StudioListingsPage({
       title="Brokerage listings"
       description="Exclusive inventory outside the MLS® feed."
       toolbar={
+        <LinkButton href="/studio/listings/new" size="sm">
+          + New listing
+        </LinkButton>
+      }
+      filters={
         <>
-          <form action="/studio/listings" className="flex flex-wrap items-center gap-2">
-            <select
-              name="status"
-              defaultValue={status}
-              aria-label="Filter by visibility"
-              className={studioFilter}
-            >
-              <option value="">All statuses</option>
-              {LISTING_PUBLISH_STATUSES.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+          <StudioNavSelect
+            label="Add Filter"
+            name="status"
+            value={status}
+            pathname="/studio/listings"
+            keep={{ q: q || undefined }}
+            options={LISTING_PUBLISH_STATUSES.map((option) => ({
+              value: option.value,
+              label: option.label,
+            }))}
+          />
+          {status && statusLabel ? (
+            <Link href={listHref({ q })}>
+              <StudioFilterChip label="Status" value={statusLabel} />
+            </Link>
+          ) : null}
+          {q ? (
+            <Link href={listHref({ status })}>
+              <StudioFilterChip label="Search" value={q} />
+            </Link>
+          ) : null}
+          <form action="/studio/listings" className="ml-auto flex items-center gap-2">
+            {status ? <input type="hidden" name="status" value={status} /> : null}
             <input
               type="search"
               name="q"
@@ -101,14 +118,11 @@ export default async function StudioListingsPage({
             />
             <button
               type="submit"
-              className="h-9 rounded-control border border-line bg-surface px-3 text-caption font-medium text-ink hover:border-navy"
+              className="h-8 rounded-full border border-line bg-surface px-3 text-caption font-medium text-ink hover:border-navy"
             >
               Search
             </button>
           </form>
-          <LinkButton href="/studio/listings/new" size="sm">
-            + New listing
-          </LinkButton>
         </>
       }
     >
@@ -156,8 +170,8 @@ export default async function StudioListingsPage({
                 {listings.map((row) => (
                   <tr key={row.id}>
                     <td className={studioTd}>
-                      <div className="flex gap-3">
-                        <div className="h-10 w-14 shrink-0 overflow-hidden rounded-md bg-surface-alt">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-8 w-11 shrink-0 overflow-hidden rounded-md bg-surface-alt">
                           {row.image ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={row.image} alt="" className="h-full w-full object-cover" />
@@ -179,26 +193,21 @@ export default async function StudioListingsPage({
                     </td>
                     <td className={cn(studioTd, "text-ink-muted")}>{row.standardStatus || "—"}</td>
                     <td className={studioTd}>
-                      <ListingStatusPill status={row.publishStatus} />
-                      {row.isFeatured ? (
-                        <span className="mt-0.5 block text-caption text-navy">Featured</span>
-                      ) : null}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <ListingStatusPill status={row.publishStatus} />
+                        {row.isFeatured ? <StudioMetaTag>Featured</StudioMetaTag> : null}
+                      </div>
                     </td>
                     <td className={studioTd}>
-                      <div className="flex flex-wrap justify-end gap-3 text-caption">
-                        <Link href={`/studio/listings/${row.id}`} className="text-ink-muted hover:text-navy">
-                          Edit
-                        </Link>
-                        {row.publishStatus === "publish" ? (
-                          <Link
-                            href={estateListingPath(row.id)}
-                            className="text-ink-muted hover:text-navy"
-                            target="_blank"
-                          >
-                            View
-                          </Link>
-                        ) : null}
-                      </div>
+                      <StudioRowMenu
+                        label={`Actions for ${row.title}`}
+                        actions={[
+                          { type: "link", label: "Edit", href: `/studio/listings/${row.id}` },
+                          ...(row.publishStatus === "publish"
+                            ? [{ type: "link" as const, label: "View", href: estateListingPath(row.id), external: true }]
+                            : []),
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}

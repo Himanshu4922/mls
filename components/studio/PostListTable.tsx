@@ -1,22 +1,25 @@
 "use client";
 
 import Link from "next/link";
+import { ListFilter } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
   StudioEmpty,
-  studioFilter,
+  StudioFilterChip,
   studioSearch,
   studioTable,
   studioTableWrap,
   studioTd,
   studioTh,
 } from "@/components/studio/chrome";
+import { StudioStatusDot } from "@/components/studio/StudioPills";
+import { StudioMetaTag, StudioRowMenu } from "@/components/studio/StudioRowMenu";
 import { LinkButton } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialogs";
 import type { StudioPost } from "@/lib/api/studio";
 import { useDeletePost } from "@/lib/queries/studio";
 import { cn } from "@/lib/utils/cn";
-import { formatDate } from "@/lib/utils/format";
+import { formatRelativeTime } from "@/lib/utils/format";
 
 type StatusFilter = "all" | "published" | "draft" | "scheduled";
 
@@ -28,7 +31,6 @@ function isScheduled(post: StudioPost): boolean {
 }
 
 export function PostListTable({ posts }: { posts: StudioPost[] }) {
-  // Refreshes the server-rendered list on success.
   const deletePost = useDeletePost();
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
@@ -85,25 +87,39 @@ export function PostListTable({ posts }: { posts: StudioPost[] }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <select
-          aria-label="Filter by status"
-          value={filter}
-          onChange={(event) => setFilter(event.target.value as StatusFilter)}
-          className={studioFilter}
-        >
-          <option value="all">All statuses ({counts.all})</option>
-          <option value="published">Published ({counts.published})</option>
-          <option value="scheduled">Scheduled ({counts.scheduled})</option>
-          <option value="draft">Draft ({counts.draft})</option>
-        </select>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="inline-flex h-8 items-center gap-1.5 rounded-full border border-line bg-surface px-2.5 text-caption font-medium text-ink">
+          <ListFilter className="h-3.5 w-3.5 text-ink-muted" aria-hidden />
+          <span className="sr-only">Filter by status</span>
+          <select
+            aria-label="Filter by status"
+            value={filter}
+            onChange={(event) => setFilter(event.target.value as StatusFilter)}
+            className="max-w-[9rem] bg-transparent text-caption text-ink focus:outline-none"
+          >
+            <option value="all">Add Filter</option>
+            <option value="published">Published ({counts.published})</option>
+            <option value="scheduled">Scheduled ({counts.scheduled})</option>
+            <option value="draft">Draft ({counts.draft})</option>
+          </select>
+        </label>
+        {filter !== "all" ? (
+          <StudioFilterChip
+            label="Status"
+            value={filter === "published" ? "Published" : filter === "scheduled" ? "Scheduled" : "Draft"}
+            onClear={() => setFilter("all")}
+          />
+        ) : null}
+        {search.trim() ? (
+          <StudioFilterChip label="Search" value={search.trim()} onClear={() => setSearch("")} />
+        ) : null}
         <input
           type="search"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search titles…"
           aria-label="Search posts by title"
-          className={studioSearch}
+          className={cn(studioSearch, "ml-auto")}
         />
       </div>
 
@@ -111,11 +127,11 @@ export function PostListTable({ posts }: { posts: StudioPost[] }) {
         <StudioEmpty title="No posts match">Try another status, or clear the search.</StudioEmpty>
       ) : (
         <div className={studioTableWrap}>
-          <table className={cn(studioTable, "min-w-[46rem]")}>
+          <table className={cn(studioTable, "min-w-[44rem]")}>
             <thead>
               <tr>
                 <th scope="col" className={studioTh}>
-                  Title
+                  Post
                 </th>
                 <th scope="col" className={studioTh}>
                   Status
@@ -132,58 +148,76 @@ export function PostListTable({ posts }: { posts: StudioPost[] }) {
               </tr>
             </thead>
             <tbody>
-              {visible.map((post) => (
-                <tr key={post.id}>
-                  <td className={studioTd}>
-                    <Link
-                      href={`/studio/${encodeURIComponent(post.slug)}`}
-                      className="studio-cell-title hover:text-navy"
-                    >
-                      {post.title || "(untitled)"}
-                    </Link>
-                    <p className="studio-cell-meta">/{post.slug}</p>
-                  </td>
-                  <td className={studioTd}>
-                    <StatusPill post={post} />
-                  </td>
-                  <td className={cn(studioTd, "text-ink-muted")}>{post.categoryName ?? "—"}</td>
-                  <td className={cn(studioTd, "text-ink-muted")}>
-                    {post.updatedAt ? formatDate(post.updatedAt) : "—"}
-                  </td>
-                  <td className={studioTd}>
-                    <div className="flex justify-end gap-3 text-caption">
+              {visible.map((post) => {
+                const scheduled = isScheduled(post);
+                const statusTone = scheduled
+                  ? "gold"
+                  : post.status === "published"
+                    ? "positive"
+                    : "muted";
+                const statusLabel = scheduled ? "Scheduled" : post.status === "published" ? "Published" : "Draft";
+                const actions = [
+                  {
+                    type: "link" as const,
+                    label: "Edit",
+                    href: `/studio/${encodeURIComponent(post.slug)}`,
+                  },
+                  {
+                    type: "link" as const,
+                    label: "Preview",
+                    href: `/studio/${encodeURIComponent(post.slug)}/preview`,
+                  },
+                  ...(post.status === "published" && !scheduled
+                    ? [
+                        {
+                          type: "link" as const,
+                          label: "View live",
+                          href: `/blog/${encodeURIComponent(post.slug)}`,
+                        },
+                      ]
+                    : []),
+                  {
+                    type: "button" as const,
+                    label: "Delete",
+                    tone: "danger" as const,
+                    onClick: () => setPendingDelete(post),
+                  },
+                ];
+                return (
+                  <tr key={post.id}>
+                    <td className={studioTd}>
                       <Link
-                        href={`/studio/${encodeURIComponent(post.slug)}/preview`}
-                        className="text-ink-muted hover:text-navy"
+                        href={`/studio/${encodeURIComponent(post.slug)}`}
+                        className="studio-cell-title hover:text-navy"
                       >
-                        Preview
+                        {post.title || "(untitled)"}
                       </Link>
-                      {post.status === "published" && !isScheduled(post) && (
-                        <Link
-                          href={`/blog/${encodeURIComponent(post.slug)}`}
-                          className="text-ink-muted hover:text-navy"
-                        >
-                          View
-                        </Link>
+                      <p className="studio-cell-meta">/{post.slug}</p>
+                    </td>
+                    <td className={studioTd}>
+                      <StudioStatusDot label={statusLabel} tone={statusTone} />
+                    </td>
+                    <td className={studioTd}>
+                      {post.categoryName ? (
+                        <StudioMetaTag>{post.categoryName}</StudioMetaTag>
+                      ) : (
+                        <span className="text-ink-subtle">—</span>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => setPendingDelete(post)}
-                        className="text-negative hover:underline"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className={cn(studioTd, "whitespace-nowrap text-ink-muted")}>
+                      {formatRelativeTime(post.updatedAt)}
+                    </td>
+                    <td className={studioTd}>
+                      <StudioRowMenu actions={actions} label={`Actions for ${post.title || "post"}`} />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
-      {/* Naming the post in the confirmation — a bare "Are you sure?" is how
-          the wrong article gets deleted. */}
       <ConfirmDialog
         open={pendingDelete !== null}
         onClose={() => {
@@ -207,22 +241,5 @@ export function PostListTable({ posts }: { posts: StudioPost[] }) {
         )}
       </ConfirmDialog>
     </div>
-  );
-}
-
-function StatusPill({ post }: { post: StudioPost }) {
-  const scheduled = isScheduled(post);
-  const label = scheduled ? "Scheduled" : post.status === "published" ? "Published" : "Draft";
-  return (
-    <span
-      className={cn(
-        "inline-block text-caption font-medium",
-        scheduled && "text-gold-deep",
-        !scheduled && post.status === "published" && "text-positive",
-        post.status === "draft" && "text-ink-muted",
-      )}
-    >
-      {label}
-    </span>
   );
 }

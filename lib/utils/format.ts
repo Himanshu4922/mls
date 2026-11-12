@@ -77,6 +77,19 @@ export function daysSince(value: string | null | undefined): number | null {
   return Math.floor((Date.now() - d.getTime()) / 86_400_000);
 }
 
+/** Compact relative time for dense admin lists: "3m ago", "2d ago". */
+export function formatRelativeTime(value: string | null | undefined): string {
+  if (!value) return EMPTY;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return EMPTY;
+  const seconds = Math.round((Date.now() - d.getTime()) / 1000);
+  if (seconds < 45) return "just now";
+  if (seconds < 3600) return `${Math.max(1, Math.round(seconds / 60))}m ago`;
+  if (seconds < 86_400) return `${Math.max(1, Math.round(seconds / 3600))}h ago`;
+  if (seconds < 86_400 * 30) return `${Math.max(1, Math.round(seconds / 86_400))}d ago`;
+  return formatDate(value);
+}
+
 export function formatPercent(value: number | null | undefined, digits = 1): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return EMPTY;
   return `${value > 0 ? "+" : ""}${value.toFixed(digits)}%`;

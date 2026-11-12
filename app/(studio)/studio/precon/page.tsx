@@ -4,8 +4,8 @@ import { notFound } from "next/navigation";
 import {
   StudioAlert,
   StudioEmpty,
+  StudioFilterChip,
   StudioPage,
-  studioFilter,
   studioSearch,
   studioTable,
   studioTableWrap,
@@ -13,7 +13,9 @@ import {
   studioTh,
 } from "@/components/studio/chrome";
 import { PreconBulkUpload } from "@/components/studio/PreconBulkUpload";
+import { StudioNavSelect } from "@/components/studio/StudioNavSelect";
 import { PreconStatusPill } from "@/components/studio/StudioPills";
+import { StudioMetaTag, StudioRowMenu } from "@/components/studio/StudioRowMenu";
 import { LinkButton } from "@/components/ui/Button";
 import { Pagination } from "@/components/ui/Pagination";
 import { salesStageLabel } from "@/lib/api/preconstruction";
@@ -21,7 +23,7 @@ import { listStudioPrecon, PRECON_STATUSES, type StudioPreconSummary } from "@/l
 import { requireStudioAccess } from "@/lib/auth/session";
 import { preconPath } from "@/lib/seo/urls";
 import { cn } from "@/lib/utils/cn";
-import { formatDate, formatPrice } from "@/lib/utils/format";
+import { formatPrice, formatRelativeTime } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "Pre-con projects" };
 export const dynamic = "force-dynamic";
@@ -47,6 +49,7 @@ export default async function StudioPreconPage({ searchParams }: PageProps<"/stu
   const q = first(params.q)?.trim().slice(0, 120) ?? "";
   const status = PRECON_STATUSES.find((s) => s.value === first(params.status))?.value ?? "";
   const page = Math.max(1, Number(first(params.page)) || 1);
+  const statusLabel = PRECON_STATUSES.find((s) => s.value === status)?.label;
 
   let projects: StudioPreconSummary[] = [];
   let count = 0;
@@ -65,16 +68,32 @@ export default async function StudioPreconPage({ searchParams }: PageProps<"/stu
       title="Pre-construction"
       description="Projects, photos, documents, and sales stage."
       toolbar={
+        <LinkButton href="/studio/precon/new" size="sm">
+          + New project
+        </LinkButton>
+      }
+      filters={
         <>
-          <form action="/studio/precon" className="flex flex-wrap items-center gap-2">
-            <select name="status" defaultValue={status} aria-label="Filter by status" className={studioFilter}>
-              <option value="">All statuses</option>
-              {PRECON_STATUSES.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+          <StudioNavSelect
+            label="Add Filter"
+            name="status"
+            value={status}
+            pathname="/studio/precon"
+            keep={{ q: q || undefined }}
+            options={PRECON_STATUSES.map((option) => ({ value: option.value, label: option.label }))}
+          />
+          {status && statusLabel ? (
+            <Link href={listHref({ q })}>
+              <StudioFilterChip label="Status" value={statusLabel} />
+            </Link>
+          ) : null}
+          {q ? (
+            <Link href={listHref({ status })}>
+              <StudioFilterChip label="Search" value={q} />
+            </Link>
+          ) : null}
+          <form action="/studio/precon" className="ml-auto flex items-center gap-2">
+            {status ? <input type="hidden" name="status" value={status} /> : null}
             <input
               type="search"
               name="q"
@@ -85,14 +104,11 @@ export default async function StudioPreconPage({ searchParams }: PageProps<"/stu
             />
             <button
               type="submit"
-              className="h-9 rounded-control border border-line bg-surface px-3 text-caption font-medium text-ink hover:border-navy"
+              className="h-8 rounded-full border border-line bg-surface px-3 text-caption font-medium text-ink hover:border-navy"
             >
               Search
             </button>
           </form>
-          <LinkButton href="/studio/precon/new" size="sm">
-            + New project
-          </LinkButton>
         </>
       }
     >
@@ -120,13 +136,10 @@ export default async function StudioPreconPage({ searchParams }: PageProps<"/stu
                     Status
                   </th>
                   <th scope="col" className={studioTh}>
-                    Sales stage
+                    Stage
                   </th>
                   <th scope="col" className={studioTh}>
                     Price
-                  </th>
-                  <th scope="col" className={studioTh}>
-                    Assignments
                   </th>
                   <th scope="col" className={studioTh}>
                     Published
@@ -140,18 +153,17 @@ export default async function StudioPreconPage({ searchParams }: PageProps<"/stu
                 {projects.map((project) => (
                   <tr key={project.id}>
                     <td className={studioTd}>
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2.5">
                         {project.image ? (
-                          // Studio thumbnails: plain img, no optimizer config needed for CMS hosts.
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={project.image}
                             alt=""
-                            className="h-10 w-14 shrink-0 rounded-md object-cover"
+                            className="h-8 w-11 shrink-0 rounded-md object-cover"
                             loading="lazy"
                           />
                         ) : (
-                          <span className="h-10 w-14 shrink-0 rounded-md bg-surface-alt" aria-hidden="true" />
+                          <span className="h-8 w-11 shrink-0 rounded-md bg-surface-alt" aria-hidden="true" />
                         )}
                         <div className="min-w-0">
                           <Link href={`/studio/precon/${project.id}`} className="studio-cell-title hover:text-navy">
@@ -160,15 +172,16 @@ export default async function StudioPreconPage({ searchParams }: PageProps<"/stu
                           <p className="studio-cell-meta">
                             #{project.id}
                             {project.developer ? ` · ${project.developer}` : ""}
-                            {project.isFeatured
-                              ? ` · Featured${project.featuredOrder ? ` #${project.featuredOrder}` : ""}`
-                              : ""}
+                            {project.assignmentCount ? ` · ${project.assignmentCount} assignments` : ""}
                           </p>
                         </div>
                       </div>
                     </td>
                     <td className={studioTd}>
-                      <PreconStatusPill status={project.status} />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <PreconStatusPill status={project.status} />
+                        {project.isFeatured ? <StudioMetaTag>Featured</StudioMetaTag> : null}
+                      </div>
                     </td>
                     <td className={cn(studioTd, "text-ink-muted")}>
                       {salesStageLabel(project.salesStage) ?? "—"}
@@ -176,24 +189,25 @@ export default async function StudioPreconPage({ searchParams }: PageProps<"/stu
                     <td className={cn(studioTd, "text-ink-muted")}>
                       {project.price ? formatPrice(project.price) : "—"}
                     </td>
-                    <td className={cn(studioTd, "text-ink-muted")}>{project.assignmentCount || "—"}</td>
-                    <td className={cn(studioTd, "text-ink-muted")}>
-                      {project.publishedAt ? formatDate(project.publishedAt) : "—"}
+                    <td className={cn(studioTd, "whitespace-nowrap text-ink-muted")}>
+                      {formatRelativeTime(project.publishedAt)}
                     </td>
                     <td className={studioTd}>
-                      <div className="flex justify-end gap-3 text-caption">
-                        <Link href={`/studio/precon/${project.id}`} className="text-ink-muted hover:text-navy">
-                          Edit
-                        </Link>
-                        {project.status === "publish" && (
-                          <Link
-                            href={preconPath(project.id, project.slug || project.title)}
-                            className="text-ink-muted hover:text-navy"
-                          >
-                            View
-                          </Link>
-                        )}
-                      </div>
+                      <StudioRowMenu
+                        label={`Actions for ${project.title}`}
+                        actions={[
+                          { type: "link", label: "Edit", href: `/studio/precon/${project.id}` },
+                          ...(project.status === "publish"
+                            ? [
+                                {
+                                  type: "link" as const,
+                                  label: "View",
+                                  href: preconPath(project.id, project.slug || project.title),
+                                },
+                              ]
+                            : []),
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}

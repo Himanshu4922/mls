@@ -14,6 +14,7 @@ export function StudioPage({
   meta,
   actions,
   toolbar,
+  filters,
   note,
   children,
   className,
@@ -23,36 +24,40 @@ export function StudioPage({
   description?: string;
   meta?: ReactNode;
   actions?: ReactNode;
-  /** Filters / search / CTAs aligned with the title (screenshot toolbar). */
+  /** Primary CTAs on the title row (e.g. New post). */
   toolbar?: ReactNode;
+  /** Filter chips / search row under the title (Vercel-style). */
+  filters?: ReactNode;
   /** Status line that stays with the title, above the page content. */
   note?: ReactNode;
   children?: ReactNode;
   className?: string;
 }) {
-  const showDescription = Boolean(description) && !toolbar;
+  const showDescription = Boolean(description) && !filters && !toolbar;
 
   return (
-    <div className={cn("space-y-4", className)}>
-      <header className="border-b border-line pb-4">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+    <div className={cn("space-y-3", className)}>
+      <header className="space-y-3 border-b border-line pb-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <div className="min-w-0">
-            {kicker ? <p className="text-[0.6875rem] font-medium uppercase tracking-wide text-ink-muted">{kicker}</p> : null}
+            {kicker ? (
+              <p className="text-[0.6875rem] font-medium uppercase tracking-wide text-ink-muted">{kicker}</p>
+            ) : null}
             <div className={cn("flex flex-wrap items-center gap-x-3 gap-y-1", kicker && "mt-0.5")}>
               <h1 className="text-h1 text-ink">{title}</h1>
               {meta}
             </div>
             {showDescription ? <p className="mt-1 max-w-3xl text-small text-ink-muted">{description}</p> : null}
           </div>
-          {toolbar ? (
-            <StudioToolbar>{toolbar}</StudioToolbar>
-          ) : actions ? (
-            <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
+          {toolbar || actions ? (
+            <div className="flex shrink-0 flex-wrap items-center gap-2">{toolbar ?? actions}</div>
           ) : null}
         </div>
-        {/* When both toolbar and description exist, keep lede under the row. */}
-        {toolbar && description ? <p className="mt-2 max-w-3xl text-caption text-ink-muted">{description}</p> : null}
-        {note ? <div className="mt-3">{note}</div> : null}
+        {description && (filters || toolbar) ? (
+          <p className="text-caption text-ink-muted">{description}</p>
+        ) : null}
+        {filters ? <StudioFilterBar>{filters}</StudioFilterBar> : null}
+        {note ? <div>{note}</div> : null}
       </header>
       {children}
     </div>
@@ -60,10 +65,38 @@ export function StudioPage({
 }
 
 export function StudioToolbar({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn("flex shrink-0 flex-wrap items-center justify-end gap-2", className)}>{children}</div>;
+}
+
+export function StudioFilterBar({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn("flex flex-wrap items-center gap-2", className)}>{children}</div>;
+}
+
+/** Dashed chip matching dense deployment-style filter pills. */
+export function StudioFilterChip({
+  label,
+  value,
+  onClear,
+}: {
+  label: string;
+  value: string;
+  onClear?: () => void;
+}) {
   return (
-    <div className={cn("flex min-w-0 flex-1 flex-wrap items-center justify-end gap-2 sm:flex-nowrap", className)}>
-      {children}
-    </div>
+    <span className="inline-flex h-8 max-w-full items-center gap-1.5 rounded-full border border-dashed border-line bg-surface px-2.5 text-caption text-ink">
+      <span className="shrink-0 text-ink-muted">{label}:</span>
+      <span className="min-w-0 truncate font-medium">{value}</span>
+      {onClear ? (
+        <button
+          type="button"
+          onClick={onClear}
+          className="ml-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full text-ink-subtle hover:bg-surface-alt hover:text-ink"
+          aria-label={`Clear ${label} filter`}
+        >
+          ×
+        </button>
+      ) : null}
+    </span>
   );
 }
 
@@ -148,19 +181,19 @@ export function segmentItem(active: boolean) {
 
 /** Compact select used in page toolbars. */
 export const studioFilter =
-  "h-9 shrink-0 rounded-control border border-line bg-surface px-2.5 text-caption text-ink focus:border-navy focus:outline-none focus:ring-1 focus:ring-navy";
+  "h-8 shrink-0 rounded-full border border-dashed border-line bg-surface px-2.5 text-caption text-ink focus:border-navy focus:outline-none focus:ring-1 focus:ring-navy";
 
 export const studioSearch =
-  "h-9 w-full rounded-control border border-line bg-surface px-3 text-caption text-ink placeholder:text-ink-subtle focus:border-navy focus:outline-none focus:ring-1 focus:ring-navy sm:w-56";
+  "h-8 w-full rounded-full border border-line bg-surface px-3 text-caption text-ink placeholder:text-ink-subtle focus:border-navy focus:outline-none focus:ring-1 focus:ring-navy sm:w-52";
 
-export const studioTableWrap = "overflow-x-auto border border-line bg-surface";
+export const studioTableWrap = "overflow-x-auto border-y border-line bg-surface -mx-3 sm:-mx-4 lg:-mx-5";
 
 export const studioTable = "w-full border-collapse text-left text-small";
 
 export const studioTh =
-  "border-b border-line px-3.5 py-2.5 text-caption font-medium text-ink-muted";
+  "border-b border-line px-3 py-2 text-caption font-medium text-ink-muted sm:px-4";
 
-export const studioTd = "border-b border-line/70 px-3.5 py-2.5 align-middle";
+export const studioTd = "border-b border-line/60 px-3 py-2 align-middle sm:px-4";
 
 /** Horizontal bleed that matches the shell's main padding. */
 export const studioCanvasBleed = "-mx-3 px-3 sm:-mx-4 sm:px-4 lg:-mx-5 lg:px-5";

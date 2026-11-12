@@ -611,7 +611,7 @@
 }
 
 .studio-console main table tbody tr {
-  transition: background-color 120ms ease;
+  transition: background-color 100ms ease;
 }
 
 .studio-console main table tbody tr:hover {
@@ -625,11 +625,11 @@
 .studio-console .studio-cell-title {
   font-weight: 500;
   color: var(--color-ink);
-  line-height: 1.35;
+  line-height: 1.3;
 }
 
 .studio-console .studio-cell-meta {
-  margin-top: 0.15rem;
+  margin-top: 0.1rem;
   font-size: var(--text-caption);
   line-height: var(--text-caption--line-height);
   color: var(--color-ink-subtle);

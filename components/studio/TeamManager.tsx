@@ -8,6 +8,7 @@ import {
   studioTd,
   studioTh,
 } from "@/components/studio/chrome";
+import { StudioAvatar, StudioMetaTag, StudioRowMenu } from "@/components/studio/StudioRowMenu";
 import { ConfirmDialog } from "@/components/ui/Dialogs";
 import { LinkButton } from "@/components/ui/Button";
 import { teamRoleOf, type TeamMember, type TeamRole } from "@/lib/api/studio";
@@ -16,7 +17,7 @@ import {
   useUpdateStudioRole,
 } from "@/lib/queries/studio";
 import { cn } from "@/lib/utils/cn";
-import { formatDate } from "@/lib/utils/format";
+import { formatRelativeTime } from "@/lib/utils/format";
 
 const ROLE_LABEL: Record<TeamRole, string> = {
   author: "Writer",
@@ -97,10 +98,7 @@ export function TeamManager({
           <thead>
             <tr>
               <th scope="col" className={studioTh}>
-                Name
-              </th>
-              <th scope="col" className={studioTh}>
-                Email
+                Member
               </th>
               <th scope="col" className={studioTh}>
                 Access
@@ -116,7 +114,7 @@ export function TeamManager({
           <tbody>
             {members.length === 0 ? (
               <tr>
-                <td colSpan={5} className={cn(studioTd, "py-8 text-center text-ink-muted")}>
+                <td colSpan={4} className={cn(studioTd, "py-8 text-center text-ink-muted")}>
                   No team members yet.{" "}
                   <LinkButton href="/studio/team/new" variant="secondary" size="sm" className="ml-1 align-middle">
                     Add team member
@@ -130,13 +128,20 @@ export function TeamManager({
                 return (
                   <tr key={member.id}>
                     <td className={studioTd}>
-                      <span className="studio-cell-title">{member.name}</span>
-                      {self ? <span className="studio-cell-meta">(you)</span> : null}
+                      <div className="flex items-center gap-2.5">
+                        <StudioAvatar name={member.name || member.email} />
+                        <div className="min-w-0">
+                          <span className="studio-cell-title">
+                            {member.name}
+                            {self ? <span className="ml-1.5 text-caption font-normal text-ink-subtle">(you)</span> : null}
+                          </span>
+                          <p className="studio-cell-meta">{member.email}</p>
+                        </div>
+                      </div>
                     </td>
-                    <td className={cn(studioTd, "text-ink-muted")}>{member.email}</td>
                     <td className={studioTd}>
                       {self ? (
-                        <span className="text-ink-muted">{ROLE_LABEL[currentRole]}</span>
+                        <StudioMetaTag>{ROLE_LABEL[currentRole]}</StudioMetaTag>
                       ) : (
                         <select
                           aria-label={`Access level for ${member.email}`}
@@ -150,27 +155,28 @@ export function TeamManager({
                         </select>
                       )}
                     </td>
-                    <td className={cn(studioTd, "text-ink-muted")}>
-                      {member.dateJoined ? formatDate(member.dateJoined) : "—"}
+                    <td className={cn(studioTd, "whitespace-nowrap text-ink-muted")}>
+                      {formatRelativeTime(member.dateJoined)}
                     </td>
                     <td className={studioTd}>
-                      <div className="text-right">
-                        {self ? (
-                          <span className="text-caption text-ink-subtle">—</span>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => {
-                              setRevokeError(null);
-                              setPendingRevoke(member);
-                            }}
-                            className="text-caption text-negative hover:underline disabled:opacity-60"
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
+                      {self ? (
+                        <span className="block text-right text-caption text-ink-subtle">—</span>
+                      ) : (
+                        <StudioRowMenu
+                          label={`Actions for ${member.email}`}
+                          actions={[
+                            {
+                              type: "button",
+                              label: "Remove access",
+                              tone: "danger",
+                              onClick: () => {
+                                setRevokeError(null);
+                                setPendingRevoke(member);
+                              },
+                            },
+                          ]}
+                        />
+                      )}
                     </td>
                   </tr>
                 );
