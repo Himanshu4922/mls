@@ -36,6 +36,6 @@ export const BASEMENT_OPTIONS: ReadonlyArray<{
   { value: "apartment", label: "Apartment / walk-out" },
 ];
 
-export const BASEMENT_VALUES = new Set(
-  BASEMENT_OPTIONS.map((option) => option.value).filter(Boolean),
+export const BASEMENT_VALUES: ReadonlySet<string> = new Set(
+  BASEMENT_OPTIONS.map((option) => option.value).filter((value) => value !== ""),
 );

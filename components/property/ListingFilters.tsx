@@ -828,7 +828,7 @@ function ChipField({
 }: {
   label: string;
   value: string;
-  options: number[];
+  options: readonly number[];
   suffix?: string;
   onChange: (next: string) => void;
 }) {
