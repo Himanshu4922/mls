@@ -444,9 +444,9 @@ export function mapPropertyDetail(raw: BackendPropertyDetail): PropertyDetail {
       fact("Flooring", titleCase(raw.flooring)),
     ]),
     group("Parking & Garage", [
-      fact("Garage", titleCase(raw.garage_size)),
+      fact("Garage type", titleCase(raw.garage_size)),
       fact("Garage spaces", garageSpaces),
-      fact("Parking spaces", raw.parking_total),
+      fact("Parking space", raw.parking_total),
       fact("Parking features", titleCase(raw.parking_features)),
     ]),
     group("Land", [

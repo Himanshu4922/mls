@@ -122,6 +122,7 @@ function DistributionBars({
   rows: InsightDistribution[];
   peak: number;
 }) {
+  const [tip, setTip] = useState<{ x: number; y: number; label: string; value: number } | null>(null);
   const width = 560;
   const rowH = 28;
   const labelW = 78;
@@ -136,6 +137,7 @@ function DistributionBars({
       className="h-[200px] w-full"
       role="img"
       aria-label="Distribution chart"
+      onMouseLeave={() => setTip(null)}
     >
       {ticks.map((tick) => {
         const x = labelW + (tick / peak) * chartW;
@@ -182,10 +184,49 @@ function DistributionBars({
               height={16}
               rx={4}
               fill="#1e3a5f"
+              className="cursor-pointer"
+              opacity={tip?.label === row.range ? 1 : 0.92}
+              onMouseEnter={() =>
+                setTip({
+                  x: labelW + barW,
+                  y: y + 10,
+                  label: row.range,
+                  value: row.value,
+                })
+              }
             />
           </g>
         );
       })}
+      {tip ? (
+        <g pointerEvents="none">
+          <rect
+            x={Math.min(tip.x + 8, width - 120)}
+            y={Math.max(4, tip.y - 28)}
+            width={112}
+            height={36}
+            rx={6}
+            fill="#151515"
+            opacity="0.92"
+          />
+          <text
+            x={Math.min(tip.x + 18, width - 110)}
+            y={Math.max(18, tip.y - 14)}
+            fontSize="11"
+            fill="#ffffff"
+          >
+            {tip.label}
+          </text>
+          <text
+            x={Math.min(tip.x + 18, width - 110)}
+            y={Math.max(32, tip.y)}
+            fontSize="11"
+            fill="#d6d3cd"
+          >
+            {tip.value}%
+          </text>
+        </g>
+      ) : null}
     </svg>
   );
 }
