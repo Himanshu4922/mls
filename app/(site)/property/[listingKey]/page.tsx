@@ -6,6 +6,7 @@ import { SafeImage } from "@/components/ui/SafeImage";
 import { Gallery } from "@/components/property/Gallery";
 import { InquiryForm } from "@/components/property/InquiryForm";
 import { ListingShareActions, ListingWhatsAppCard } from "@/components/property/ListingShareActions";
+import { ClimateRisk } from "@/components/property/ClimateRisk";
 import { KeyFacts, MarketDemand } from "@/components/property/KeyFacts";
 import { EstimatesPanel } from "@/components/property/EstimatesPanel";
 import { CommunityPanel } from "@/components/property/CommunityPanel";
@@ -323,6 +324,7 @@ export default async function PropertyPage({
                           </p>
                         </section>
                       )}
+                      <ClimateRisk />
                       {property.rooms.length > 0 && (
                         <section className="overflow-hidden rounded-2xl border border-line">
                           <div className="border-b border-line bg-surface-alt px-4 py-4 sm:px-6">

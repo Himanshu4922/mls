@@ -9,8 +9,9 @@ import { cn } from "@/lib/utils/cn";
  * The bar sits under the site header. Tabs scroll sideways on a narrow
  * screen; the Watch / Share / tour actions wrap onto their own row so they
  * are never clipped. Estimates, schools and community only render data the
- * catalogue actually has — sample ratings, climate scores and price charts
- * from the reference are not reproduced.
+ * catalogue actually has — sample school ratings from the reference are not
+ * reproduced. Climate Risk on Overview uses the HomeAtlasUI ClimateCheck
+ * sample projections until a live feed exists.
  */
 export interface PropertyTab {
   id: string;
